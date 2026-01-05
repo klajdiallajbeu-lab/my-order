@@ -1,0 +1,40 @@
+export const translations = {
+  sq: {
+    language: "Shqip",
+    menu: "Menu",
+    order: "Porosi",
+    addToCart: "Shto në porosi",
+    quantity: "Sasia",
+    total: "Totali",
+    sendOrder: "Dërgo porosinë",
+    notes: "Shënime",
+    empty: "Nuk ka produkte",
+    success: "Porosia u dërgua me sukses",
+  },
+
+  en: {
+    language: "English",
+    menu: "Menu",
+    order: "Order",
+    addToCart: "Add to order",
+    quantity: "Quantity",
+    total: "Total",
+    sendOrder: "Send order",
+    notes: "Notes",
+    empty: "No products available",
+    success: "Order sent successfully",
+  },
+
+  it: {
+    language: "Italiano",
+    menu: "Menu",
+    order: "Ordine",
+    addToCart: "Aggiungi all’ordine",
+    quantity: "Quantità",
+    total: "Totale",
+    sendOrder: "Invia ordine",
+    notes: "Note",
+    empty: "Nessun prodotto disponibile",
+    success: "Ordine inviato con successo",
+  },
+};

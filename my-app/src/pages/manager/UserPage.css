@@ -1,0 +1,72 @@
+/* KONTAINER KRYESOR */
+.user-page-container {
+  padding: 30px;
+}
+
+/* ----------- PANELI I SIPËRRM ---------- */
+.user-header-card {
+  background: #ffffff;
+  padding: 25px;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-bottom: 25px;
+}
+
+/* TITULLI */
+.user-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.user-title h1 {
+  font-size: 35px;
+  color: #06453e;
+}
+
+.user-icon {
+  font-size: 40px;
+}
+
+/* BUTONI SHTO USER – i vogël dhe profesional */
+.add-user-btn {
+  background: #065f46;
+  color: white;
+  border: none;
+  width: 200px;
+  padding: 8px 18px;
+  border-radius: 8px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.add-user-btn:hover {
+  background: #054a37;
+  transform: scale(1.05);
+}
+
+/* ----------- LISTA E USERAVE ---------- */
+.user-list-card {
+  background: #ffffff;
+  padding: 30px;
+  border-radius: 14px;
+  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  min-height: 120px;
+  text-align: center;
+}
+
+.no-users-text {
+  font-size: 18px;
+  color: #555;
+}
+
+.user-item {
+  padding: 12px;
+  border-bottom: 1px solid #ececec;
+  font-size: 17px;
+}

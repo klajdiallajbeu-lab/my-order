@@ -1,0 +1,157 @@
+/* ================= PAGE ================= */
+.create-business-container {
+  min-height: 100vh;
+  background: #f5f7fb;
+
+  display: flex;
+  justify-content: center;
+}
+.create-page-wrapper {
+  width: 100%;
+  max-width: 900px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+
+  /* 👉 kontrollon sa poshtë është faqja */
+  margin-top: 60px;
+}
+.create-page-wrapper {
+  margin-top: 100px;
+}
+
+
+/* ================= HEADER ================= */
+.create-header {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+  max-width: 900px;
+}
+
+.create-header h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.create-header p {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+/* Back button (secondary) */
+.back-btn {
+  padding: 10px 18px;
+  border-radius: 12px;
+  border: none;
+  background: #f3f4f6;
+  color: #374151;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.back-btn:hover {
+  background: #e5e7eb;
+}
+
+/* ================= FORM CARD ================= */
+.form-box {
+  max-width: 900px;
+  background: #ffffff;
+  border-radius: 20px;
+  padding: 32px;
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.08);
+}
+
+/* Labels */
+.form-box label {
+  display: block;
+  margin-top: 16px;
+  margin-bottom: 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Inputs */
+.form-box input {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #e5e7eb;
+  font-size: 14px;
+  transition: all 0.2s ease;
+}
+
+.form-box input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+}
+
+/* Divider */
+.form-box hr {
+  margin: 28px 0;
+  border: none;
+  height: 1px;
+  background: #e5e7eb;
+}
+
+/* Section title */
+.form-box h3 {
+  margin-bottom: 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: #111827;
+}
+
+/* Messages */
+.error-msg {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 14px;
+}
+
+.success-msg {
+  margin-top: 16px;
+  padding: 12px;
+  border-radius: 12px;
+  background: #e8f7ee;
+  color: #166534;
+  font-size: 14px;
+}
+
+/* Submit button */
+.form-box button {
+  margin-top: 22px;
+  padding: 14px;
+  width: 100%;
+  border-radius: 14px;
+  border: none;
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: white;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  box-shadow: 0 10px 25px rgba(37, 99, 235, 0.35);
+  transition: all 0.2s ease;
+}
+
+.form-box button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 35px rgba(37, 99, 235, 0.45);
+}

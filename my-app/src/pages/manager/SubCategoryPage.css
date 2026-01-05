@@ -1,0 +1,441 @@
+/* src/pages/manager/SubCategoryPage.css */
+
+.subcat-page {
+  padding: 26px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+/* HERO */
+.subcat-hero {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 18px 18px;
+  box-shadow: 0 10px 30px rgba(16, 24, 40, 0.08);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.subcat-hero-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.subcat-hero-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 93, 64, 0.10);
+  font-size: 22px;
+}
+
+.subcat-title {
+  margin: 0;
+  font-size: 34px;
+  font-weight: 800;
+  color: #0b3b2b;
+  letter-spacing: -0.4px;
+}
+
+.subcat-subtitle {
+  margin: 6px 0 0;
+  color: #60766e;
+  font-size: 14px;
+}
+
+.subcat-hero-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subcat-add {
+  border: none;
+  background: #0b5d40;
+  color: white;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.subcat-add:hover {
+  filter: brightness(0.96);
+}
+
+/* STATES */
+.subcat-info {
+  color: #60766e;
+  margin: 10px 0 0;
+}
+
+.subcat-error {
+  color: salmon;
+  margin: 10px 0 0;
+}
+
+/* GRID */
+.subcat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  margin-top: 14px;
+}
+
+@media (max-width: 900px) {
+  .subcat-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* CARD */
+.subcat-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 8px 22px rgba(16, 24, 40, 0.06);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.subcat-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 14px 28px rgba(16, 24, 40, 0.10);
+}
+
+.subcat-card-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.subcat-card-badge {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 93, 64, 0.10);
+  font-size: 18px;
+  flex: 0 0 auto;
+}
+
+.subcat-card-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.subcat-card-title {
+  font-weight: 800;
+  color: #0b3b2b;
+  font-size: 14px;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.subcat-card-desc {
+  color: #6b7f78;
+  font-size: 13px;
+}
+
+.subcat-card-right {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.subcat-trash {
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 18px;
+  color: #ef4444; /* e kuqe */
+  padding: 6px;
+  border-radius: 10px;
+}
+
+.subcat-trash:hover {
+  background: rgba(239, 68, 68, 0.10);
+}
+
+.subcat-card-arrow {
+  font-size: 24px;
+  color: #0b5d40;
+  font-weight: 700;
+}
+
+/* EMPTY */
+.subcat-empty {
+  grid-column: 1 / -1;
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px;
+  border: 1px dashed rgba(15, 23, 42, 0.15);
+  text-align: center;
+  color: #60766e;
+}
+
+.subcat-empty-icon {
+  font-size: 26px;
+}
+
+.subcat-empty-title {
+  margin-top: 10px;
+  font-weight: 800;
+  color: #0b3b2b;
+}
+
+.subcat-empty-desc {
+  margin-top: 6px;
+  font-size: 13px;
+}
+
+/* MODAL */
+.subcat-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.45);
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  z-index: 999;
+}
+
+.subcat-modal {
+  width: 100%;
+  max-width: 460px;
+  background: #fff;
+  border-radius: 16px;
+  padding: 18px;
+  box-shadow: 0 18px 40px rgba(16, 24, 40, 0.2);
+}
+
+.subcat-modal h2 {
+  margin: 0 0 14px;
+  color: #0b3b2b;
+}
+
+.subcat-modal label {
+  display: block;
+  font-size: 12px;
+  color: #60766e;
+  margin-bottom: 6px;
+}
+
+.subcat-modal input {
+  width: 100%;
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  border-radius: 12px;
+  padding: 12px 12px;
+  outline: none;
+}
+
+.subcat-modal input:focus {
+  border-color: rgba(11, 93, 64, 0.45);
+  box-shadow: 0 0 0 4px rgba(11, 93, 64, 0.12);
+}
+
+.subcat-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.btn-secondary {
+  border: 1px solid rgba(15, 23, 42, 0.12);
+  background: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.btn-primary {
+  border: none;
+  background: #0b5d40;
+  color: #fff;
+  padding: 10px 14px;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: 800;
+}
+/* 3 inputs in modal */
+.subcat-3grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.subcat-3grid input {
+  height: 52px;
+  padding: 0 14px;
+  border-radius: 14px;
+  border: 2px solid #0b5d40;
+  outline: none;
+  font-size: 15px;
+}
+
+@media (max-width: 900px) {
+  .subcat-3grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* edit icon button (si trash) */
+.subcat-edit {
+  width: 44px;
+  height: 44px;
+  border-radius: 14px;
+  border: none;
+  cursor: pointer;
+  background: #f2f5f4;
+}
+/* ===== Department picker (Kuzhinë / Banak) ===== */
+.subcat-dept-pick{
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(11, 93, 64, 0.14);
+  background: #f3fbf7;
+}
+
+.subcat-dept-label{
+  font-weight: 900;
+  color: #0b3f33;
+  margin-bottom: 10px;
+}
+
+.subcat-dept-buttons{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.subcat-dept-btn{
+  height: 48px;
+  border-radius: 14px;
+  border: 2px solid rgba(11, 93, 64, 0.25);
+  background: rgba(255,255,255,0.9);
+  color: #0b3f33;
+  font-weight: 900;
+  cursor: pointer;
+  transition: transform 0.12s ease, background 0.12s ease, border-color 0.12s ease;
+}
+
+.subcat-dept-btn:hover{
+  transform: translateY(-1px);
+  background: #ffffff;
+}
+
+.subcat-dept-btn.active.kuzhine{
+  border-color: rgba(255, 140, 0, 0.55);
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.22), rgba(255, 80, 0, 0.12));
+}
+
+.subcat-dept-btn.active.banak{
+  border-color: rgba(0, 160, 200, 0.55);
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.22), rgba(93, 134, 255, 0.12));
+}
+
+.subcat-dept-hint{
+  margin-top: 10px;
+  font-size: 12px;
+  color: rgba(20, 40, 30, 0.65);
+}
+
+/* badge në card */
+.subcat-dept-tag{
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  font-weight: 900;
+  font-size: 12px;
+  border: 1px solid rgba(11, 93, 64, 0.15);
+  background: rgba(255,255,255,0.75);
+}
+
+.subcat-dept-tag.kuzhine{
+  border-color: rgba(255, 140, 0, 0.35);
+  background: rgba(255, 140, 0, 0.12);
+}
+
+.subcat-dept-tag.banak{
+  border-color: rgba(0, 160, 200, 0.35);
+  background: rgba(0, 212, 255, 0.12);
+}
+/* ===== Destination (Kuzhine / Banak) picker ===== */
+.subcat-dept-pick{
+  margin-top: 14px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(0,0,0,0.08);
+  background: #f7fbf9;
+}
+
+.subcat-dept-label{
+  font-weight: 900;
+  color: #0b3f33;
+  margin-bottom: 10px;
+}
+
+.subcat-dept-buttons{
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.subcat-dept-btn{
+  height: 46px;
+  border-radius: 14px;
+  border: 2px solid rgba(11, 93, 64, 0.18);
+  background: #ffffff;
+  cursor: pointer;
+  font-weight: 900;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease;
+}
+
+.subcat-dept-btn:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 10px 18px rgba(0,0,0,0.06);
+}
+
+.subcat-dept-btn.active{
+  border-color: #0b5d40;
+  box-shadow: 0 12px 22px rgba(11, 93, 64, 0.14);
+}
+
+.subcat-dept-btn.active.kuzhine{
+  background: rgba(255, 179, 0, 0.10);
+}
+
+.subcat-dept-btn.active.banak{
+  background: rgba(0, 148, 255, 0.10);
+}
+
+.subcat-dept-hint{
+  margin-top: 10px;
+  font-size: 13px;
+  color: #5c6e68;
+  line-height: 1.3;
+}

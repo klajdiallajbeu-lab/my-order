@@ -1,0 +1,53 @@
+.xhiro-container {
+  padding: 30px;
+}
+
+.date-label {
+  margin-bottom: 20px;
+  font-size: 18px;
+}
+
+.xhiro-list {
+  display: grid;
+  gap: 15px;
+}
+
+.xhiro-card {
+  background: #ecf8f1;
+  padding: 15px 20px;
+  border-radius: 12px;
+  font-size: 20px;
+  display: flex;
+  justify-content: space-between;
+  border: 1px solid #cce9dd;
+}
+/* karta e madhe e xhiros */
+.xhiro-card-wide {
+  width: 100%;
+}
+
+/* lista e kamarierëve */
+.waiter-list {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* çdo rresht – e gjatë, stil si kartat jeshile */
+.waiter-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: #e9fbf1;
+  border-radius: 12px;
+  padding: 12px 24px;
+  font-size: 0.95rem;
+}
+
+/* header i kolonave */
+.waiter-header-row {
+  font-weight: 600;
+  background: #d3f3e2;
+}
+

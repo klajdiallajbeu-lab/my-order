@@ -1,0 +1,48 @@
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0,0,0,0.4);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.user-modal {
+  background: white;
+  padding: 25px;
+  width: 350px;
+  border-radius: 12px;
+}
+
+.user-modal input,
+.user-modal select {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  margin-bottom: 12px;
+  border: 1px solid #ccc;
+}
+
+.modal-buttons {
+  display: flex;
+  justify-content: space-between;
+}
+
+.save-btn {
+  background: #0b5345;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+}
+
+.cancel-btn {
+  background: #888;
+  color: white;
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: none;
+}

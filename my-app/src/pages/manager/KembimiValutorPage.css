@@ -1,0 +1,74 @@
+.exchange-page {
+  padding: 24px;
+  max-width: 520px;
+}
+
+.exchange-card {
+  background: #ffffff;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 20px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+}
+
+.exchange-card.display {
+  text-align: center;
+}
+
+.label {
+  font-size: 14px;
+  color: #777;
+  margin-bottom: 10px;
+}
+
+.rate {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.rate .big {
+  font-size: 28px;
+  font-weight: 700;
+}
+
+.equals {
+  font-size: 22px;
+  color: #999;
+}
+
+.exchange-card.edit .input-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+}
+
+.exchange-card.edit input {
+  flex: 1;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #ddd;
+  font-size: 16px;
+}
+
+.exchange-card.edit button {
+  width: 100%;
+  padding: 12px;
+  border-radius: 10px;
+  border: none;
+  background: #111;
+  color: white;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.exchange-card.edit button:hover {
+  background: #000;
+}
+
+.message {
+  margin-top: 10px;
+  font-size: 14px;
+}

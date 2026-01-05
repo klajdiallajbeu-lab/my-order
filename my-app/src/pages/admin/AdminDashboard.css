@@ -1,0 +1,186 @@
+/* ================= LAYOUT ================= */
+.admin-dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  background: #f5f7fb;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+}
+
+/* ================= SIDEBAR ================= */
+.admin-sidebar {
+  width: 260px;
+  background: #1f2937;
+  padding: 22px;
+  color: white;
+  display: flex;
+  flex-direction: column;
+}
+
+.admin-logo {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 28px;
+}
+
+/* Menu */
+.admin-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* ✅ FIX: nëse JSX përdor admin-btn, stilojmë edhe admin-btn */
+.admin-btn,
+.sidebar-btn {
+  background: transparent;
+  border: none;
+  padding: 12px 14px;
+  color: #e5e7eb;
+  text-align: left;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.admin-btn:hover,
+.sidebar-btn:hover {
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateX(3px);
+}
+
+/* ✅ Logout (funksionon si .logout-btn ashtu edhe admin-btn logout) */
+.logout-btn,
+.admin-btn.logout {
+  margin-top: auto;
+  background: #b91c1c;
+  border: none;
+  padding: 12px 14px;
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.logout-btn:hover,
+.admin-btn.logout:hover {
+  background: #991b1b;
+  transform: translateX(3px);
+}
+
+/* ================= MAIN ================= */
+.admin-main {
+  flex: 1;
+  padding: 40px;
+}
+
+/* ================= TOP BAR ================= */
+.dashboard-topbar {
+  background: #ffffff;
+  border-radius: 18px;
+  padding: 22px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  margin-bottom: 32px;
+}
+
+.topbar-left h1 {
+  margin: 0;
+  font-size: 28px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.topbar-left p {
+  margin-top: 6px;
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+}
+
+.system-pill {
+  background: #e8f7ee;
+  color: #166534;
+  padding: 8px 16px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* ================= STATS ================= */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.stat-card {
+  background: #ffffff;
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
+  transition: transform 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-4px);
+}
+
+/* Icons */
+.stat-icon {
+  width: 52px;
+  height: 52px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  color: white;
+}
+
+.stat-icon.blue {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+}
+
+.stat-icon.green {
+  background: linear-gradient(135deg, #16a34a, #22c55e);
+}
+
+.stat-icon.purple {
+  background: linear-gradient(135deg, #7c3aed, #a855f7);
+}
+
+/* Text */
+.stat-label {
+  font-size: 14px;
+  color: #6b7280;
+}
+
+.stat-value {
+  font-size: 26px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.stat-value.active {
+  color: #16a34a;
+}

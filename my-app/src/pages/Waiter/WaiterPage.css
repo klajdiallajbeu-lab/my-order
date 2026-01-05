@@ -1,0 +1,292 @@
+/* ================= BASE ================= */
+.waiter-page{
+  min-height: 100vh;
+  padding: 18px 14px 28px;
+  background: #0b1220;
+  color: #eaf0ff;
+  font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
+}
+
+.error-text{
+  color: #ffb4b4;
+  background: rgba(255,63,63,0.12);
+  border: 1px solid rgba(255,63,63,0.25);
+  padding: 10px 12px;
+  border-radius: 12px;
+}
+
+/* ================= HEADER ================= */
+.waiter-header{
+  background:
+    radial-gradient(1200px 600px at 20% -20%, rgba(93,134,255,0.35), transparent 55%),
+    radial-gradient(900px 500px at 110% 20%, rgba(0,212,255,0.20), transparent 50%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 18px;
+  padding: 18px 16px;
+  box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+  margin-bottom: 14px;
+}
+
+.waiter-header-top{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.waiter-header h1{
+  margin: 0;
+  font-size: 22px;
+}
+
+.waiter-subtitle{
+  font-size: 13px;
+  margin-top: 6px;
+  color: rgba(234,240,255,0.75);
+}
+
+.waiter-logout-btn{
+  border-radius: 14px;
+  padding: 10px 14px;
+  font-weight: 800;
+  cursor: pointer;
+  border: 1px solid rgba(255,80,80,0.45);
+  background: linear-gradient(135deg, rgba(255,80,80,0.35), rgba(255,0,0,0.2));
+  color: #fff;
+}
+
+/* ================= LOCATION ================= */
+.waiter-location{
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 14px;
+}
+
+.waiter-location-type{
+  display: grid;
+  grid-template-columns: repeat(3,1fr);
+  gap: 10px;
+}
+
+.wl-type-btn{
+  position: relative;
+  border-radius: 14px;
+  padding: 11px;
+  font-weight: 700;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #eaf0ff;
+}
+
+.wl-type-btn.active{
+  background: linear-gradient(135deg, rgba(93,134,255,0.35), rgba(0,212,255,0.18));
+  border-color: rgba(93,134,255,0.55);
+}
+
+.wl-badge{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  background: #ff3b3b;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+
+.waiter-location-input{
+  width: 100%;
+  margin-top: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10,16,30,0.65);
+  color: #eaf0ff;
+}
+
+.waiter-location-hint{
+  margin-top: 10px;
+  font-size: 13px;
+  color: rgba(234,240,255,0.72);
+}
+
+/* ================= PRODUCTS ================= */
+.waiter-products-section{
+  display: grid;
+  gap: 12px;
+
+  /* ✅ hapësirë dinamike për cart fixed (telefon + shumë artikuj) */
+  padding-bottom: clamp(260px, 45vh, 520px);
+}
+
+
+.waiter-categories,
+.waiter-subcategories{
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+}
+
+.waiter-category-btn,
+.waiter-subcategory-btn{
+  border-radius: 999px;
+  padding: 10px 14px;
+  font-weight: 800;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #eaf0ff;
+}
+
+.waiter-category-btn.active,
+.waiter-subcategory-btn.active{
+  background: linear-gradient(135deg, rgba(93,134,255,0.35), rgba(0,212,255,0.18));
+  border-color: rgba(93,134,255,0.55);
+}
+
+.waiter-products-grid{
+  display: grid;
+  grid-template-columns: repeat(2,1fr);
+  gap: 10px;
+}
+
+@media (min-width: 880px){
+  .waiter-products-grid{
+    grid-template-columns: repeat(3,1fr);
+  }
+}
+
+.waiter-product-card{
+  border-radius: 16px;
+  padding: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+}
+
+.waiter-product-name{
+  font-weight: 800;
+  margin-bottom: 8px;
+}
+
+.waiter-product-price{
+  font-weight: 800;
+  background: rgba(0,212,255,0.10);
+  border: 1px solid rgba(0,212,255,0.18);
+  padding: 7px 10px;
+  border-radius: 12px;
+}
+
+/* ================= CART (FIXED & LIMITED) ================= */
+.waiter-cart{
+  position: fixed;
+  left: 14px;
+  right: 14px;
+  bottom: 14px;
+  z-index: 50;
+
+  background: rgba(10,16,30,0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  backdrop-filter: blur(12px);
+  border-radius: 18px;
+  padding: 12px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.55);
+
+  /* ✅ KJO E ZGJIDH PROBLEMIN */
+  max-height: 32vh;
+  overflow-y: auto;
+}
+
+.waiter-cart::-webkit-scrollbar{
+  width: 6px;
+}
+.waiter-cart::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.25);
+  border-radius: 999px;
+}
+
+.waiter-cart h3{
+  margin: 0 0 10px;
+}
+
+.waiter-cart-row{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.05);
+  margin-bottom: 8px;
+}
+
+.waiter-cart-actions{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.waiter-cart-actions button{
+  width: 32px;
+  height: 32px;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06);
+  color: #eaf0ff;
+  font-weight: 900;
+}
+
+.waiter-cart-footer{
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.waiter-send-btn{
+  border-radius: 14px;
+  padding: 12px 16px;
+  font-weight: 900;
+  border: 1px solid rgba(93,134,255,0.55);
+  background: linear-gradient(135deg, rgba(93,134,255,0.45), rgba(0,212,255,0.20));
+  color: #eaf0ff;
+}
+
+/* ================= INCOMING ================= */
+.waiter-incoming{
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 16px;
+  padding: 12px;
+}
+
+.incoming-card{
+  margin-top: 10px;
+  border-radius: 16px;
+  padding: 12px;
+  background: rgba(255,255,255,0.05);
+}
+
+.incoming-card.status-pending{ border-color: rgba(255,196,0,0.35); }
+.incoming-card.status-accepted{ border-color: rgba(0,212,255,0.35); }
+.incoming-card.status-done{ border-color: rgba(0,255,132,0.28); }
+
+.incoming-total{
+  font-weight: 900;
+}
+/* ✅ cart list scroll – mos mbulo produktet */
+.waiter-cart-list{
+  max-height: 220px;     /* rrite/ule sipas qejfit */
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.waiter-cart-list::-webkit-scrollbar{
+  width: 6px;
+}
+.waiter-cart-list::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.18);
+  border-radius: 999px;
+}
