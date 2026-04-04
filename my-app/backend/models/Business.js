@@ -3,53 +3,60 @@ import mongoose from "mongoose";
 const businessSchema = new mongoose.Schema(
   {
     name: { type: String, required: true },
-
     phone: { type: String, required: true },
     email: { type: String, required: true },
     city: { type: String, required: true },
 
-    startDate: { type: Date, required: true }, // data e aktivizimit
-    endDate: { type: Date, required: true },   // data e skadimit
+    startDate: { type: Date, required: true },
+    endDate: { type: Date, required: true },
 
     owner: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: false,
     },
 
-    /* ======================
-       SETTINGS – VALUTA
-    ====================== */
+    orderPin: {
+      code: { type: String, default: "" },
+      day: { type: String, default: "" },
+      enabled: { type: Boolean, default: true },
+    },
+
     settings: {
-      // monedha bazë e çmimeve
       baseCurrency: {
         type: String,
-        enum: ["ALL", "EUR", "USD"],
+        enum: ["ALL", "EUR", "USD", "CHF", "GBP"],
         default: "ALL",
       },
 
-      // cilat monedha shfaqen në menu
       showCurrencies: {
         type: [String],
-        enum: ["ALL", "EUR", "USD"],
+        enum: ["ALL", "EUR", "USD", "CHF", "GBP"],
         default: ["ALL", "EUR"],
       },
 
-      // sa ALL = 1 EUR
-      eurRate: {
-        type: Number,
-        default: 100,
-        min: 0.0001,
-      },
+      eurRate: { type: Number, default: 100, min: 0.0001 },
       eurRateUpdatedAt: { type: Date },
 
-      // 🆕 sa ALL = 1 USD
-      usdRate: {
-        type: Number,
-        default: 95,
-        min: 0.0001,
-      },
+      usdRate: { type: Number, default: 95, min: 0.0001 },
       usdRateUpdatedAt: { type: Date },
+
+      chfRate: { type: Number, default: 105, min: 0.0001 },
+      chfRateUpdatedAt: { type: Date },
+
+      gbpRate: { type: Number, default: 118, min: 0.0001 },
+      gbpRateUpdatedAt: { type: Date },
+
+      orderAccess: {
+        enabled: { type: Boolean, default: false },
+        windowStart: { type: String, default: "23:00" },
+        windowEnd: { type: String, default: "07:00" },
+
+        applyTo: {
+          type: [String],
+          enum: ["room", "umbrella"],
+          default: ["room", "umbrella"],
+        },
+      },
     },
   },
   { timestamps: true }

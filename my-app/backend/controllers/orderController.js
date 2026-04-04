@@ -1,21 +1,38 @@
-// controllers/orderController.js
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Business from "../models/Business.js";
 import Product from "../models/Product.js";
 import SubCategory from "../models/SubCategory.js";
 
-
-/* helpers */
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
 const safeNum = (v, fallback = 0) => {
   const n = Number(v);
   return Number.isFinite(n) ? n : fallback;
 };
 
-/* ============================================================
-   GET /api/orders?businessId=...&from=YYYY-MM-DD&to=YYYY-MM-DD
-   ============================================================ */
+const ALLOWED_CURRENCIES = ["ALL", "EUR", "USD", "CHF", "GBP"];
+const round2 = (n) => Math.round((Number(n) + Number.EPSILON) * 100) / 100;
+
+const convertFromALL = (amountAll, currency, settings = {}) => {
+  const amount = safeNum(amountAll, 0);
+  const curr = String(currency || "ALL").toUpperCase();
+
+  if (curr === "ALL") return round2(amount);
+
+  const rateMap = {
+    EUR: safeNum(settings.eurRate, 0),
+    USD: safeNum(settings.usdRate, 0),
+    CHF: safeNum(settings.chfRate, 0),
+    GBP: safeNum(settings.gbpRate, 0),
+  };
+
+  const rate = rateMap[curr];
+  if (!Number.isFinite(rate) || rate <= 0) return round2(amount);
+
+  return round2(amount / rate);
+};
+
 export const getOrders = async (req, res) => {
   try {
     const { businessId, from, to, sourceType } = req.query;
@@ -23,14 +40,17 @@ export const getOrders = async (req, res) => {
     if (!businessId) {
       return res.status(400).json({ message: "businessId është i detyrueshëm" });
     }
+
     if (!isValidObjectId(businessId)) {
       return res.status(400).json({ message: "businessId nuk është ObjectId valid" });
     }
 
     const filter = { businessId };
 
-    // ✅ FILTRIM sipas burimit (tavoline/dhoma/cadra)
-    if (sourceType && ["tavoline", "dhoma", "cadra"].includes(String(sourceType).toLowerCase())) {
+    if (
+      sourceType &&
+      ["tavoline", "dhoma", "cadra"].includes(String(sourceType).toLowerCase())
+    ) {
       filter.sourceType = String(sourceType).toLowerCase();
     }
 
@@ -41,18 +61,26 @@ export const getOrders = async (req, res) => {
       };
     }
 
-    const orders = await Order.find(filter).sort({ createdAt: -1 }).lean();
-    return res.json(orders);
+    const orders = await Order.find(filter)
+      .populate("businessId")
+      .sort({ createdAt: -1 })
+      .lean();
+
+    return res.json(
+      orders.map((order) => ({
+        ...order,
+        business: order.businessId || null,
+      }))
+    );
   } catch (err) {
     console.error("❌ Gabim te getOrders:", err);
-    return res.status(500).json({ message: "Gabim serveri", error: err.message });
+    return res.status(500).json({
+      message: "Gabim serveri",
+      error: err.message,
+    });
   }
 };
 
-
-/* ============================================================
-   GET /api/orders/:id
-   ============================================================ */
 export const getOrderById = async (req, res) => {
   try {
     const { id } = req.params;
@@ -61,33 +89,39 @@ export const getOrderById = async (req, res) => {
       return res.status(400).json({ message: "id nuk është ObjectId valid" });
     }
 
-    const order = await Order.findById(id).lean();
+    const order = await Order.findById(id)
+      .populate("businessId")
+      .lean();
 
     if (!order) {
       return res.status(404).json({ message: "Fatura nuk u gjet" });
     }
 
-    return res.json(order);
+    return res.json({
+      ...order,
+      business: order.businessId || null,
+    });
   } catch (err) {
     console.error("❌ Gabim te getOrderById:", err);
-    return res.status(500).json({ message: "Gabim serveri", error: err.message });
+    return res.status(500).json({
+      message: "Gabim serveri",
+      error: err.message,
+    });
   }
 };
 
-/* ============================================================
-   POST /api/orders
-   ============================================================ */
 export const createOrder = async (req, res) => {
   try {
     console.log("📥 BODY /api/orders:", req.body);
 
-    const { businessId, sourceType, sourceNumber, items, total, createdBy } = req.body;
+    const { businessId, sourceType, sourceNumber, items, createdBy } = req.body;
 
     if (!businessId || !sourceType || !sourceNumber) {
       return res.status(400).json({
         message: "businessId, sourceType, sourceNumber janë të detyrueshme",
       });
     }
+
     if (!isValidObjectId(businessId)) {
       return res.status(400).json({ message: "businessId nuk është ObjectId valid" });
     }
@@ -103,45 +137,106 @@ export const createOrder = async (req, res) => {
     }
 
     const business = await Business.findById(businessId).lean();
-    if (!business) return res.status(404).json({ message: "Biznesi nuk ekziston më." });
+    if (!business) {
+      return res.status(404).json({ message: "Biznesi nuk ekziston më." });
+    }
 
     const now = new Date();
     if (business.endDate && new Date(business.endDate) < now) {
       return res.status(403).json({ message: "Ky biznes ka skaduar dhe nuk pranon më porosi." });
     }
 
-    const cleanItems = items
-      .map((it) => ({
-        productId: isValidObjectId(it.productId) ? it.productId : null,
-        name: String(it.name || "").trim(),
-        price: safeNum(it.price, 0),
-        qty: safeNum(it.qty ?? it.quantity, 0),
-      }))
-      .filter((it) => it.name && it.qty > 0);
+    const settings = business?.settings || {};
+    const currency = ALLOWED_CURRENCIES.includes(settings.baseCurrency)
+      ? settings.baseCurrency
+      : "ALL";
 
-    if (cleanItems.length === 0) {
-      return res.status(400).json({ message: "items nuk kanë të dhëna valide" });
+    const access = business?.settings?.orderAccess;
+    const isHHMM = (v) => typeof v === "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v);
+
+    const inWindow = (start, end) => {
+      const toMin = (hhmm) => {
+        const [h, m] = String(hhmm || "0:0").split(":").map(Number);
+        return h * 60 + (m || 0);
+      };
+
+      const now2 = new Date();
+      const nowMin = now2.getHours() * 60 + now2.getMinutes();
+      const s = toMin(start);
+      const e = toMin(end);
+
+      if (s > e) return nowMin >= s || nowMin < e;
+      return nowMin >= s && nowMin < e;
+    };
+
+    if (access?.enabled === true && (st === "dhoma" || st === "cadra")) {
+      const apply = Array.isArray(access.applyTo) ? access.applyTo : ["room", "umbrella"];
+      const shouldApply =
+        (st === "dhoma" && apply.includes("room")) ||
+        (st === "cadra" && apply.includes("umbrella"));
+
+      if (shouldApply) {
+        const start = isHHMM(access.windowStart) ? access.windowStart : "23:00";
+        const end = isHHMM(access.windowEnd) ? access.windowEnd : "07:00";
+
+        if (inWindow(start, end)) {
+          return res.status(403).json({
+            message: `Porositë janë të mbyllura nga ${start} deri në ${end}.`,
+          });
+        }
+      }
     }
 
-    // ===== 1) Merr produktet (categoryType + subCategory) =====
-    const productIds = cleanItems.map((x) => x.productId).filter(Boolean);
+    const rawItems = items
+      .map((it) => ({
+        productId: isValidObjectId(it.productId) ? String(it.productId) : "",
+        qty: safeNum(it.qty ?? it.quantity, 0),
+        price: it.price === undefined ? undefined : safeNum(it.price, 0),
+      }))
+      .filter((it) => it.productId && it.qty > 0);
 
-    const products = productIds.length
-      ? await Product.find({ _id: { $in: productIds }, businessId })
-          .select("_id categoryType subCategory")
-          .lean()
-      : [];
+    if (rawItems.length === 0) {
+      return res.status(400).json({ message: "items duhet të kenë productId + qty > 0" });
+    }
+
+    const productIds = [...new Set(rawItems.map((x) => x.productId))].map(
+      (id) => new mongoose.Types.ObjectId(id)
+    );
+
+    const products = await Product.find(
+      { _id: { $in: productIds }, businessId },
+      {
+        _id: 1,
+        categoryType: 1,
+        subCategory: 1,
+        price: 1,
+        name: 1,
+        nameSq: 1,
+        nameEn: 1,
+        nameIt: 1,
+      }
+    ).lean();
 
     const prodMap = new Map(products.map((p) => [String(p._id), p]));
 
-    // default nëse s’gjen destination në SubCategory
+    for (const it of rawItems) {
+      if (!prodMap.has(it.productId)) {
+        return res.status(400).json({
+          message: "Një ose më shumë produkte janë jo valide ose nuk i përkasin këtij biznesi.",
+          badProductId: it.productId,
+        });
+      }
+    }
+
+    const displayName = (p) =>
+      String(p?.nameSq || p?.name || p?.nameEn || p?.nameIt || "").trim();
+
     const defaultDestByCategoryType = (ct) => {
       const t = String(ct || "").toLowerCase().trim();
       if (t === "pije") return "banak";
       return "kuzhine";
     };
 
-    // ===== 2) Merr SubCategory docs për destination =====
     const subKeys = [];
     for (const p of products) {
       const ct = String(p.categoryType || "").trim().toLowerCase();
@@ -158,7 +253,7 @@ export const createOrder = async (req, res) => {
       }));
 
       subDocs = await SubCategory.find({ $or: ors })
-        .select("businessId categoryType name nameSq destination") // ✅ destination
+        .select("businessId categoryType name nameSq destination")
         .lean();
     }
 
@@ -171,30 +266,36 @@ export const createOrder = async (req, res) => {
       subMap.set(`${ct}||${nm}`, dest);
     }
 
-    // ===== 3) Vendos destination për çdo item =====
-    const itemsWithDest = cleanItems.map((it) => {
-      if (!it.productId) return { ...it, destination: "kuzhine" };
-
-      const p = prodMap.get(String(it.productId));
+    const itemsWithDest = rawItems.map((it) => {
+      const p = prodMap.get(it.productId);
       const ct = String(p?.categoryType || "").trim().toLowerCase();
       const sc = String(p?.subCategory || "").trim();
-
       const fromSub = subMap.get(`${ct}||${sc}`);
       const destination = fromSub || defaultDestByCategoryType(ct);
 
-      return { ...it, destination };
+      const priceFinal =
+        it.price === undefined ? safeNum(p?.price, 0) : safeNum(it.price, safeNum(p?.price, 0));
+
+      return {
+        productId: new mongoose.Types.ObjectId(it.productId),
+        name: displayName(p),
+        qty: it.qty,
+        price: priceFinal,
+        destination,
+      };
     });
 
-    // ===== 4) Split =====
     const kuzhineItems = itemsWithDest.filter((x) => x.destination === "kuzhine");
     const banakItems = itemsWithDest.filter((x) => x.destination === "banak");
 
-    const mkTotal = (arr) => arr.reduce((sum, it) => sum + it.price * it.qty, 0);
+    const calcTotals = (arr) => {
+      const totalALL = round2(arr.reduce((sum, it) => sum + it.price * it.qty, 0));
+      const totalConverted = convertFromALL(totalALL, currency, settings);
+      return { totalALL, totalConverted };
+    };
 
     const batchId =
-      kuzhineItems.length && banakItems.length
-        ? new mongoose.Types.ObjectId().toString()
-        : "";
+      kuzhineItems.length && banakItems.length ? new mongoose.Types.ObjectId().toString() : "";
 
     const createdBySafe = createdBy || "Klient (QR)";
     const sourceNumberSafe = String(sourceNumber).trim();
@@ -202,13 +303,21 @@ export const createOrder = async (req, res) => {
     const createdOrders = [];
 
     if (kuzhineItems.length) {
+      const { totalALL, totalConverted } = calcTotals(kuzhineItems);
+
       createdOrders.push(
         await Order.create({
           businessId,
           sourceType: st,
           sourceNumber: sourceNumberSafe,
           items: kuzhineItems.map(({ destination, ...rest }) => rest),
-          total: mkTotal(kuzhineItems),
+          total: totalConverted,
+          totalALL,
+          currency,
+          exchangeRateUsed:
+            currency === "ALL"
+              ? 1
+              : safeNum(settings[`${currency.toLowerCase()}Rate`], 1),
           createdBy: createdBySafe,
           status: "pending",
           destination: "kuzhine",
@@ -218,13 +327,21 @@ export const createOrder = async (req, res) => {
     }
 
     if (banakItems.length) {
+      const { totalALL, totalConverted } = calcTotals(banakItems);
+
       createdOrders.push(
         await Order.create({
           businessId,
           sourceType: st,
           sourceNumber: sourceNumberSafe,
           items: banakItems.map(({ destination, ...rest }) => rest),
-          total: mkTotal(banakItems),
+          total: totalConverted,
+          totalALL,
+          currency,
+          exchangeRateUsed:
+            currency === "ALL"
+              ? 1
+              : safeNum(settings[`${currency.toLowerCase()}Rate`], 1),
           createdBy: createdBySafe,
           status: "pending",
           destination: "banak",
@@ -237,7 +354,6 @@ export const createOrder = async (req, res) => {
       return res.status(400).json({ message: "Nuk u krijua asnjë porosi (items bosh)." });
     }
 
-    // ✅ REAL-TIME
     const io = req.app.get("io");
     for (const o of createdOrders) {
       io?.to(`business:${businessId}`).emit("orders:created", {
@@ -249,8 +365,12 @@ export const createOrder = async (req, res) => {
         destination: o.destination,
         batchId: o.batchId || "",
         createdAt: o.createdAt,
+        total: o.total,
+        totalALL: o.totalALL,
+        currency: o.currency || "ALL",
       });
     }
+
     io?.to(`business:${businessId}`).emit("orders:changed", { businessId });
 
     return res.status(201).json(createdOrders.length === 1 ? createdOrders[0] : createdOrders);
@@ -260,12 +380,6 @@ export const createOrder = async (req, res) => {
   }
 };
 
-
-
-
-/* ============================================================
-   PATCH /api/orders/:id/status
-   ============================================================ */
 export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -282,7 +396,6 @@ export const updateOrderStatus = async (req, res) => {
 
     const update = { status };
     if (status === "accepted") update.acceptedBy = acceptedBy || "";
-    // në done s’e prekim acceptedBy
 
     const order = await Order.findByIdAndUpdate(id, update, { new: true }).lean();
 

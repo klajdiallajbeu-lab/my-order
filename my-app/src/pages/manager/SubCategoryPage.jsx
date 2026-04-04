@@ -1,6 +1,8 @@
 // src/pages/manager/SubCategoryPage.jsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
+
 import "./SubCategoryPage.css";
 
 import {
@@ -221,33 +223,33 @@ await createSubCategory({
             <div>
               <h1 className="subcat-title">{label} – Numrat</h1>
               <p className="subcat-subtitle">
-                Hap listën e numrave për produkte.
+              
               </p>
             </div>
           </div>
         </div>
 
-        <div className="subcat-grid">
-          <button
-            className="subcat-card"
-            onClick={() =>
-              navigate(
-                `/manager/products?type=${encodeURIComponent(
-                  categoryType
-                )}&cat=${encodeURIComponent("numrat")}`
-              )
-            }
-          >
-            <div className="subcat-card-left">
-              <div className="subcat-card-badge">📋</div>
-              <div className="subcat-card-text">
-                <div className="subcat-card-title">Lista e numrave</div>
-                <div className="subcat-card-desc">Kliko për të hapur produktet</div>
-              </div>
-            </div>
-            <div className="subcat-card-arrow">›</div>
-          </button>
+<div className="subcat-grid">
+  <button
+    className="subcat-card"
+    onClick={() => {
+      const placeType = categoryType === "dhoma" ? "room" : "umbrella";
+      navigate(`/manager/places?type=${encodeURIComponent(placeType)}`);
+    }}
+  >
+    <div className="subcat-card-left">
+      <div className="subcat-card-badge">🔢</div>
+      <div className="subcat-card-text">
+        <div className="subcat-card-title">Menaxho kodet</div>
+        <div className="subcat-card-desc">
+          Shto/Enable/Disable dhe përdori për QR (vetëm të regjistruarit).
         </div>
+      </div>
+    </div>
+    <div className="subcat-card-arrow">›</div>
+  </button>
+</div>
+
       </div>
     );
   }
@@ -263,7 +265,6 @@ await createSubCategory({
           <div>
             <h1 className="subcat-title">{label} – Nën-kategoritë</h1>
             <p className="subcat-subtitle">
-              Zgjidh një nën-kategori për të hapur produktet.
             </p>
           </div>
         </div>
@@ -291,7 +292,8 @@ await createSubCategory({
           ) : (
             subCats.map((sc) => {
               const title = (sc.nameSq ?? sc.name ?? "").trim() || "Pa emër";
-              const dept = sc.department === "banak" ? "banak" : "kuzhine";
+              const dept = sc.destination === "banak" ? "banak" : "kuzhine";
+
 
               return (
                 <div
@@ -323,7 +325,6 @@ await createSubCategory({
                       <div className="subcat-card-title">{title}</div>
 
                       <div className="subcat-card-desc">
-                        Kliko për produktet
                         <span
                           className={
                             dept === "banak"
@@ -337,32 +338,37 @@ await createSubCategory({
                       </div>
                     </div>
                   </div>
+                  
+                  
+          <div className="subcat-card-right">
+  <button
+    className="subcat-icon edit"
+    title="Ndrysho"
+    onClick={(e) => {
+      e.stopPropagation();
+      openEdit(sc);
+    }}
+  >
+    <FiEdit2 className="i" />
+  </button>
 
-                  <div className="subcat-card-right">
-                    <button
-                      className="subcat-edit"
-                      title="Ndrysho"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        openEdit(sc);
-                      }}
-                    >
-                      ✏️
-                    </button>
+  <button
+    className="subcat-icon del"
+    title="Fshi"
+    onClick={(e) => {
+      e.stopPropagation();
+      handleDeleteSub(sc._id, title);
+    }}
+  >
+    <FiTrash2 className="i" />
+  </button>
 
-                    <button
-                      className="subcat-trash"
-                      title="Fshi"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDeleteSub(sc._id, title);
-                      }}
-                    >
-                      🗑️
-                    </button>
+  <div className="subcat-card-arrow">›</div>
+</div>
 
-                    <div className="subcat-card-arrow">›</div>
-                  </div>
+
+
+
                 </div>
               );
             })
@@ -497,7 +503,6 @@ await createSubCategory({
               </div>
 
               <div className="subcat-dept-hint">
-                Ndryshimi ndikon porositë që do dërgohen në të ardhmen.
               </div>
             </div>
 

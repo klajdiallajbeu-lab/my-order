@@ -20,13 +20,35 @@ export const getUsers = async (req, res) => {
 };
 
 /* =========================
-   CREATE USER (opsional)
+   GET SINGLE USER BY ID
+========================= */
+export const getUserById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    const user = await User.findById(id).select("-password");
+    if (!user) {
+      return res.status(404).json({ message: "Useri nuk u gjet" });
+    }
+
+    res.json(user);
+  } catch (err) {
+    console.error("❌ Gabim te getUserById:", err);
+    res.status(500).json({ message: "Gabim serveri" });
+  }
+};
+
+/* =========================
+   CREATE USER
 ========================= */
 export const createUser = async (req, res) => {
   try {
     const {
       businessId,
       name,
+      surname,
+      hotelName,
+      nipt,
       username,
       password,
       email,
@@ -35,8 +57,13 @@ export const createUser = async (req, res) => {
     } = req.body;
 
     const nameNorm = String(name || "").trim();
+    const surnameNorm = String(surname || "").trim();
+    const hotelNameNorm = String(hotelName || "").trim();
+    const niptNorm = String(nipt || "").trim();
     const usernameNorm = String(username || "").trim();
     const passwordNorm = String(password || "").trim();
+    const emailNorm = String(email || "").trim();
+    const phoneNorm = String(phone || "").trim();
 
     if (!nameNorm || !usernameNorm || !passwordNorm) {
       return res.status(400).json({
@@ -54,15 +81,33 @@ export const createUser = async (req, res) => {
     const user = new User({
       businessId: businessId || null,
       name: nameNorm,
+      surname: surnameNorm,
+      hotelName: hotelNameNorm,
+      nipt: niptNorm,
       username: usernameNorm,
       password: hashedPass,
-      email,
-      phone,
+      email: emailNorm,
+      phone: phoneNorm,
       role: role || "waiter",
     });
 
     await user.save();
-    res.json({ message: "User u krijua me sukses" });
+
+    res.json({
+      message: "User u krijua me sukses",
+      user: {
+        id: user._id,
+        businessId: user.businessId,
+        name: user.name,
+        surname: user.surname,
+        hotelName: user.hotelName,
+        nipt: user.nipt,
+        username: user.username,
+        email: user.email,
+        phone: user.phone,
+        role: user.role,
+      },
+    });
   } catch (err) {
     console.error("❌ Gabim te createUser:", err);
     res.status(500).json({ message: "Gabim serveri" });
@@ -70,7 +115,7 @@ export const createUser = async (req, res) => {
 };
 
 /* =========================
-   UPDATE USER
+   UPDATE USER (GENERIC)
 ========================= */
 export const updateUser = async (req, res) => {
   try {
@@ -84,10 +129,166 @@ export const updateUser = async (req, res) => {
       );
     }
 
-    await User.findByIdAndUpdate(id, updateData);
-    res.json({ message: "Useri u përditësua me sukses" });
+    if (updateData.username) {
+      updateData.username = String(updateData.username).trim();
+
+      const existing = await User.findOne({
+        username: updateData.username,
+        _id: { $ne: id },
+      });
+
+      if (existing) {
+        return res.status(400).json({ message: "Username ekziston!" });
+      }
+    }
+
+    const updated = await User.findByIdAndUpdate(id, updateData, {
+      new: true,
+    }).select("-password");
+
+    if (!updated) {
+      return res.status(404).json({ message: "Useri nuk u gjet" });
+    }
+
+    res.json({
+      message: "Useri u përditësua me sukses",
+      user: updated,
+    });
   } catch (err) {
     console.error("❌ Gabim te updateUser:", err);
+    res.status(500).json({ message: "Gabim serveri" });
+  }
+};
+
+/* =========================
+   UPDATE PROFILE
+========================= */
+export const updateProfile = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const {
+      name,
+      surname,
+      hotelName,
+      nipt,
+      address,
+      email,
+      phone,
+      username,
+    } = req.body;
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "Useri nuk u gjet" });
+    }
+
+    const nameNorm = String(name || "").trim();
+    const surnameNorm = String(surname || "").trim();
+    const hotelNameNorm = String(hotelName || "").trim();
+    const niptNorm = String(nipt || "").trim();
+    const addressNorm = String(address || "").trim();
+    const emailNorm = String(email || "").trim();
+    const phoneNorm = String(phone || "").trim();
+    const usernameNorm = String(username || "").trim();
+
+    if (!nameNorm || !usernameNorm) {
+      return res.status(400).json({
+        message: "Emri dhe username janë të detyrueshme",
+      });
+    }
+
+    const existing = await User.findOne({
+      username: usernameNorm,
+      _id: { $ne: id },
+    });
+
+    if (existing) {
+      return res.status(400).json({
+        message: "Ky username përdoret nga një user tjetër",
+      });
+    }
+
+    user.name = nameNorm;
+    user.surname = surnameNorm;
+    user.hotelName = hotelNameNorm;
+    user.nipt = niptNorm;
+    user.address = addressNorm;
+    user.email = emailNorm;
+    user.phone = phoneNorm;
+    user.username = usernameNorm;
+
+    await user.save();
+
+    res.json({
+      message: "Profili u përditësua me sukses",
+      user: {
+        id: user._id,
+        businessId: user.businessId,
+        role: user.role,
+        name: user.name,
+        surname: user.surname,
+        hotelName: user.hotelName,
+        nipt: user.nipt,
+        address: user.address,
+        email: user.email,
+        phone: user.phone,
+        username: user.username,
+      },
+    });
+  } catch (err) {
+    console.error("❌ Gabim te updateProfile:", err);
+    res.status(500).json({ message: "Gabim serveri" });
+  }
+};
+
+/* =========================
+   CHANGE PASSWORD
+========================= */
+export const changePassword = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { currentPassword, newPassword } = req.body;
+
+    const currentPasswordNorm = String(currentPassword || "").trim();
+    const newPasswordNorm = String(newPassword || "").trim();
+
+    if (!currentPasswordNorm || !newPasswordNorm) {
+      return res.status(400).json({
+        message: "Fjalëkalimi aktual dhe i ri janë të detyrueshme",
+      });
+    }
+
+    if (newPasswordNorm.length < 8) {
+      return res.status(400).json({
+        message: "Fjalëkalimi i ri duhet të ketë të paktën 8 karaktere",
+      });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: "Useri nuk u gjet" });
+    }
+
+    const isMatch = await bcrypt.compare(currentPasswordNorm, user.password);
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Fjalëkalimi aktual është i pasaktë",
+      });
+    }
+
+    const samePassword = await bcrypt.compare(newPasswordNorm, user.password);
+    if (samePassword) {
+      return res.status(400).json({
+        message: "Fjalëkalimi i ri nuk mund të jetë i njëjtë me aktualin",
+      });
+    }
+
+    user.password = await bcrypt.hash(newPasswordNorm, 10);
+    await user.save();
+
+    res.json({ message: "Fjalëkalimi u ndryshua me sukses" });
+  } catch (err) {
+    console.error("❌ Gabim te changePassword:", err);
     res.status(500).json({ message: "Gabim serveri" });
   }
 };
@@ -97,7 +298,12 @@ export const updateUser = async (req, res) => {
 ========================= */
 export const deleteUser = async (req, res) => {
   try {
-    await User.findByIdAndDelete(req.params.id);
+    const deleted = await User.findByIdAndDelete(req.params.id);
+
+    if (!deleted) {
+      return res.status(404).json({ message: "Useri nuk u gjet" });
+    }
+
     res.json({ message: "Useri u fshi" });
   } catch (err) {
     console.error("❌ Gabim te deleteUser:", err);
@@ -106,7 +312,7 @@ export const deleteUser = async (req, res) => {
 };
 
 /* =========================
-   LOGIN USER (KRITIKE)
+   LOGIN USER
 ========================= */
 export const loginUser = async (req, res) => {
   try {
@@ -119,7 +325,6 @@ export const loginUser = async (req, res) => {
         .json({ message: "Vendos username dhe password" });
     }
 
-    // 🔍 DEBUG (hiqe më vonë në prodhim)
     console.log("LOGIN TRY:", usernameNorm);
 
     const user = await User.findOne({ username: usernameNorm });
@@ -141,13 +346,17 @@ export const loginUser = async (req, res) => {
         .json({ message: "Kredencialet janë të pasakta" });
     }
 
-    // ✅ LOGIN OK
     res.json({
       id: user._id,
       businessId: user.businessId,
       role: user.role,
       name: user.name,
+      surname: user.surname || "",
+      hotelName: user.hotelName || "",
+      nipt: user.nipt || "",
       username: user.username,
+      email: user.email || "",
+      phone: user.phone || "",
     });
   } catch (err) {
     console.error("❌ Gabim te loginUser:", err);

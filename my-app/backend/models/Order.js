@@ -1,5 +1,23 @@
 import mongoose from "mongoose";
 
+const OrderItemSchema = new mongoose.Schema(
+  {
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      index: true,
+      required: function () {
+        return this.$isNew;
+      },
+    },
+
+    name: { type: String, required: true, trim: true },
+    price: { type: Number, required: true, default: 0, min: 0 },
+    qty: { type: Number, required: true, default: 1, min: 1 },
+  },
+  { _id: false }
+);
+
 const OrderSchema = new mongoose.Schema(
   {
     businessId: {
@@ -9,7 +27,6 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // tavoline / dhoma / cadra
     sourceType: {
       type: String,
       enum: ["tavoline", "dhoma", "cadra"],
@@ -18,7 +35,6 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // numri i tavolines / dhomes / çadres
     sourceNumber: {
       type: String,
       required: true,
@@ -26,9 +42,6 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ KU SHKON POROSIA
-    // kuzhine = ushqime
-    // banak   = pije
     destination: {
       type: String,
       enum: ["kuzhine", "banak"],
@@ -38,25 +51,13 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    // ✅ lidh 2 porosi (për porosi të përziera)
     batchId: {
       type: String,
       default: "",
       index: true,
     },
 
-    items: [
-      {
-        productId: {
-          type: mongoose.Schema.Types.ObjectId,
-          ref: "Product",
-          default: undefined, // ✅ më mirë se null
-        },
-        name: { type: String, required: true, trim: true },
-        price: { type: Number, required: true, default: 0, min: 0 },
-        qty: { type: Number, required: true, default: 1, min: 1 },
-      },
-    ],
+    items: { type: [OrderItemSchema], default: [] },
 
     total: {
       type: Number,
@@ -64,7 +65,25 @@ const OrderSchema = new mongoose.Schema(
       min: 0,
     },
 
-    // ✅ vetëm 1 variant (mos e mbaj edhe completed edhe done)
+    totalALL: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
+
+    currency: {
+      type: String,
+      enum: ["ALL", "EUR", "USD", "CHF", "GBP"],
+      default: "ALL",
+      trim: true,
+    },
+
+    exchangeRateUsed: {
+      type: Number,
+      default: 1,
+      min: 0.0001,
+    },
+
     status: {
       type: String,
       enum: ["pending", "accepted", "done", "cancelled"],
@@ -78,14 +97,29 @@ const OrderSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-// ✅ total si “source of truth” në DB
+OrderSchema.index({ businessId: 1, createdAt: -1 });
+OrderSchema.index({ businessId: 1, "items.productId": 1, createdAt: -1 });
+
 OrderSchema.pre("save", function (next) {
   if (Array.isArray(this.items)) {
-    this.total = this.items.reduce(
-      (sum, it) => sum + Number(it.price || 0) * Number(it.qty || 1),
-      0
-    );
+    const totalAllCalc = this.items.reduce((sum, it) => {
+      const price = Number(it?.price || 0);
+      const qty = Number(it?.qty || 1);
+      const p = Number.isFinite(price) ? price : 0;
+      const q = Number.isFinite(qty) ? qty : 1;
+      return sum + p * q;
+    }, 0);
+
+    this.totalALL = totalAllCalc;
+
+    if (!this.currency || this.currency === "ALL") {
+      this.total = totalAllCalc;
+      this.exchangeRateUsed = 1;
+    } else if (!Number.isFinite(Number(this.total)) || Number(this.total) < 0) {
+      this.total = totalAllCalc;
+    }
   }
+
   next();
 });
 

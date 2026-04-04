@@ -2,10 +2,12 @@
 import { useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
+
 /* WAITER */
 import WaiterPage from "./pages/Waiter/WaiterPage.jsx";
 
 /* MANAGER */
+import ProfilePage from "./pages/manager/ProfilePage";
 import LoginPage from "./pages/manager/LoginPage.jsx";
 import ManagerPage from "./pages/manager/ManagerPage.jsx";
 import DashboardPage from "./pages/manager/DashboardPage.jsx";
@@ -21,6 +23,8 @@ import PorosiPage from "./pages/manager/PorosiPage.jsx";
 import ClientMenuPage from "./pages/ClientMenuPage.jsx";
 import ClientOrderPage from "./pages/ClientOrderPage.jsx";
 import KembimiValutorPage from "./pages/manager/KembimiValutorPage.jsx";
+import PlacesPage from "./pages/manager/PlacesPage.jsx";
+
 
 
 /* ADMIN */
@@ -160,7 +164,8 @@ export default function App() {
 
       {/* ---------------------- PUBLIKE (QR) ---------------------- */}
       <Route path="/menu" element={<ClientMenuPage />} />
-      <Route path="/order" element={<ClientOrderPage />} />
+      <Route path="/order/:token" element={<ClientOrderPage />} />
+
 
       {/* ---------------------- LOGIN ---------------------- */}
       <Route
@@ -175,40 +180,34 @@ export default function App() {
       />
 
       {/* ---------------------- MANAGER ---------------------- */}
-      <Route
-        path="/manager"
-        element={
-          <ManagerProtected>
-            <ManagerPage onLogout={handleLogout} />
-          </ManagerProtected>
-        }
-      >
-        <Route index element={<DashboardPage />} />
-        <Route path="dashboard" element={<DashboardPage />} />
-        <Route path="users" element={<UserPage />} />
-        <Route path="qr" element={<QrPage />} />
-        <Route path="subcategory" element={<SubCategoryPage />} />
-        <Route path="products" element={<ProductsPage />} />
-        <Route path="inventari" element={<InventoryPage />} />
-        <Route path="xhiro" element={<XhiroPage />} />
-        <Route path="orders" element={<PorosiPage />} />
-        <Route path="kembimi-valutor" element={<KembimiValutorPage />} />
-      </Route>
+<Route
+  path="/manager"
+  element={
+    <ManagerProtected>
+      <ManagerPage onLogout={handleLogout} />
+    </ManagerProtected>
+  }
+>
+  <Route index element={<DashboardPage />} />
+  <Route path="dashboard" element={<DashboardPage />} />
+  <Route path="users" element={<UserPage />} />
+  <Route path="qr" element={<QrPage />} />
+  <Route path="subcategory" element={<SubCategoryPage />} />
+  <Route path="products" element={<ProductsPage />} />
+  <Route path="inventari" element={<InventoryPage />} />
+  <Route path="xhiro" element={<XhiroPage />} />
+  <Route path="orders" element={<PorosiPage />} />
+  <Route path="kembimi-valutor" element={<KembimiValutorPage />} />
+  <Route path="places" element={<PlacesPage />} />
+  <Route path="profile" element={<ProfilePage />} />
+  <Route path="change-password" element={<ChangePasswordPage />} />
+</Route>
 
       <Route
         path="/manager/order/:id"
         element={
           <ManagerProtected>
             <OrderDetailsPage />
-          </ManagerProtected>
-        }
-      />
-
-      <Route
-        path="/change-password"
-        element={
-          <ManagerProtected>
-            <ChangePasswordPage />
           </ManagerProtected>
         }
       />

@@ -1,53 +1,62 @@
 // src/pages/manager/InventoryPage.jsx
-import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getInventorySummary, addSupplyApi } from "../../api/inventoryApi.js";
+import { getProductsApi } from "../../api/InventoryProductsApi.js";
 import "./InventoryPage.css";
 
-const BUSINESS_ID =
-  localStorage.getItem("businessId");
+const BUSINESS_ID = (localStorage.getItem("businessId") || "").trim();
 
 const DASHBOARD_FROM_KEY = "dashboard_from_date";
 const DASHBOARD_TO_KEY = "dashboard_to_date";
 
-// lexon datat e ruajtura nga Dashboard
 const getSavedRange = () => {
   const from = localStorage.getItem(DASHBOARD_FROM_KEY);
   const to = localStorage.getItem(DASHBOARD_TO_KEY);
-
   return {
     from: from ? new Date(from) : null,
     to: to ? new Date(to) : null,
   };
 };
 
-// kthen YYYY-MM-DD për API
-const formatDate = (date) => {
-  if (!date) return null;
-  return date.toISOString().slice(0, 10);
-};
+const formatDate = (date) => (date ? date.toISOString().slice(0, 10) : null);
+
+const productLabel = (p) =>
+  String(p?.nameSq || p?.name || p?.title || "").trim() || "Produkt";
 
 export default function InventoryPage() {
-  const navigate = useNavigate();
-
   const [items, setItems] = useState([]);
+  const [products, setProducts] = useState([]);
+
+  // page search
+  const [search, setSearch] = useState("");
+
   const [totalProductsWithSales, setTotalProductsWithSales] = useState(0);
   const [totalQuantitySold, setTotalQuantitySold] = useState(0);
 
-  const [selectedProduct, setSelectedProduct] = useState(null);
+  const [selectedProductId, setSelectedProductId] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // formë për shtuar stok
+  // modal supply
   const [showSupplyForm, setShowSupplyForm] = useState(false);
-  const [supplyProductName, setSupplyProductName] = useState("");
+  const [supplyProductId, setSupplyProductId] = useState("");
   const [supplyQty, setSupplyQty] = useState("");
   const [supplyUnitPrice, setSupplyUnitPrice] = useState("");
   const [supplyNote, setSupplyNote] = useState("");
 
+  // searchable picker states
+  const [productQuery, setProductQuery] = useState("");
+  const [productOpen, setProductOpen] = useState(false);
+  const pickerRef = useRef(null);
+
+  const savedRange = getSavedRange();
+  const hasRange = savedRange.from && savedRange.to;
+  const periodLabel = hasRange
+    ? `${savedRange.from.toLocaleDateString()} – ${savedRange.to.toLocaleDateString()}`
+    : "Gjithë periudha";
+
   const loadInventory = async () => {
     try {
       setLoading(true);
-
       const { from, to } = getSavedRange();
 
       const data = await getInventorySummary({
@@ -70,53 +79,117 @@ export default function InventoryPage() {
     }
   };
 
+  const loadProducts = async () => {
+    try {
+      const data = await getProductsApi({ businessId: BUSINESS_ID });
+      const list = data.items || data || [];
+      setProducts(list);
+    } catch (err) {
+      console.error("❌ Gabim te loadProducts:", err.response?.data || err);
+      setProducts([]);
+    }
+  };
+
   useEffect(() => {
+    loadProducts();
     loadInventory();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // lista e produkteve
-  const inventoryList = items.map((item) => ({
-    name: item.productName,
-    sold: item.sold,
-    remaining: item.remaining,
-    supplied: item.supplied,
-  }));
+  // close product dropdown on outside click
+  useEffect(() => {
+  const onDown = (e) => {
+    if (!pickerRef.current) return;
+    if (!pickerRef.current.contains(e.target)) setProductOpen(false);
+  };
+  document.addEventListener("pointerdown", onDown);
+  return () => document.removeEventListener("pointerdown", onDown);
+}, []);
 
-  const selectedItem = inventoryList.find(
-    (p) => p.name === selectedProduct
-  );
 
-  const savedRange = getSavedRange();
-  const hasRange = savedRange.from && savedRange.to;
-  const periodLabel = hasRange
-    ? `${savedRange.from.toLocaleDateString()} – ${savedRange.to.toLocaleDateString()}`
-    : "Gjithë periudha";
+  // normalizo items -> listë për UI
+  const inventoryList = useMemo(() => {
+    return (items || []).map((it) => ({
+      id: String(it.productId || ""),
+      name: String(it.productName || it.name || it.nameSq || it.nameEn || it.nameIt || "").trim(),
+      sold: Number(it.sold || 0),
+      supplied: Number(it.supplied || 0),
+      remaining: Number(it.remaining || 0),
+    }));
+  }, [items]);
 
-  // shto stok
+  // FILTER (search on page)
+  const filteredInventory = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return inventoryList;
+    return inventoryList.filter((item) => String(item.name || "").toLowerCase().includes(q));
+  }, [inventoryList, search]);
+
+  const selectedItem = useMemo(() => {
+    if (!selectedProductId) return null;
+    return inventoryList.find((p) => p.id === selectedProductId) || null;
+  }, [inventoryList, selectedProductId]);
+
+  // Selected product label in modal
+  const selectedSupplyProduct = useMemo(() => {
+    if (!supplyProductId) return null;
+    return (products || []).find((p) => String(p._id) === String(supplyProductId)) || null;
+  }, [products, supplyProductId]);
+
+  const selectedSupplyName = selectedSupplyProduct ? productLabel(selectedSupplyProduct) : "";
+
+  // Filter products for modal dropdown (limit for performance)
+  const filteredProducts = useMemo(() => {
+  const q = productQuery.trim().toLowerCase();
+  const list = products || [];
+
+  // ✅ mos shfaq asgjë derisa të ketë 2+ shkronja
+  if (q.length < 2) return [];
+
+  // ✅ startsWith (fillon me)
+  return list
+    .filter((p) => productLabel(p).toLowerCase().startsWith(q))
+    .slice(0, 80);
+}, [products, productQuery]);
+
+
+  const resetSupplyForm = () => {
+    setSupplyProductId("");
+    setSupplyQty("");
+    setSupplyUnitPrice("");
+    setSupplyNote("");
+    setProductQuery("");
+    setProductOpen(false);
+  };
+
+  const openSupplyModal = () => {
+    setShowSupplyForm(true);
+    resetSupplyForm();
+  };
+
   const handleAddSupply = async (e) => {
     e.preventDefault();
 
-    if (!supplyProductName.trim() || !supplyQty) {
-      return alert("Vendos emrin e produktit dhe sasinë.");
+    if (!supplyProductId || !supplyQty) {
+      return alert("Zgjidh produktin dhe vendos sasinë.");
+    }
+
+    const qtyNum = Number(supplyQty);
+    if (!Number.isFinite(qtyNum) || qtyNum <= 0) {
+      return alert("Sasia duhet të jetë numër > 0.");
     }
 
     try {
       await addSupplyApi({
         businessId: BUSINESS_ID,
-        productName: supplyProductName.trim(),
-        qty: Number(supplyQty),
+        productId: supplyProductId,
+        qty: qtyNum,
         unitPrice: supplyUnitPrice ? Number(supplyUnitPrice) : 0,
         note: supplyNote,
       });
 
-      // pastro formën
-      setSupplyProductName("");
-      setSupplyQty("");
-      setSupplyUnitPrice("");
-      setSupplyNote("");
       setShowSupplyForm(false);
-
-      // rifresko inventarin
+      resetSupplyForm();
       await loadInventory();
     } catch (err) {
       console.error("❌ Gabim te addSupply:", err.response?.data || err);
@@ -127,40 +200,112 @@ export default function InventoryPage() {
   return (
     <div className="inventory-container">
       {/* HEADER */}
-      <div className="page-header">
-        <button className="back-btn" onClick={() => navigate("/manager")}>
-          ← Kthehu mbrapa
-        </button>
-
+      <div className="inventory-header-card">
         <div>
-          <h1>📦 Inventari i Produkteve</h1>
+          <h1 className="inventory-title">Inventari i Produkteve</h1>
           <p className="inventory-period">
             Periudha: <b>{periodLabel}</b>
           </p>
         </div>
 
-        <button
-          className="add-stock-btn"
-          onClick={() => setShowSupplyForm(true)}
-        >
-          + Shto stok
-        </button>
+        <div className="inventory-header-actions">
+          <input
+            className="inventory-search"
+            type="text"
+            placeholder="Kërko produkt…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") setSearch("");
+            }}
+          />
+
+          <button className="add-stock-btn" onClick={openSupplyModal}>
+            + Shto stok
+          </button>
+        </div>
       </div>
 
-      {/* MODAL PËR SHTUAR STOK */}
+      {/* MODAL */}
       {showSupplyForm && (
-        <div className="supply-modal">
-          <div className="supply-modal-content">
+        <div className="supply-modal" onClick={() => setShowSupplyForm(false)}>
+          <div className="supply-modal-content" onClick={(e) => e.stopPropagation()}>
             <h2>Shto stok</h2>
+
             <form onSubmit={handleAddSupply} className="supply-form">
+              {/* SEARCHABLE PRODUCT PICKER */}
               <label>
-                Emri i produktit
-                <input
-                  type="text"
-                  value={supplyProductName}
-                  onChange={(e) => setSupplyProductName(e.target.value)}
-                  placeholder="p.sh. uje"
-                />
+                <div
+  className={`product-picker ${productOpen ? "open" : ""}`}
+
+  ref={pickerRef}
+>
+
+                  <input
+  type="text"
+  value={productQuery}
+  onChange={(e) => {
+    const v = e.target.value;
+    setProductQuery(v);
+
+    // ✅ hap vetëm kur ka 2+ shkronja
+    setProductOpen(v.trim().length >= 2);
+  }}
+  onFocus={() => {
+    // ✅ mos hap asgjë në fokus; hap vetëm nëse ka 2+ shkronja tashmë
+    setProductOpen(productQuery.trim().length >= 2);
+  }}
+/>
+
+
+                  <div className="product-picker-right">
+                    {supplyProductId ? (
+                      <button
+                        type="button"
+                        className="pp-clear"
+                        onClick={() => {
+  setSupplyProductId("");
+  setProductQuery("");
+  setProductOpen(false);
+}}
+
+                        title="Hiq zgjedhjen"
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </div>
+                  {productOpen && !supplyProductId && productQuery.trim().length >= 2 && (
+  <div className="product-dropdown" onPointerDown={(e) => e.stopPropagation()}>
+    {filteredProducts.length === 0 ? (
+      <div className="product-empty">S’u gjet asnjë produkt.</div>
+    ) : (
+      filteredProducts.map((p) => {
+        const id = String(p._id);
+        const name = productLabel(p);
+        const active = id === String(supplyProductId);
+
+        return (
+          <button
+            key={id}
+            type="button"
+            className={`product-option ${active ? "active" : ""}`}
+            onClick={() => {
+              setSupplyProductId(id);
+              setProductQuery(name);
+              setProductOpen(false); // ✅ mbyll dropdown
+            }}
+          >
+            <span className="po-name">{name}</span>
+          </button>
+        );
+      })
+    )}
+  </div>
+)}
+
+
+                </div>
               </label>
 
               <label>
@@ -170,7 +315,6 @@ export default function InventoryPage() {
                   min="1"
                   value={supplyQty}
                   onChange={(e) => setSupplyQty(e.target.value)}
-                  placeholder="p.sh. 20"
                 />
               </label>
 
@@ -182,7 +326,6 @@ export default function InventoryPage() {
                   step="0.01"
                   value={supplyUnitPrice}
                   onChange={(e) => setSupplyUnitPrice(e.target.value)}
-                  placeholder="p.sh. 0.3"
                 />
               </label>
 
@@ -192,15 +335,11 @@ export default function InventoryPage() {
                   type="text"
                   value={supplyNote}
                   onChange={(e) => setSupplyNote(e.target.value)}
-                  placeholder="p.sh. furnizim nga X"
                 />
               </label>
 
               <div className="supply-form-actions">
-                <button
-                  type="button"
-                  onClick={() => setShowSupplyForm(false)}
-                >
+                <button type="button" onClick={() => setShowSupplyForm(false)}>
                   Anulo
                 </button>
                 <button type="submit">Ruaj stokun</button>
@@ -210,8 +349,8 @@ export default function InventoryPage() {
         </div>
       )}
 
-      {/* PËRMBLEDHJA KRYESORE */}
-      {!selectedProduct && (
+      {/* SUMMARY */}
+      {!selectedProductId && (
         <div className="inventory-summary">
           <div className="inventory-summary-card">
             <span className="label">Produkte me shitje:</span>
@@ -228,37 +367,53 @@ export default function InventoryPage() {
         <p className="empty-text">Duke ngarkuar inventarin...</p>
       ) : (
         <>
-          {/* LISTA E PRODUKTEVE */}
-          {!selectedProduct && (
+          {/* LIST */}
+          {!selectedProductId && (
             <>
               {inventoryList.length === 0 ? (
                 <p className="empty-text">Nuk ka shitje në këtë periudhë.</p>
+              ) : filteredInventory.length === 0 ? (
+                <p className="empty-text">Nuk u gjet asnjë produkt për “{search}”.</p>
               ) : (
                 <div className="inventory-list">
-                  {inventoryList.map((item, i) => (
-                    <div
-                      key={i}
-                      className="inventory-item"
-                      onClick={() => setSelectedProduct(item.name)}
-                    >
-                      <div className="inventory-item-name">{item.name}</div>
-                      <div className="inventory-item-qty">
-                        {item.sold} shitje • {item.remaining} stok
+                  {filteredInventory.map((item) => {
+                    const remaining = Number(item.remaining || 0);
+                    const isOut = remaining <= 0;
+                    const isLow = remaining > 0 && remaining <= 5;
+
+                    return (
+                      <div
+                        key={item.id}
+                        className={`inventory-item ${isOut ? "stock-out" : isLow ? "stock-low" : ""}`}
+                        onClick={() => setSelectedProductId(item.id)}
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <div className="inventory-item-name">{item.name}</div>
+
+                        <div className="inventory-item-qty">
+                          <span>{item.sold} shitje</span>
+                          <span className="dot">•</span>
+                          <span>{remaining} stok</span>
+
+                          {isOut ? (
+                            <span className="badge out">S’ka</span>
+                          ) : isLow ? (
+                            <span className="badge low">Pak</span>
+                          ) : null}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </>
           )}
 
-          {/* DETAJE PËR NJË PRODUKT */}
-          {selectedProduct && selectedItem && (
+          {/* DETAILS */}
+          {selectedProductId && selectedItem && (
             <>
-              <button
-                className="inner-back-btn"
-                onClick={() => setSelectedProduct(null)}
-              >
+              <button className="inner-back-btn" onClick={() => setSelectedProductId(null)}>
                 ← Kthehu te lista
               </button>
 

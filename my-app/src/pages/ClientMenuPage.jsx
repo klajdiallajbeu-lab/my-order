@@ -1,9 +1,9 @@
-// src/pages/ClientMenuPage.jsx
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "react-router-dom";
 import "./ClientMenuPage.css";
 import { socket } from "../realtime/socket.js";
 import { api } from "../api/http.js";
+import bgImage from "../assets/restorant.webp";
 
 function useQuery() {
   const { search } = useLocation();
@@ -13,69 +13,60 @@ function useQuery() {
 /* =========================
    i18n (SQ / EN / IT)
 ========================= */
-const LANGS = [
-  { code: "sq", label: "Shqip" },
-  { code: "en", label: "English" },
-  { code: "it", label: "Italiano" },
-];
-
 const dict = {
   sq: {
-    menu: "Menu",
-    pricesAuto: "Çmimet përditësohen automatikisht",
-    syncing: "• Po përditësohet…",
-    searchPlaceholder: "Kërko produkt…",
-    searchAria: "Kërko produkt",
-    clear: "Pastro",
-    all: "Të gjitha",
-    loading: "Duke ngarkuar menunë…",
+    menu: "Miresevini ne menunë tonë",
+    syncing: "Po përditësohet",
+    loading: "Duke ngarkuar menunë...",
     invalidQR: "Nuk u gjet biznesi. QR është i pavlefshëm.",
     loadError: "Gabim gjatë ngarkimit të menysë.",
     cantLoad: "Nuk mund të ngarkoj menunë.",
-    emptyTitle: "S’u gjet asnjë produkt",
-    emptySub: "Provo një kërkim tjetër ose ndrysho kategorinë.",
+    emptyTitle: "Zgjidh Bar ose Restorant",
+    emptySub: "Pasi të zgjedhësh njërën, do të shfaqen kategoritë dhe produktet.",
+    emptyProductsTitle: "S’u gjet asnjë produkt",
+    emptyProductsSub: "Provo një kategori tjetër.",
     items: "artikuj",
-    tip: "Tip: Nëse menaxheri ndryshon çmime/produkte, kjo faqe përditësohet vetë ✅",
     categories: "Kategoritë",
-    language: "Gjuha",
+    noDesc: "Pa përshkrim",
+    bar: "Bar",
+    restaurant: "Restorant",
+    menuType: "Zgjidh menunë",
   },
   en: {
-    menu: "Menu",
-    pricesAuto: "Prices update automatically",
-    syncing: "• Updating…",
-    searchPlaceholder: "Search product…",
-    searchAria: "Search product",
-    clear: "Clear",
-    all: "All",
-    loading: "Loading menu…",
+    menu: "Welcome to our menu",
+    syncing: "Updating",
+    loading: "Loading menu...",
     invalidQR: "Business not found. Invalid QR.",
     loadError: "Error while loading the menu.",
     cantLoad: "Unable to load the menu.",
-    emptyTitle: "No products found",
-    emptySub: "Try another search or change category.",
+    emptyTitle: "Choose Bar or Restaurant",
+    emptySub: "After choosing one, categories and products will appear.",
+    emptyProductsTitle: "No products found",
+    emptyProductsSub: "Try another category.",
     items: "items",
-    tip: "Tip: If the manager changes prices/products, this page updates automatically ✅",
     categories: "Categories",
-    language: "Language",
+    noDesc: "No description",
+    bar: "Bar",
+    restaurant: "Restaurant",
+    menuType: "Choose menu",
   },
   it: {
-    menu: "Menù",
-    pricesAuto: "I prezzi si aggiornano automaticamente",
-    syncing: "• Aggiornamento…",
-    searchPlaceholder: "Cerca prodotto…",
-    searchAria: "Cerca prodotto",
-    clear: "Pulisci",
-    all: "Tutti",
-    loading: "Caricamento menù…",
+    menu: "Benvenuto nel nostro menù",
+    syncing: "Aggiornamento",
+    loading: "Caricamento menù...",
     invalidQR: "Attività non trovata. QR non valido.",
     loadError: "Errore durante il caricamento del menù.",
     cantLoad: "Impossibile caricare il menù.",
-    emptyTitle: "Nessun prodotto trovato",
-    emptySub: "Prova un’altra ricerca o cambia categoria.",
+    emptyTitle: "Scegli Bar o Ristorante",
+    emptySub: "Dopo la scelta appariranno categorie e prodotti.",
+    emptyProductsTitle: "Nessun prodotto trovato",
+    emptyProductsSub: "Prova un’altra categoria.",
     items: "articoli",
-    tip: "Suggerimento: se il manager cambia prezzi/prodotti, questa pagina si aggiorna automaticamente ✅",
     categories: "Categorie",
-    language: "Lingua",
+    noDesc: "Nessuna descrizione",
+    bar: "Bar",
+    restaurant: "Ristorante",
+    menuType: "Scegli il menù",
   },
 };
 
@@ -84,50 +75,211 @@ function normalizeLang(x) {
   return ["sq", "en", "it"].includes(v) ? v : "sq";
 }
 
+const pickName = (p, lang) => {
+  const sq = String(p?.nameSq ?? p?.name ?? "").trim();
+  const en = String(p?.nameEn ?? "").trim();
+  const it = String(p?.nameIt ?? "").trim();
+
+  if (lang === "it") return it || en || sq;
+  if (lang === "en") return en || it || sq;
+  return sq || en || it;
+};
+
+const pickDesc = (p, lang) => {
+  const sq = String(p?.descSq ?? p?.description ?? "").trim();
+  const en = String(p?.descEn ?? "").trim();
+  const it = String(p?.descIt ?? "").trim();
+
+  if (lang === "it") return it || en || sq;
+  if (lang === "en") return en || it || sq;
+  return sq || en || it;
+};
+
+const BAR_CATEGORIES = [
+  "BIRRA",
+  "BIRA",
+  "ALKOLIKE",
+  "ALKOOLIKE",
+  "KAFE",
+  "PIJE",
+  "PIJE TE FTOHTA",
+  "PIJE TË FTOHTA",
+  "KOKTEJ",
+  "COCKTAIL",
+  "VERA",
+  "WINE",
+  "LIKER",
+  "LIKERË",
+  "LIKERET",
+  "FRAPE",
+  "SMOOTHIE",
+  "FRESH",
+  "CAJ",
+  "ÇAJ",
+  "TE NGROHTA",
+  "TË NGROHTA",
+];
+
+const RESTAURANT_CATEGORIES = [
+  "PASTA",
+  "PICA",
+  "PIZZA",
+  "RISOTO",
+  "SUPA",
+  "SALLATA",
+  "SALLATË",
+  "MISH",
+  "SEAFOOD",
+  "OMELET",
+  "BREAKFAST",
+  "MENGJES",
+  "MËNGJES",
+  "BURGER",
+  "SANDWICH",
+  "SENDVIÇ",
+  "SENDEVIC",
+  "MAKARONA",
+  "ORIZ",
+  "DESERT",
+  "DESSERT",
+  "EMBELSIRA",
+  "ËMBËLSIRA",
+  "AKULLORE",
+  "ICE CREAM",
+];
+
+function normalizeCategoryName(cat) {
+  return String(cat || "").trim().toUpperCase();
+}
+
+function isBarCategory(cat) {
+  return BAR_CATEGORIES.includes(normalizeCategoryName(cat));
+}
+
+function isRestaurantCategory(cat) {
+  return RESTAURANT_CATEGORIES.includes(normalizeCategoryName(cat));
+}
+
+function renderCategorySection(cat, items, lang, t) {
+  return (
+    <section key={cat} className="cm-section">
+      <div className="cm-section-head">
+        <div className="cm-section-title-wrap">
+          <span className="cm-section-bar" />
+          <h2 className="cm-section-title">{cat}</h2>
+        </div>
+
+        <div className="cm-section-count">
+          {items.length} {t.items}
+        </div>
+      </div>
+
+      <div className="cm-grid">
+        {items.map((p) => {
+          const title = pickName(p, lang);
+          const desc = pickDesc(p, lang);
+          const price = Number(p?.price || 0).toFixed(2);
+
+          return (
+            <article key={p._id} className="cm-card">
+              <div className="cm-card-top">
+                <div className="cm-name-wrap">
+                  <h3 className="cm-name">{title}</h3>
+                </div>
+
+                <div className="cm-price">{price} ALL</div>
+              </div>
+
+              {desc ? (
+                <div className="cm-desc">{desc}</div>
+              ) : (
+                <div className="cm-desc muted">{t.noDesc}</div>
+              )}
+
+              {p.imageUrl ? (
+                <div className="cm-imgWrap">
+                  <img
+                    className="cm-img"
+                    src={p.imageUrl}
+                    alt={title}
+                    loading="lazy"
+                  />
+                </div>
+              ) : null}
+            </article>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
 export default function ClientMenuPage() {
   const query = useQuery();
   const businessId = (query.get("businessId") || "").trim();
 
-  // ✅ gjuha: URL -> localStorage -> default sq
   const urlLang = normalizeLang(query.get("lang"));
   const storedLang = normalizeLang(localStorage.getItem("lang"));
-  const [lang, setLang] = useState(urlLang || storedLang || "sq");
 
-  // mbaje të sinkronizuar me URL nëse ndryshon
+  const [lang, setLang] = useState(urlLang || storedLang || "sq");
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [syncing, setSyncing] = useState(false);
+  const [error, setError] = useState("");
+  const [activeCat, setActiveCat] = useState("");
+  const [menuType, setMenuType] = useState("");
+
+  const syncTimerRef = useRef(null);
+
   useEffect(() => {
-    if (urlLang && urlLang !== lang) setLang(urlLang);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (urlLang) {
+      setLang(urlLang);
+    }
   }, [urlLang]);
 
   useEffect(() => {
     localStorage.setItem("lang", lang);
   }, [lang]);
 
+  useEffect(() => {
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set("lang", lang);
+      window.history.replaceState({}, "", u.toString());
+    } catch {
+      //
+    }
+  }, [lang]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (langRef.current && !langRef.current.contains(event.target)) {
+        setShowLang(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
   const t = useMemo(() => dict[lang] || dict.sq, [lang]);
-
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(true); // load fillestar
-  const [syncing, setSyncing] = useState(false); // update në background
-  const [error, setError] = useState("");
-
-  const [search, setSearch] = useState("");
-  const [activeCat, setActiveCat] = useState(t.all);
-
-  // debounce për socket eventet
-  const syncTimerRef = useRef(null);
 
   const fetchProducts = useCallback(
     async ({ showLoading = false } = {}) => {
       if (!businessId) return;
 
       try {
-        if (showLoading) setLoading(true);
-        else setSyncing(true);
-
-        if (showLoading) setError("");
+        if (showLoading) {
+          setLoading(true);
+          setError("");
+        } else {
+          setSyncing(true);
+        }
 
         const res = await api.get("/products", {
-          params: { businessId },
+          params: { businessId, hideNumbers: 1 },
           headers: { "Cache-Control": "no-cache" },
         });
 
@@ -150,17 +302,16 @@ export default function ClientMenuPage() {
     [businessId, t.cantLoad, t.loadError]
   );
 
-  // load fillestar
   useEffect(() => {
     if (!businessId) {
       setError(t.invalidQR);
       setLoading(false);
       return;
     }
+
     fetchProducts({ showLoading: true });
   }, [businessId, fetchProducts, t.invalidQR]);
 
-  // real-time
   useEffect(() => {
     if (!businessId) return;
 
@@ -170,9 +321,12 @@ export default function ClientMenuPage() {
     socket.on("connect", join);
 
     const onProductsChanged = (payload) => {
-      if (payload?.businessId && String(payload.businessId) !== String(businessId)) return;
+      if (payload?.businessId && String(payload.businessId) !== String(businessId)) {
+        return;
+      }
 
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
       syncTimerRef.current = setTimeout(() => {
         fetchProducts({ showLoading: false });
       }, 250);
@@ -187,175 +341,184 @@ export default function ClientMenuPage() {
     };
   }, [businessId, fetchProducts]);
 
-  // grupim sipas subCategory
   const groupedByCategory = useMemo(() => {
     const groups = {};
 
     for (const p of products) {
       const rawCat = p?.subCategoryName ?? p?.subCategory ?? p?.category ?? "Other";
       const cat = String(rawCat || "Other").trim() || "Other";
+
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(p);
     }
 
-    Object.keys(groups).forEach((k) => {
-      groups[k] = groups[k]
+    Object.keys(groups).forEach((key) => {
+      groups[key] = groups[key]
         .slice()
-        .sort((a, b) => String(a?.name || "").localeCompare(String(b?.name || "")));
+        .sort((a, b) => pickName(a, lang).localeCompare(pickName(b, lang)));
     });
 
     return groups;
-  }, [products]);
+  }, [products, lang]);
+
+  const allCategoryKeys = useMemo(() => {
+    return Object.keys(groupedByCategory).sort((a, b) => a.localeCompare(b));
+  }, [groupedByCategory]);
+
+  const barKeys = useMemo(
+    () => allCategoryKeys.filter((cat) => isBarCategory(cat)),
+    [allCategoryKeys]
+  );
+
+  const restaurantKeys = useMemo(
+    () => allCategoryKeys.filter((cat) => isRestaurantCategory(cat)),
+    [allCategoryKeys]
+  );
+
+  const visibleCategoryKeys = useMemo(() => {
+    if (menuType === "bar") return barKeys;
+    if (menuType === "restaurant") return restaurantKeys;
+    return [];
+  }, [menuType, barKeys, restaurantKeys]);
 
   const categories = useMemo(() => {
-    const keys = Object.keys(groupedByCategory).sort((a, b) => a.localeCompare(b));
-    return [t.all, ...keys];
-  }, [groupedByCategory, t.all]);
+    return visibleCategoryKeys;
+  }, [visibleCategoryKeys]);
 
-  // kur ndërron gjuhën, sigurohu që activeCat është valid
   useEffect(() => {
-    // nëse activeCat ishte "Të gjitha" dhe tani është p.sh. "All", e kthejmë te t.all
-    if (!categories.includes(activeCat)) setActiveCat(t.all);
-  }, [categories, activeCat, t.all]);
+    setActiveCat("");
+  }, [menuType]);
+
+  useEffect(() => {
+    if (!activeCat) return;
+
+    if (!categories.includes(activeCat)) {
+      setActiveCat("");
+    }
+  }, [activeCat, categories]);
 
   const filteredGrouped = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    if (!menuType) return {};
 
-    const pickCats = activeCat === t.all ? Object.keys(groupedByCategory) : [activeCat];
-
+    const selectedCategories = activeCat ? [activeCat] : visibleCategoryKeys;
     const out = {};
-    for (const cat of pickCats) {
+
+    for (const cat of selectedCategories) {
       const arr = groupedByCategory[cat] || [];
-      const filtered = !q
-        ? arr
-        : arr.filter((p) => String(p?.name || "").toLowerCase().includes(q));
-      if (filtered.length) out[cat] = filtered;
+      if (arr.length) out[cat] = arr;
     }
+
     return out;
-  }, [groupedByCategory, search, activeCat, t.all]);
+  }, [groupedByCategory, activeCat, visibleCategoryKeys, menuType]);
 
-  const hasResults = Object.keys(filteredGrouped).length > 0;
+  const filteredCategoryKeys = useMemo(
+    () => Object.keys(filteredGrouped),
+    [filteredGrouped]
+  );
 
-  if (loading) return <div className="cm-loading">{t.loading}</div>;
-  if (error) return <div className="cm-error">{error}</div>;
+  const hasMenuSelected = !!menuType;
+  const hasResults = filteredCategoryKeys.length > 0;
+
+  if (loading) {
+    return <div className="cm-loading">{t.loading}</div>;
+  }
+
+  if (error) {
+    return <div className="cm-error">{error}</div>;
+  }
 
   return (
-    <div className="cm-page">
-      {/* HEADER sticky */}
-      <div className="cm-header">
+    <div
+      className="cm-page"
+      style={{
+        backgroundImage: `url(${bgImage})`,
+        backgroundSize: "",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <header className="cm-header">
         <div className="cm-header-inner">
           <div className="cm-brand">
-            <div className="cm-title">{t.menu}</div>
-            <div className="cm-subtitle">
-              {t.pricesAuto}
+            <h1 className="cm-title">{t.menu}</h1>
+            <p className="cm-subtitle">
               {syncing ? <span className="cm-sync">{t.syncing}</span> : null}
-            </div>
+            </p>
           </div>
 
-          {/* LANGUAGE SELECTOR */}
-          <div className="cm-lang">
-            <label className="cm-lang-label" htmlFor="langSelect">
-              {t.language}
-            </label>
-            <select
-              id="langSelect"
-              className="cm-lang-select"
-              value={lang}
-              onChange={(e) => setLang(normalizeLang(e.target.value))}
-            >
-              {LANGS.map((l) => (
-                <option key={l.code} value={l.code}>
-                  {l.label}
-                </option>
-              ))}
-            </select>
-          </div>
+          <div className="cm-topbar">
+            <div className="cm-lang-native">
+  <span className="cm-lang-native-icon">🌐</span>
 
-          <div className="cm-search">
-            <span className="cm-search-icon">⌕</span>
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t.searchPlaceholder}
-              aria-label={t.searchAria}
-            />
-            {search ? (
+  <select
+    className="cm-lang-native-select"
+    value={lang}
+    onChange={(e) => setLang(normalizeLang(e.target.value))}
+    aria-label="Language"
+  >
+    <option value="sq">SQ</option>
+    <option value="en">EN</option>
+    <option value="it">IT</option>
+  </select>
+</div>
+
+            <div className="cm-menu-type-label">{t.menuType}</div>
+
+            <div className="cm-menu-type">
               <button
                 type="button"
-                className="cm-clear"
-                onClick={() => setSearch("")}
-                aria-label={t.clear}
+                className={`cm-menu-type-btn ${menuType === "bar" ? "active" : ""}`}
+                onClick={() => setMenuType("bar")}
               >
-                ✕
+                {t.bar}
               </button>
+
+              <button
+                type="button"
+                className={`cm-menu-type-btn ${
+                  menuType === "restaurant" ? "active" : ""
+                }`}
+                onClick={() => setMenuType("restaurant")}
+              >
+                {t.restaurant}
+              </button>
+            </div>
+
+            {hasMenuSelected ? (
+              <div className="cm-chips" role="tablist" aria-label={t.categories}>
+                {categories.map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    className={`cm-chip ${activeCat === cat ? "active" : ""}`}
+                    onClick={() => setActiveCat((prev) => (prev === cat ? "" : cat))}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
             ) : null}
           </div>
-
-          <div className="cm-chips" role="tablist" aria-label={t.categories}>
-            {categories.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`cm-chip ${activeCat === c ? "active" : ""}`}
-                onClick={() => {
-                  setActiveCat(c);
-                  window.scrollTo({ top: 0, behavior: "smooth" });
-                }}
-              >
-                {c}
-              </button>
-            ))}
-          </div>
         </div>
-      </div>
+      </header>
 
-      {/* CONTENT */}
-      <div className="cm-content">
-        {!hasResults ? (
+      <main className="cm-content">
+        {!hasMenuSelected ? (
           <div className="cm-empty">
             <div className="cm-empty-title">{t.emptyTitle}</div>
             <div className="cm-empty-sub">{t.emptySub}</div>
           </div>
+        ) : !hasResults ? (
+          <div className="cm-empty">
+            <div className="cm-empty-title">{t.emptyProductsTitle}</div>
+            <div className="cm-empty-sub">{t.emptyProductsSub}</div>
+          </div>
         ) : (
-          Object.keys(filteredGrouped).map((cat) => (
-            <section key={cat} className="cm-section" id={`cat-${cat}`}>
-              <div className="cm-section-head">
-                <div className="cm-section-title">{cat}</div>
-                <div className="cm-section-count">
-                  {filteredGrouped[cat].length} {t.items}
-                </div>
-              </div>
-
-              <div className="cm-grid">
-                {filteredGrouped[cat].map((p) => (
-                  <article key={p._id} className="cm-card">
-                    <div className="cm-card-top">
-                      <div className="cm-name">{p.name}</div>
-                      <div className="cm-price">
-                        {Number(p.price || 0).toFixed(2)} €
-                      </div>
-                    </div>
-
-                    {p.description ? (
-                      <div className="cm-desc">{p.description}</div>
-                    ) : (
-                      <div className="cm-desc muted"> </div>
-                    )}
-
-                    {p.imageUrl ? (
-                      <div className="cm-imgWrap">
-                        <img className="cm-img" src={p.imageUrl} alt={p.name} loading="lazy" />
-                      </div>
-                    ) : null}
-                  </article>
-                ))}
-              </div>
-            </section>
-          ))
+          filteredCategoryKeys.map((cat) =>
+            renderCategorySection(cat, filteredGrouped[cat], lang, t)
+          )
         )}
-
-        <div className="cm-footerNote">{t.tip}</div>
-      </div>
+      </main>
     </div>
   );
 }

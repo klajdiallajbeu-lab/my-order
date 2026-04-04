@@ -6,8 +6,13 @@ import mongoose from "mongoose";
 ======================= */
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
-const readBusinessId = (req) =>
-  req.query.businessId || req.body.businessId || req.params.businessId;
+const readBusinessId = (req) => {
+  const q = req?.query ?? {};
+  const b = req?.body ?? {};
+  const p = req?.params ?? {};
+  return q.businessId || b.businessId || p.businessId;
+};
+
 
 const emitProductsChanged = (req, businessId) => {
   const io = req.app.get("io");
@@ -29,6 +34,12 @@ const SUBCAT_MARKER_NAME = "__subcat__";
 ============================================================ */
 export const getProducts = async (req, res) => {
   try {
+     console.log("REQ CHECK:", {
+      hasReq: !!req,
+      hasQuery: !!req?.query,
+      method: req?.method,
+      url: req?.originalUrl,
+    });
     const { categoryType, subCategory } = req.query;
     const businessId = readBusinessId(req);
 
@@ -49,6 +60,17 @@ export const getProducts = async (req, res) => {
     if (categoryType) filter.categoryType = normalizeStr(categoryType);
     if (subCategory) filter.subCategory = normalizeStr(subCategory);
 
+    // ✅ hide "Numrat" për cadra/dhoma kur hideNumbers=1
+const hideNumbers = String(req.query.hideNumbers || "") === "1";
+
+if (hideNumbers) {
+  filter.$or = [
+    { categoryType: { $nin: ["cadra", "dhoma"] } },
+    { subCategory: { $ne: "Numrat" } },
+  ];
+}
+
+
     const products = await Product.find(filter).sort({ name: 1 }).lean();
     return res.json(products);
   } catch (err) {
@@ -62,29 +84,17 @@ export const getProducts = async (req, res) => {
 ============================================================ */
 export const createProduct = async (req, res) => {
   try {
-    const { categoryType, subCategory, name, price } = req.body;
     const businessId = readBusinessId(req);
-
     if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId i pavlefshëm" });
     }
 
-    const cleanName = normalizeStr(name);
-    if (!cleanName) {
-      return res.status(400).json({ message: "name është i detyrueshëm" });
-    }
-
-    // ✅ mos lejo placeholder si produkt
-    if (cleanName.toLowerCase() === SUBCAT_MARKER_NAME) {
-      return res.status(400).json({ message: "Emër produkti i pavlefshëm." });
-    }
-
-    const ct = normalizeStr(categoryType);
+    const ct = normalizeStr(req.body.categoryType);
     if (!ct) {
       return res.status(400).json({ message: "categoryType është i detyrueshëm" });
     }
 
-    const sc = normalizeStr(subCategory);
+    const sc = normalizeStr(req.body.subCategory);
 
     // ✅ detyro subCategory për pije/ushqime
     if (requiresSubCategory(ct) && !sc) {
@@ -93,17 +103,58 @@ export const createProduct = async (req, res) => {
         .json({ message: "subCategory është e detyrueshme për Pije/Ushqime" });
     }
 
-    const numericPrice = Number(price);
+    // ✅ multi-language fields
+    const nameSq = normalizeStr(req.body.nameSq);
+    const nameEn = normalizeStr(req.body.nameEn);
+    const nameIt = normalizeStr(req.body.nameIt);
+
+    const descSq = normalizeStr(req.body.descSq);
+    const descEn = normalizeStr(req.body.descEn);
+    const descIt = normalizeStr(req.body.descIt);
+
+    // ✅ fallback name: prefer Sq, pastaj name, pastaj En/It
+    const cleanName =
+      nameSq || normalizeStr(req.body.name) || nameEn || nameIt;
+
+    if (!cleanName) {
+      return res.status(400).json({ message: "name është i detyrueshëm" });
+    }
+
+    if (cleanName.toLowerCase() === SUBCAT_MARKER_NAME) {
+      return res.status(400).json({ message: "Emër produkti i pavlefshëm." });
+    }
+
+    // ✅ destination (kuzhine/banak)
+    const destinationRaw = normalizeLower(req.body.destination);
+    const destination =
+      destinationRaw === "banak" ? "banak" : "kuzhine";
+
+    // ✅ price (kujdes për cadra/dhoma numrat)
+    const priceRaw = req.body.price;
+
+    // Nëse do lejohet null për numra, mos e detyro këtu.
+    // Por me schema aktuale (price required) duhet numër:
+    const numericPrice = Number(priceRaw);
     if (Number.isNaN(numericPrice)) {
       return res.status(400).json({ message: "price duhet të jetë numër" });
     }
 
     const product = await Product.create({
       businessId: new mongoose.Types.ObjectId(businessId),
-      name: cleanName,
-      price: numericPrice,
       categoryType: ct,
       subCategory: sc || undefined,
+      destination,
+
+      name: cleanName,
+      nameSq,
+      nameEn,
+      nameIt,
+
+      descSq,
+      descEn,
+      descIt,
+
+      price: numericPrice,
     });
 
     emitProductsChanged(req, businessId);
@@ -179,6 +230,26 @@ export const updateProduct = async (req, res) => {
           .json({ message: "subCategory nuk mund të jetë bosh për Pije/Ushqime" });
       }
     }
+    // ✅ trim për multi-language fields
+
+
+    if (patch.nameSq !== undefined) patch.nameSq = normalizeStr(patch.nameSq);
+    if (patch.nameEn !== undefined) patch.nameEn = normalizeStr(patch.nameEn);
+    if (patch.nameIt !== undefined) patch.nameIt = normalizeStr(patch.nameIt);
+    if (patch.descSq !== undefined) patch.descSq = normalizeStr(patch.descSq);
+    if (patch.descEn !== undefined) patch.descEn = normalizeStr(patch.descEn);
+    if (patch.descIt !== undefined) patch.descIt = normalizeStr(patch.descIt);
+
+// ✅ destination
+if (patch.destination !== undefined) {
+  patch.destination = normalizeLower(patch.destination) === "banak" ? "banak" : "kuzhine";
+}
+
+// ✅ fallback name: nëse po ndryshon nameSq dhe s’po dërgon name, vendose name = nameSq
+if (patch.name === undefined && patch.nameSq) {
+  patch.name = patch.nameSq;
+}
+
 
     const updated = await Product.findOneAndUpdate(
       {
@@ -227,6 +298,7 @@ export const deleteProduct = async (req, res) => {
     console.error("❌ Gabim te deleteProduct:", err);
     return res.status(500).json({ message: "Gabim serveri" });
   }
+  
 };
 
 /* ============================================================

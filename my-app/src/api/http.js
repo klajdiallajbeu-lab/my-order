@@ -1,24 +1,60 @@
+// src/api/http.js
 import axios from "axios";
 
-export const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://192.168.100.71:5000";
-
 export const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,   // ✅ këtu e mban /api
+  baseURL: "/api",            // 🔥 Vite proxy → backend
   withCredentials: true,
-  headers: { "Content-Type": "application/json" },
+  headers: {
+    "Content-Type": "application/json",
+  },
 });
 
-// 🔍 shiko ku po godet (hiqe më vonë)
-api.interceptors.request.use((config) => {
-  console.log("➡️", (config.method || "GET").toUpperCase(), config.baseURL + config.url);
-  return config;
-});
+/* =========================
+   REQUEST INTERCEPTOR
+========================= */
+api.interceptors.request.use(
+  (config) => {
+    // 🔐 PIN për porosi nga klienti (QR)
+    const pin = (localStorage.getItem("orderPin") || "")
+      .trim()
+      .toUpperCase();
 
+    if (pin) {
+      config.headers["x-order-pin"] = pin;
+    }
+
+    // 🧭 Debug (hiqe në prodhim)
+    console.log(
+      "➡️",
+      (config.method || "GET").toUpperCase(),
+      config.baseURL + config.url,
+      pin ? "PIN=ON" : "PIN=OFF"
+    );
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+/* =========================
+   RESPONSE INTERCEPTOR
+========================= */
 api.interceptors.response.use(
-  (res) => res,
-  (err) => {
-    console.error("❌ API ERROR:", err?.response?.status, err?.response?.data || err.message);
-    return Promise.reject(err);
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+
+    // 🔒 PIN i munguar / i gabuar
+    if (status === 401 || status === 403) {
+      console.warn("🔐 Access denied:", error?.response?.data?.message);
+    }
+
+    console.error(
+      "❌ API ERROR:",
+      status,
+      error?.response?.data || error.message
+    );
+
+    return Promise.reject(error);
   }
 );

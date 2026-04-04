@@ -31,17 +31,17 @@ export default function ManagerDashboard() {
 
         <button onClick={() => setPage("products")}
           className={page === "products" ? "active" : ""}>
-          📦 Produktet
+           Produktet
         </button>
 
         <button onClick={() => setPage("users")}
           className={page === "users" ? "active" : ""}>
-          👥 Userat
+           Userat
         </button>
 
         <button onClick={() => setPage("finance")}
           className={page === "finance" ? "active" : ""}>
-          💰 Financat
+           Financat
         </button>
 
         <button onClick={() => setPage("sales")}
@@ -50,7 +50,7 @@ export default function ManagerDashboard() {
         </button>
 
         <button className="logout-btn" onClick={() => window.location.href="/login"}>
-          🚪 Dil
+           Dil
         </button>
       </aside>
 

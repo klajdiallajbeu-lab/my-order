@@ -13,80 +13,20 @@ html, body {
   font-family: Arial, sans-serif;
 }
 
-/* ————————— NAVBAR ————————— */
-
-.manager-navbar {
-  width: 100%;
-  background: #0d4d45;
-  color: white;
-  padding: 16px 40px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.logo {
-  font-weight: 700;
-  font-size: 1.6rem;
-  letter-spacing: 1px;
-  color: white;
-}
-
-
-.manager-account {
-  position: relative;
-}
-
-.account-btn {
-  background: #0b3d36;
-  color: white;
-  padding: 10px 16px;
-  border-radius: 8px;
-  font-size: 15px;
-  border: none;
-  cursor: pointer;
-}
-
-.account-btn:hover {
-  background: #07524a;
-}
-
-.account-menu {
-  position: absolute;
-  right: 0;
-  top: 45px;
-  background: white;
-  width: 180px;
-  border-radius: 10px;
-  overflow: hidden;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.15);
-  z-index: 50;
-}
-
-.account-menu button {
-  width: 100%;
-  padding: 12px;
-  border: none;
-  background: white;
-  text-align: left;
-  cursor: pointer;
-  color: #0d4d45;
-}
-.account-menu button:hover {
-  background: #e9f6f5;
-}
 
 /* ————————— MAIN CONTENT ————————— */
 
 .manager-content {
-  text-align: center;
+  text-align: left;
   margin-top: 35px;
 }
 
 .manager-content h1 {
-  font-size: 38px;
-  margin-bottom: 25px;
-  color: #0d4d45;
+  font-size: 32px;
+  margin-bottom: 12px;
+  color: #0f172a;
+  font-weight: 900;
+  letter-spacing: -0.5px;
 }
 
 /* ————————— CATEGORY BUTTONS ————————— */
@@ -206,14 +146,6 @@ html, body {
   flex-direction: column;
 }
 
-.manager-navbar {
-  background: #064f47;
-  color: white;
-  padding: 15px 25px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
 
 .manager-body {
   display: flex;

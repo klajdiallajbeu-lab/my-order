@@ -36,7 +36,7 @@ export const getPeriodStats = async (req, res) => {
       {
         $group: {
           _id: null,
-          totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+          totalRevenue: { $sum: { $ifNull: ["$totalALL", 0] } },
           orderCount: { $sum: 1 },
         },
       },
@@ -45,18 +45,18 @@ export const getPeriodStats = async (req, res) => {
     const stats = agg[0] || { totalRevenue: 0, orderCount: 0 };
 
     // By day për grafikun
-    const byDayAgg = await Order.aggregate([
-      { $match: match },
-      {
-        $group: {
-          _id: {
-            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
-          },
-          total: { $sum: { $ifNull: ["$total", 0] } },
-        },
+const byDayAgg = await Order.aggregate([
+  { $match: match },
+  {
+    $group: {
+      _id: {
+        $dateToString: { format: "%Y-%m-%d", date: "$createdAt" },
       },
-      { $sort: { _id: 1 } },
-    ]);
+      total: { $sum: { $ifNull: ["$totalALL", 0] } },
+    },
+  },
+  { $sort: { _id: 1 } },
+]);
 
     const byDay = byDayAgg.map((d) => ({
       date: d._id,
@@ -171,7 +171,7 @@ export const getWaiterStats = async (req, res) => {
               $group: {
                 _id: { $ifNull: ["$createdBy", "Pa emër"] },
                 orderCount: { $sum: 1 },
-                totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+                totalRevenue: { $sum: { $ifNull: ["$totalALL", 0] } },
               },
             },
             { $sort: { totalRevenue: -1 } },
@@ -184,7 +184,7 @@ export const getWaiterStats = async (req, res) => {
               $group: {
                 _id: null,
                 orderCount: { $sum: 1 },
-                totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+                totalRevenue: { $sum: { $ifNull: ["$totalALL", 0] } },
               },
             },
           ],
@@ -196,7 +196,7 @@ export const getWaiterStats = async (req, res) => {
               $group: {
                 _id: null,
                 orderCount: { $sum: 1 },
-                totalRevenue: { $sum: { $ifNull: ["$total", 0] } },
+                totalRevenue: { $sum: { $ifNull: ["$totalALL", 0] } },
               },
             },
           ],

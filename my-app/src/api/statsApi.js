@@ -6,14 +6,19 @@ import { api } from "./http.js";
 ========================= */
 const getBusinessId = () => {
   const businessId = (localStorage.getItem("businessId") || "").trim();
+
   if (!businessId || businessId === "undefined" || businessId === "null") {
     throw new Error("Mungon businessId. Hyr sërish.");
   }
+
   return businessId;
 };
 
 const withBusinessId = (extraParams = {}) => {
-  return { businessId: getBusinessId(), ...extraParams };
+  return {
+    businessId: getBusinessId(),
+    ...extraParams,
+  };
 };
 
 /* =========================
@@ -38,5 +43,16 @@ export const getTopProducts = async (from, to, limit = 5) => {
 export const getWaiterStats = async (from, to) => {
   const params = withBusinessId({ from, to });
   const res = await api.get("/stats/waiters", { params });
+  return res.data;
+};
+
+/* =========================
+   ORDER PIN
+========================= */
+
+// GET /api/business/order-pin?businessId=...
+export const getOrderAccessCode = async () => {
+  const params = withBusinessId();
+  const res = await api.get("/business/order-pin", { params });
   return res.data;
 };

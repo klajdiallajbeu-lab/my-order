@@ -1,9 +1,9 @@
 import express from "express";
-import { 
-  getSubCategories, 
-  createSubCategory, 
-  updateSubCategory,   // ✅ SHTO KETE
-  deleteSubCategory 
+import {
+  getSubCategories,
+  createSubCategory,
+  updateSubCategory,
+  deleteSubCategory,
 } from "../controllers/subCategoryController.js";
 
 const router = express.Router();
@@ -14,7 +14,8 @@ router.get("/", getSubCategories);
 // CREATE
 router.post("/", createSubCategory);
 
-// UPDATE  ✅ KJO MUNGONTE
+// UPDATE ✅ prano PUT dhe PATCH
+router.put("/:id", updateSubCategory);
 router.patch("/:id", updateSubCategory);
 
 // DELETE

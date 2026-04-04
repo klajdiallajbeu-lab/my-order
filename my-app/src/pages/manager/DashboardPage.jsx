@@ -1,11 +1,12 @@
-// src/pages/manager/DashboardPage.jsx
 import "./DashboardPage.css";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import DatePicker from "react-datepicker";
 import { useNavigate } from "react-router-dom";
+
+
 import {
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -16,10 +17,16 @@ import {
   Cell,
 } from "recharts";
 
-import { getTopProducts, getPeriodStats, getWaiterStats } from "../../api/statsApi.js";
+import {
+  getTopProducts,
+  getPeriodStats,
+  getWaiterStats,
+  getOrderAccessCode,
+} from "../../api/statsApi.js";
 
 const DASHBOARD_FROM_KEY = "dashboard_from_date";
 const DASHBOARD_TO_KEY = "dashboard_to_date";
+
 
 const getToday = () => {
   const d = new Date();
@@ -35,13 +42,19 @@ const formatDateParam = (date) => {
   return `${y}-${m}-${d}`;
 };
 
-// Paletë ngjyrash (do riciklohet kur të shtohen shumë kamarjerë)
 const PALETTE = [
-  "#22c55e", "#3b82f6", "#f59e0b", "#ef4444", "#a855f7",
-  "#06b6d4", "#84cc16", "#f97316", "#14b8a6", "#e11d48",
+  "#22c55e",
+  "#3b82f6",
+  "#f59e0b",
+  "#ef4444",
+  "#a855f7",
+  "#06b6d4",
+  "#84cc16",
+  "#f97316",
+  "#14b8a6",
+  "#e11d48",
 ];
 
-// ngjyrë stabile për çdo emër (që të mos ndryshojë sa herë rifreskon)
 const hashColor = (key) => {
   const s = String(key || "");
   let h = 0;
@@ -49,10 +62,22 @@ const hashColor = (key) => {
   return PALETTE[h % PALETTE.length];
 };
 
-const money = (n) => `${(Number(n) || 0).toLocaleString("sq-AL")} €`;
+const money = (n) => `${(Number(n) || 0).toLocaleString("sq-AL")} ALL`;
 
 export default function DashboardPage() {
   const navigate = useNavigate();
+
+const userName =
+  sessionStorage.getItem("userName") ||
+  sessionStorage.getItem("waiterName") ||
+  "User";
+
+  const hour = new Date().getHours();
+  let greeting = "Welcome";
+
+  if (hour < 12) greeting = "Miremëngjesi";
+  else if (hour < 18) greeting = "Mirëdita";
+  else greeting = "Mirembrema";
 
   const [fromDate, setFromDate] = useState(() => {
     const saved = localStorage.getItem(DASHBOARD_FROM_KEY);
@@ -66,19 +91,63 @@ export default function DashboardPage() {
 
   const [confirmedRange, setConfirmedRange] = useState(null);
 
-  // period stats
   const [periodRevenue, setPeriodRevenue] = useState(0);
   const [periodOrders, setPeriodOrders] = useState(0);
   const [loadingStats, setLoadingStats] = useState(false);
   const [dailySales, setDailySales] = useState([]);
 
-  // top products
   const [topProducts, setTopProducts] = useState([]);
   const [loadingTop, setLoadingTop] = useState(false);
 
-  // report rows (waiter + dhoma + cadra)
   const [reportRows, setReportRows] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
+
+  const [orderCode, setOrderCode] = useState("");
+  const [orderCodeActive, setOrderCodeActive] = useState(true);
+  const [loadingOrderCode, setLoadingOrderCode] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const loadOrderCode = useCallback(async () => {
+    try {
+      setLoadingOrderCode(true);
+
+      const data = await getOrderAccessCode();
+
+      setOrderCode(
+        data?.code ||
+          data?.orderCode ||
+          data?.pin ||
+          data?.accessCode ||
+          ""
+      );
+
+      if (typeof data?.active === "boolean") {
+        setOrderCodeActive(data.active);
+      } else if (typeof data?.enabled === "boolean") {
+        setOrderCodeActive(data.enabled);
+      } else {
+        setOrderCodeActive(true);
+      }
+    } catch (err) {
+      console.error("❌ Gabim te getOrderAccessCode:", err);
+      setOrderCode("");
+      setOrderCodeActive(false);
+    } finally {
+      setLoadingOrderCode(false);
+    }
+  }, []);
+
+  const handleCopyCode = async () => {
+    if (!orderCode) return;
+
+    try {
+      await navigator.clipboard.writeText(orderCode);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1400);
+    } catch (err) {
+      console.error("Copy failed:", err);
+    }
+  };
 
   const loadPeriodStats = useCallback(async (range) => {
     try {
@@ -110,7 +179,6 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // ✅ Këtu lexojmë raportin (kamarjerë + dhoma + cadra)
   const loadReports = useCallback(async (range) => {
     try {
       setLoadingReports(true);
@@ -119,21 +187,25 @@ export default function DashboardPage() {
 
       const data = await getWaiterStats(from, to);
 
-      // ✅ backend i ri kthen objekt: { waiters, rooms, umbrellas }
       const waitersArr = Array.isArray(data?.waiters) ? data.waiters : [];
-      const rooms = data?.rooms || { label: "Dhoma", orderCount: 0, totalRevenue: 0 };
-      const umbrellas = data?.umbrellas || { label: "Cadra", orderCount: 0, totalRevenue: 0 };
+      const rooms = data?.rooms || {
+        label: "Dhoma",
+        orderCount: 0,
+        totalRevenue: 0,
+      };
+      const umbrellas = data?.umbrellas || {
+        label: "Cadra",
+        orderCount: 0,
+        totalRevenue: 0,
+      };
 
-      // ✅ 1) waiter rows (vetëm tavoline)
       const waiterRows = waitersArr.map((w) => ({
         type: "waiter",
         name: w.waiterName ?? w.name ?? w.createdBy ?? "Pa emër",
         revenue: Number(w.totalRevenue ?? w.revenue ?? w.total ?? 0),
-        // ✅ ky është çelësi i saktë nga backend
         orders: Number(w.orderCount ?? w.orders ?? w.totalOrders ?? w.count ?? 0),
       }));
 
-      // ✅ 2) dhoma + cadra totals (nuk hyjnë te kamarjerët)
       const roomRow = {
         type: "dhoma",
         name: "Dhoma",
@@ -148,12 +220,10 @@ export default function DashboardPage() {
         orders: Number(umbrellas.orderCount || 0),
       };
 
-      // ✅ bashko + filtro rreshta boshe
       const normalized = [...waiterRows, roomRow, cadraRow].filter(
         (r) => (Number(r.revenue) || 0) > 0 || (Number(r.orders) || 0) > 0
       );
 
-      // rendit: kamarjerët sipër, pastaj dhoma, pastaj cadra
       const orderRank = { waiter: 0, dhoma: 1, cadra: 2 };
       normalized.sort((a, b) => {
         const ra = orderRank[a.type] ?? 9;
@@ -171,10 +241,11 @@ export default function DashboardPage() {
     }
   }, []);
 
-
   const handleConfirmDate = async () => {
     if (!fromDate || !toDate) return alert("Zgjidh të dy datat!");
-    if (fromDate > toDate) return alert("Data 'Nga' nuk mund të jetë më e madhe se 'Deri'!");
+    if (fromDate > toDate) {
+      return alert("Data 'Nga' nuk mund të jetë më e madhe se 'Deri'!");
+    }
 
     const range = { from: new Date(fromDate), to: new Date(toDate) };
     setConfirmedRange(range);
@@ -191,21 +262,23 @@ export default function DashboardPage() {
     setConfirmedRange(initial);
     loadPeriodStats(initial);
     loadReports(initial);
+    loadOrderCode();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // chart line
   const chartData = useMemo(() => {
     return dailySales.map((d) => {
       const dateObj = new Date(d.date + "T00:00:00");
       return {
-        label: dateObj.toLocaleDateString("sq-AL", { day: "2-digit", month: "2-digit" }),
+        label: dateObj.toLocaleDateString("sq-AL", {
+          day: "2-digit",
+          month: "2-digit",
+        }),
         revenue: Number(d.revenue || 0),
       };
     });
   }, [dailySales]);
 
-  // top products reload on confirmedRange
   useEffect(() => {
     const fetchTop = async () => {
       if (!confirmedRange) return setTopProducts([]);
@@ -228,22 +301,32 @@ export default function DashboardPage() {
     fetchTop();
   }, [confirmedRange]);
 
-  // ✅ vetëm kamarjerët (pa dhoma/cadra)
-  const waiterOnly = useMemo(() => reportRows.filter((r) => r.type === "waiter"), [reportRows]);
-  const dhomaRow = useMemo(() => reportRows.find((r) => r.type === "dhoma"), [reportRows]);
-  const cadraRow = useMemo(() => reportRows.find((r) => r.type === "cadra"), [reportRows]);
+  const waiterOnly = useMemo(
+    () => reportRows.filter((r) => r.type === "waiter"),
+    [reportRows]
+  );
+
+  const dhomaRow = useMemo(
+    () => reportRows.find((r) => r.type === "dhoma"),
+    [reportRows]
+  );
+
+  const cadraRow = useMemo(
+    () => reportRows.find((r) => r.type === "cadra"),
+    [reportRows]
+  );
 
   const waiterTotalRevenue = useMemo(
     () => waiterOnly.reduce((s, r) => s + (Number(r.revenue) || 0), 0),
     [waiterOnly]
   );
+
   const waiterTotalOrders = useMemo(
     () => waiterOnly.reduce((s, r) => s + (Number(r.orders) || 0), 0),
     [waiterOnly]
   );
 
   const donutData = useMemo(() => {
-    // rrethi tregon: kamarjerët individualë + Dhoma + Cadra
     return reportRows
       .filter((r) => (Number(r.revenue) || 0) > 0)
       .map((r) => ({
@@ -255,7 +338,6 @@ export default function DashboardPage() {
       }));
   }, [reportRows]);
 
-  // ✅ label me “shigjetë” si në foto (callout)
   const renderCalloutLabel = (props) => {
     const { cx, cy, midAngle, outerRadius, name, color } = props;
 
@@ -291,9 +373,23 @@ export default function DashboardPage() {
 
   return (
     <div className="dash">
-      {/* TOP BAR */}
-      <div className="dash-topbar" style={{ justifyContent: "flex-end" }}>
+      <div className="dash-topbar">
+        <div className="dash-welcome-card">
+
+<div className="dash-welcome">
+  <h1>
+    {greeting}, <span className="user-name">{userName}</span>
+  </h1>
+
+  <p className="welcome-sub">
+    Sot ke {loadingStats ? "..." : periodOrders} porosi aktive
+  </p>
+</div>
+</div>
+
         <div className="dash-datebox">
+          <div className="dash-date-title">Filtro periudhën</div>
+
           <div className="dash-date-row">
             <DatePicker
               selected={fromDate}
@@ -302,6 +398,7 @@ export default function DashboardPage() {
               className="dash-date"
               placeholderText="Nga"
             />
+
             <DatePicker
               selected={toDate}
               onChange={(date) => setToDate(date)}
@@ -309,57 +406,93 @@ export default function DashboardPage() {
               className="dash-date"
               placeholderText="Deri"
             />
-            <button className="dash-confirm" onClick={handleConfirmDate} title="Konfirmo">
+
+            <button
+              className="dash-confirm"
+              onClick={handleConfirmDate}
+              title="Konfirmo"
+            >
               ✓
             </button>
           </div>
 
           {confirmedRange && (
             <div className="dash-period">
-              Periudha: <b>{confirmedRange.from.toLocaleDateString("sq-AL")}</b> –{" "}
-              <b>{confirmedRange.to.toLocaleDateString("sq-AL")}</b>
+              Aktive: {confirmedRange.from.toLocaleDateString("sq-AL")} –{" "}
+              {confirmedRange.to.toLocaleDateString("sq-AL")}
             </div>
           )}
         </div>
       </div>
 
-      {/* KPI CARDS */}
-      <div className="dash-kpis">
-        <button className="kpi" onClick={() => navigate("/manager/xhiro")}>
+      <div className="dash-kpis dash-kpis-4">
+        <button className="kpi kpi-finance" onClick={() => navigate("/manager/xhiro")}>
           <div className="kpi-head">
-            <span className="kpi-icon">💰</span>
-            <span className="kpi-label">Totali</span>
+            <span className="kpi-label">Financat</span>
+            <span className="kpi-badge positive">Totali</span>
           </div>
-          <div className="kpi-value">{loadingStats ? "..." : money(periodRevenue)}</div>
-          <div className="kpi-sub">Xhiro periudhe</div>
+
+          <div className="kpi-main">
+            <div className="kpi-value">
+              {loadingStats ? "..." : money(periodRevenue)}
+            </div>
+            <div className="kpi-sub">Raporti total për periudhën</div>
+          </div>
         </button>
 
-        <button className="kpi" onClick={() => navigate("/manager/orders")}>
+        <button className="kpi kpi-orders" onClick={() => navigate("/manager/orders")}>
           <div className="kpi-head">
-            <span className="kpi-icon">🛒</span>
-            <span className="kpi-label">Porosi</span>
+            <span className="kpi-label">Faturat</span>
+            <span className="kpi-badge neutral">Porosi</span>
           </div>
-          <div className="kpi-value">
-            {loadingStats ? "..." : periodOrders.toLocaleString("sq-AL")}
+
+          <div className="kpi-main">
+            <div className="kpi-value">
+              {loadingStats ? "..." : periodOrders.toLocaleString("sq-AL")}
+            </div>
+            <div className="kpi-sub">Numri total i porosive</div>
           </div>
-          <div className="kpi-sub">Nr. porosive</div>
         </button>
 
-        <button className="kpi" onClick={() => navigate("/manager/inventari")}>
+        <button className="kpi kpi-stock" onClick={() => navigate("/manager/inventari")}>
           <div className="kpi-head">
-            <span className="kpi-icon">📦</span>
-            <span className="kpi-label">Inventari</span>
+            <span className="kpi-label"></span>
+            <span className="kpi-badge info">Menaxho</span>
           </div>
-          <div className="kpi-value">Hap</div>
-          <div className="kpi-sub">Kliko për detaje</div>
+
+          <div className="kpi-main">
+            <div className="kpi-value">Inventari</div>
+            <div className="kpi-sub">Kontrollo gjendjen e produkteve</div>
+          </div>
         </button>
+
+        <div className="kpi kpi-access">
+          <div className="kpi-head">
+            <span className="kpi-label">Kodi i porosive</span>
+            <span className={`kpi-badge ${orderCodeActive ? "positive" : "danger"}`}>
+              {orderCodeActive ? "Aktiv" : "Jo aktiv"}
+            </span>
+          </div>
+
+          <div className="kpi-main">
+            <div className="access-code">
+              {loadingOrderCode ? "......" : orderCode || "------"}
+            </div>
+            <div className="kpi-sub">PIN aktiv për dhoma dhe cadra</div>
+          </div>
+
+          <div className="access-actions">
+            <button className="access-btn ghost-blue" onClick={handleCopyCode}>
+              {copied ? "U kopjua" : "Kopjo"}
+            </button>
+          </div>
+        </div>
       </div>
 
-      {/* GRID: CHART + TOP PRODUCTS */}
       <div className="dash-grid">
         <div className="panel">
           <div className="panel-head">
-            <h2>📈 Shitjet – periudha e zgjedhur</h2>
+            <h2>Shitjet – periudha e zgjedhur</h2>
           </div>
 
           <div className="panel-body chart-wrap">
@@ -368,17 +501,38 @@ export default function DashboardPage() {
             ) : chartData.length === 0 ? (
               <div className="empty">Nuk ka të dhëna për këtë periudhë.</div>
             ) : (
-              <ResponsiveContainer width="100%" height={280}>
-                <LineChart data={chartData} margin={{ top: 20, right: 20, left: 0, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="label" />
-                  <YAxis />
-                  <Tooltip
-                    formatter={(value) => `${value} €`}
-                    labelFormatter={(label) => `Data: ${label}`}
+              <ResponsiveContainer width="100%" height={320}>
+                <BarChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#dbe7f5" />
+                  <XAxis
+                    dataKey="label"
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#64748b", fontSize: 12 }}
                   />
-                  <Line type="monotone" dataKey="revenue" strokeWidth={3} dot={{ r: 4 }} />
-                </LineChart>
+                  <YAxis
+                    tickLine={false}
+                    axisLine={false}
+                    tick={{ fill: "#64748b", fontSize: 12 }}
+                  />
+                  <Tooltip
+                    formatter={(value) => [`${Number(value || 0).toFixed(2)} ALL`, "Shitje"]}
+                    labelFormatter={(label) => `Data: ${label}`}
+                    cursor={{ fill: "rgba(59, 130, 246, 0.08)" }}
+                    contentStyle={{
+                      borderRadius: "16px",
+                      border: "1px solid #dbeafe",
+                      boxShadow: "0 14px 30px rgba(15,23,42,0.10)",
+                      background: "#ffffff",
+                    }}
+                  />
+                  <Bar
+                    dataKey="revenue"
+                    radius={[10, 10, 0, 0]}
+                    fill="#3b82f6"
+                    maxBarSize={42}
+                  />
+                </BarChart>
               </ResponsiveContainer>
             )}
           </div>
@@ -386,7 +540,7 @@ export default function DashboardPage() {
 
         <div className="panel">
           <div className="panel-head">
-            <h2>🔥 Top shitjet</h2>
+            <h2>Top shitjet</h2>
           </div>
 
           <div className="panel-body">
@@ -399,15 +553,20 @@ export default function DashboardPage() {
             ) : (
               <div className="top-list">
                 {topProducts.map((p, idx) => (
-                  <div className="top-row" key={p.productId || p._id || p.name || idx}>
+                  <div className="modern-top-row" key={p.productId || p._id || p.name || idx}>
                     <div className="top-left">
                       <div className="top-rank">{idx + 1}</div>
-                      <div className="top-name">{p.name}</div>
+                      <div>
+                        <div className="top-name">{p.name}</div>
+                        <div className="top-meta">
+                          {p.totalQty ?? p.qty ?? 0} shitje
+                        </div>
+                      </div>
                     </div>
+
                     <div className="top-right">
-                      <div className="top-qty">{p.totalQty ?? p.qty ?? 0} shitje</div>
                       <div className="top-rev">
-                        {(Number(p.totalRevenue ?? p.revenue) || 0).toFixed(2)} €
+                        {(Number(p.totalRevenue ?? p.revenue) || 0).toFixed(2)} ALL
                       </div>
                     </div>
                   </div>
@@ -415,18 +574,13 @@ export default function DashboardPage() {
               </div>
             )}
 
-            <div className="panel-footer">
-              <button className="ghost" onClick={() => navigate("/manager/xhiro")}>
-                Shiko xhiron →
-              </button>
-            </div>
+            <div className="panel-footer"></div>
           </div>
         </div>
 
-        {/* PANEL: DONUT + LISTA LEFT */}
         <div className="panel" style={{ gridColumn: "1 / -1" }}>
           <div className="panel-head">
-            <h2>👤 Xhiro sipas raportit</h2>
+            <h2>RAPORTI</h2>
           </div>
 
           <div className="panel-body report-layout">
@@ -438,13 +592,13 @@ export default function DashboardPage() {
               <div className="empty">Nuk ka të dhëna në këtë periudhë.</div>
             ) : (
               <>
-                {/* LEFT LIST (scroll për 5–10 kamarjerë) */}
                 <div className="report-left">
                   <div className="report-left-scroll">
                     {reportRows
                       .filter((r) => (Number(r.revenue) || 0) > 0 || (Number(r.orders) || 0) > 0)
                       .map((r, i) => {
                         const color = hashColor(`${r.type}:${r.name}`);
+
                         return (
                           <div className="report-card" key={`${r.type}-${r.name}-${i}`}>
                             <div className="dot" style={{ background: color }} />
@@ -461,7 +615,6 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                {/* RIGHT DONUT */}
                 <div className="report-right">
                   <div className="donut-wrap">
                     <ResponsiveContainer>
@@ -470,8 +623,8 @@ export default function DashboardPage() {
                           data={donutData}
                           dataKey="value"
                           nameKey="name"
-                          innerRadius={80}
-                          outerRadius={120}
+                          innerRadius={85}
+                          outerRadius={125}
                           paddingAngle={2}
                           labelLine={false}
                           label={(p) =>
@@ -480,7 +633,7 @@ export default function DashboardPage() {
                               color: p.payload?.color || hashColor(`${p.payload?.type}:${p.name}`),
                             })
                           }
-                          isAnimationActive={true}
+                          isAnimationActive
                           animationDuration={900}
                         >
                           {donutData.map((entry, idx) => (
@@ -488,16 +641,16 @@ export default function DashboardPage() {
                           ))}
                         </Pie>
 
-                        {/* teksti në mes (Total + porosi) */}
                         <text
                           x="50%"
                           y="48%"
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          style={{ fontSize: 20, fontWeight: 800, fill: "#0f172a" }}
+                          style={{ fontSize: 22, fontWeight: 800, fill: "#0f172a" }}
                         >
                           {money(donutData.reduce((s, r) => s + (Number(r.value) || 0), 0))}
                         </text>
+
                         <text
                           x="50%"
                           y="58%"
@@ -514,14 +667,13 @@ export default function DashboardPage() {
                         <Tooltip
                           formatter={(v, _n, p) => {
                             const orders = p?.payload?.orders ?? 0;
-                            return [`${Number(v || 0).toFixed(2)} €`, `(${orders} porosi)`];
+                            return [`${Number(v || 0).toFixed(2)} ALL`, `(${orders} porosi)`];
                           }}
                         />
                       </PieChart>
                     </ResponsiveContainer>
                   </div>
 
-                  {/* mini info */}
                   <div className="report-mini">
                     <div className="mini-row">
                       <span className="mini-label">Kamarjerë:</span>

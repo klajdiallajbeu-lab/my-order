@@ -1,249 +1,280 @@
-/* FAQJA E POROSIVE */
+/* ===============================
+   PAGE
+================================ */
 .orders-page {
-  padding: 40px 60px;
-  background: #f4f7f8;
+  padding: 32px;
+  background: linear-gradient(180deg, #f8fbff 0%, #f3f7fc 100%);
   min-height: 100vh;
+  font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+}
+
+/* ===============================
+   HEADER
+================================ */
+.orders-header {
+  margin-bottom: 20px;
 }
 
 .orders-title {
-  font-size: 32px;
-  font-weight: 700;
-  text-align: center;
+  font-size: 30px;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.orders-subtitle {
+  font-size: 14px;
+  color: #64748b;
+  margin-top: 4px;
+}
+
+/* ===============================
+   TABS
+================================ */
+.tabs {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.tab {
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #eef4ff;
+  color: #2563eb;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.tab:hover {
+  background: #e0ecff;
+}
+
+.tab.active {
+  background: linear-gradient(135deg, #3b82f6, #2563eb);
+  color: white;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
+}
+
+/* ===============================
+   FILTER BAR
+================================ */
+.orders-filters {
+  display: flex;
+  gap: 12px;
   margin-bottom: 24px;
 }
 
-/* Shirit i errët i rifreskimit */
-.orders-refresh {
-  margin: 0 auto 24px;
-  max-width: 900px;
-  background: #1f2833;
-  color: #ffffff;
-  text-align: center;
-  padding: 10px 0;
-  border-radius: 999px;
-  cursor: pointer;
-  font-weight: 500;
+.orders-filters input {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  font-size: 14px;
+  outline: none;
+  transition: 0.2s;
+  min-width: 200px;
 }
 
-/* Lista e shiritave */
+.orders-filters input:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.clear-filters-btn {
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: none;
+  background: #e2e8f0;
+  color: #0f172a;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.clear-filters-btn:hover {
+  background: #cbd5f5;
+}
+
+/* ===============================
+   LIST
+================================ */
 .orders-list {
   max-width: 900px;
-  margin: 0 auto;
+  margin: 0; /* 👈 majtas */
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* Çdo porosi – në formë shirit / kartë horizontale */
-.order-row {
+/* ===============================
+   CARD
+================================ */
+.order-card {
+  background: white;
+  border-radius: 20px;
+  padding: 18px 20px;
+  border-left: 4px solid #2563eb;
+  transition: 0.2s ease;
+  cursor: pointer;
+}
+
+.order-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.12);
+}
+
+.order-card.open {
+  background: #f8fbff;
+}
+
+/* ===============================
+   TOP
+================================ */
+.order-top {
   display: flex;
-  align-items: flex-start;
   justify-content: space-between;
-  background: #ffffff;
-  border-radius: 14px;
-  padding: 14px 24px;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.04);
-  font-size: 14px;
+  align-items: center;
 }
 
-/* Kolonat */
-.order-col.left {
-  flex: 1.2;
+.order-line-top {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
-.order-col.center {
-  flex: 2;
-  text-align: center;
-}
-
-.order-col.right {
-  flex: 1;
-  text-align: right;
-}
-
-/* Tekstet brenda shiritit */
 .order-table {
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 17px;
+  font-weight: 700;
+  color: #0f172a;
 }
 
-.order-meta {
-  font-size: 12px;
-  color: #6c757d;
+.order-created {
+  font-size: 13px;
+  color: #64748b;
 }
 
-.order-item {
-  line-height: 1.4;
+/* ===============================
+   RIGHT SIDE
+================================ */
+.order-right {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 
 .order-total {
-  font-weight: 600;
-  margin-bottom: 4px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #020617;
 }
 
-.order-status {
+/* ===============================
+   STATUS
+================================ */
+.order-status-pill {
+  padding: 5px 12px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+/* ===============================
+   BUTTONS
+================================ */
+.order-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.print-btn {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: none;
+  background: #2563eb;
+  color: white;
   font-size: 12px;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.print-btn:hover {
+  background: #1d4ed8;
+}
+
+.details-btn {
+  padding: 6px 10px;
+  border-radius: 10px;
+  border: 1px solid #dbeafe;
+  background: #f8fbff;
+  color: #2563eb;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+/* ===============================
+   ITEMS (EXPAND)
+================================ */
+.order-items {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px dashed #e2e8f0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.order-item-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 14px;
+  color: #334155;
+}
+
+.item-left {
+  font-weight: 500;
+}
+
+.item-right {
   font-weight: 600;
-  color: #f39c12; /* portokalli si në foton tënde */
 }
 
-.order-status.status-done {
-  color: #27ae60;
+.order-item-line.muted {
+  color: #94a3b8;
 }
 
+/* ===============================
+   EMPTY
+================================ */
 .orders-empty {
   text-align: center;
-  margin-top: 30px;
-  color: #777;
-}
-/* --- TOP BAR (Vendndodhja + butonat) --- */
-
-.orders-top-bar {
-  margin-top: 16px;
-  margin-bottom: 20px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
+  color: #64748b;
+  margin-top: 40px;
 }
 
-/* grupi i butonave Tavolina / Dhoma / Çadra */
-.orders-filters {
-  flex: 1;
-}
+/* ===============================
+   RESPONSIVE
+================================ */
+@media (max-width: 768px) {
+  .orders-filters {
+    flex-direction: column;
+  }
 
-.filter-group {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
+  .orders-list {
+    max-width: 100%;
+  }
 
-.filter-label {
-  font-weight: 600;
-  color: #155b4a;
-  font-size: 14px;
-}
+  .order-top {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
 
-/* vetë butonat – të vegjël, horizontal dhe të dukshëm */
-.filter-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 18px;
-  border-radius: 999px;
-  border: none;
-  background-color: #e5f2ef;   /* jeshile e hapur */
-  color: #155b4a;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  width: auto;                 /* mos e bëj 100% */
-  min-width: 90px;
-  transition: background-color 0.2s ease, transform 0.1s ease,
-    box-shadow 0.2s ease;
+  .order-right {
+    align-items: flex-start;
+  }
 }
-
-.filter-pill:hover {
-  background-color: #c9e4dd;
-  transform: translateY(-1px);
-}
-
-.filter-pill.active {
-  background-color: #155b4a;   /* jeshile e errët */
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-/* butoni "Rifresko" në të djathtë */
-.orders-refresh-btn {
-  padding: 6px 18px;
-  border-radius: 999px;
-  border: none;
-  background-color: #ffb703;
-  color: #1b1b1b;
-  font-weight: 600;
-  font-size: 14px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.2s ease, transform 0.1s ease,
-    box-shadow 0.2s ease;
-}
-
-.orders-refresh-btn:hover {
-  background-color: #ffa200;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-/* Rreshti me 3 butonat Tavolina / Dhoma / Çadra */
-.orders-location-row {
-  margin-top: 12px;
-  margin-bottom: 6px;
-  display: flex;
-  justify-content: center;
-  gap: 12px;
-}
-
-/* Çdo buton zë gati 1/3 e rreshtit, por jo shumë i gjatë */
-.orders-location-row .filter-pill {
-  flex: 1;
-  max-width: 140px;
-  text-align: center;
-}
-
-/* Stil i përgjithshëm për filter-pill (nëse nuk e ke vendosur më parë) */
-.filter-pill {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  padding: 6px 16px;
-  border-radius: 999px;
-  border: none;
-  background-color: #e5f2ef;
-  color: #155b4a;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s ease, transform 0.1s ease,
-    box-shadow 0.2s ease;
-}
-
-.filter-pill:hover {
-  background-color: #c9e4dd;
-  transform: translateY(-1px);
-}
-
-.filter-pill.active {
-  background-color: #155b4a;
-  color: #ffffff;
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-/* Wrapper për Rifresko – e vendosim në mes, më të vogël */
-.orders-refresh-wrapper {
-  display: flex;
-  justify-content: center;
-  margin-bottom: 18px;
-}
-
-.orders-refresh-btn {
-  padding: 5px 18px;
-  border-radius: 999px;
-  width: 450px;
-  border: none;
-  background-color: #ffb703;
-  color: #1b1b1b;
-  font-weight: 600;
-  font-size: 13px;
-  cursor: pointer;
-  white-space: nowrap;
-  transition: background-color 0.2s ease, transform 0.1s ease,
-    box-shadow 0.2s ease;
-}
-
-.orders-refresh-btn:hover {
-  background-color: #ffa200;
-  transform: translateY(-1px);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
-}
-
-

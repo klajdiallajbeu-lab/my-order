@@ -1,6 +1,7 @@
 // src/pages/manager/ProductsPage.jsx
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import "./ProductsPage.css";
 
 import {
@@ -68,8 +69,6 @@ export default function ProductsPage() {
   const [addDescIt, setAddDescIt] = useState("");
   const [addDepartment, setAddDepartment] = useState("kuzhine");
 
-
-
   // ---------- EDIT MODAL ----------
   const [editId, setEditId] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
@@ -90,11 +89,10 @@ export default function ProductsPage() {
     setAddDescSq("");
     setAddDescEn("");
     setAddDescIt("");
+    setAddDepartment("kuzhine");
   };
 
-  const closeAdd = () => {
-    setShowAdd(false);
-  };
+  const closeAdd = () => setShowAdd(false);
 
   const closeEdit = () => {
     setShowEdit(false);
@@ -128,7 +126,7 @@ export default function ProductsPage() {
     reloadProducts();
   }, [reloadProducts]);
 
-  // ====== ADD PRODUCT (MODAL) ======
+  // ====== ADD PRODUCT ======
   const handleAdd = async () => {
     if (isNumberOnly) {
       if (!addNameSq.trim()) return alert("Shkruaj numrin!");
@@ -157,6 +155,7 @@ export default function ProductsPage() {
           name: addNameSq.trim(),
 
           price: isNumberOnly ? null : Number(addPrice),
+          destination: addDepartment,
         },
       });
 
@@ -182,9 +181,8 @@ export default function ProductsPage() {
     setEditDescIt((p.descIt ?? "").toString());
 
     setEditPrice(p.price ?? "");
-    setShowEdit(true);
     setEditDepartment(p.destination || "kuzhine");
-
+    setShowEdit(true);
   };
 
   // ====== SAVE EDIT ======
@@ -214,6 +212,7 @@ export default function ProductsPage() {
 
           name: editNameSq.trim(), // fallback
           price: isNumberOnly ? null : Number(editPrice),
+          destination: editDepartment,
         },
       });
 
@@ -248,23 +247,10 @@ export default function ProductsPage() {
     <div className="prod-page">
       {/* ====================== HEADER ======================= */}
       <div className="prod-top">
-        <button
-          className="prod-back"
-          onClick={() =>
-            navigate(
-              `/manager/subcategory?type=${encodeURIComponent(categoryType)}`
-            )
-          }
-          title="Kthehu"
-        >
-          ←
-        </button>
+        <div className="prod-top-left" />
 
         <div className="prod-title-wrap">
           <h1 className="prod-title">{subCategory.toUpperCase()}</h1>
-          <div className="prod-subtitle">
-            Menaxho produktet e kësaj nën-kategorie
-          </div>
         </div>
 
         <button className="prod-add-open" onClick={() => setShowAdd(true)}>
@@ -292,7 +278,7 @@ export default function ProductsPage() {
 
                       {!isNumberOnly && (
                         <div className="prod-card-price">
-                          {(Number(p.price) || 0).toFixed(2)} €
+                          {(Number(p.price) || 0).toFixed(2)} ALL
                         </div>
                       )}
 
@@ -314,15 +300,18 @@ export default function ProductsPage() {
                         className="prod-icon edit"
                         onClick={() => openEdit(p)}
                         title="Ndrysho"
+                        type="button"
                       >
-                        ✏️
+                        <FiEdit2 className="i" />
                       </button>
+
                       <button
                         className="prod-icon del"
                         onClick={() => removeProduct(p._id)}
                         title="Fshi"
+                        type="button"
                       >
-                        🗑️
+                        <FiTrash2 className="i" />
                       </button>
                     </div>
                   </div>
@@ -339,7 +328,7 @@ export default function ProductsPage() {
           <div className="prod-modal" onClick={(e) => e.stopPropagation()}>
             <div className="prod-modal-head">
               <h2>Shto {isNumberOnly ? "Numër" : "Produkt"}</h2>
-              <button className="prod-modal-x" onClick={closeAdd}>
+              <button className="prod-modal-x" onClick={closeAdd} type="button">
                 ✕
               </button>
             </div>
@@ -347,6 +336,9 @@ export default function ProductsPage() {
             {isNumberOnly ? (
               <div className="prod-form-grid onecol">
                 <input
+                  id="add-number"
+                  name="number"
+                  autoComplete="off"
                   placeholder="Numri (p.sh. 1, 2, 3...)"
                   value={addNameSq}
                   onChange={(e) => setAddNameSq(e.target.value)}
@@ -356,18 +348,27 @@ export default function ProductsPage() {
               <div className="prod-form-grid modal-3rows">
                 {/* RRESHTI 1 (EMRI) */}
                 <input
+                  id="add-name-sq"
+                  name="nameSq"
+                  autoComplete="off"
                   className="f-name-sq"
                   placeholder="Emri (Shqip)"
                   value={addNameSq}
                   onChange={(e) => setAddNameSq(e.target.value)}
                 />
                 <input
+                  id="add-name-en"
+                  name="nameEn"
+                  autoComplete="off"
                   className="f-name-en"
                   placeholder="Name (English)"
                   value={addNameEn}
                   onChange={(e) => setAddNameEn(e.target.value)}
                 />
                 <input
+                  id="add-name-it"
+                  name="nameIt"
+                  autoComplete="off"
                   className="f-name-it"
                   placeholder="Nome (Italiano)"
                   value={addNameIt}
@@ -376,28 +377,40 @@ export default function ProductsPage() {
 
                 {/* RRESHTI 2 (PERSHKRIMI) */}
                 <input
+                  id="add-desc-sq"
+                  name="descSq"
+                  autoComplete="off"
                   className="f-desc-sq"
                   placeholder="Përshkrimi (Shqip)"
                   value={addDescSq}
                   onChange={(e) => setAddDescSq(e.target.value)}
                 />
                 <input
+                  id="add-desc-en"
+                  name="descEn"
+                  autoComplete="off"
                   className="f-desc-en"
                   placeholder="Description (English)"
                   value={addDescEn}
                   onChange={(e) => setAddDescEn(e.target.value)}
                 />
                 <input
+                  id="add-desc-it"
+                  name="descIt"
+                  autoComplete="off"
                   className="f-desc-it"
                   placeholder="Descrizione (Italiano)"
                   value={addDescIt}
                   onChange={(e) => setAddDescIt(e.target.value)}
                 />
 
-                {/* RRESHTI 3 (CMIMI - vetem) */}
+                {/* RRESHTI 3 (CMIMI) */}
                 <input
+                  id="add-price"
+                  name="price"
+                  autoComplete="off"
                   className="f-price"
-                  placeholder="Çmimi (€)"
+                  placeholder="Çmimi (ALL)"
                   type="number"
                   value={addPrice}
                   onChange={(e) => setAddPrice(e.target.value)}
@@ -406,10 +419,10 @@ export default function ProductsPage() {
             )}
 
             <div className="prod-modal-actions">
-              <button className="btn ghost" onClick={closeAdd}>
+              <button className="btn ghost" onClick={closeAdd} type="button">
                 Mbyll
               </button>
-              <button className="btn primary" onClick={handleAdd}>
+              <button className="btn primary" onClick={handleAdd} type="button">
                 Ruaj
               </button>
             </div>
@@ -423,7 +436,7 @@ export default function ProductsPage() {
           <div className="prod-modal" onClick={(e) => e.stopPropagation()}>
             <div className="prod-modal-head">
               <h2>Ndrysho {isNumberOnly ? "Numrin" : "Produktin"}</h2>
-              <button className="prod-modal-x" onClick={closeEdit}>
+              <button className="prod-modal-x" onClick={closeEdit} type="button">
                 ✕
               </button>
             </div>
@@ -431,6 +444,9 @@ export default function ProductsPage() {
             {isNumberOnly ? (
               <div className="prod-form-grid onecol">
                 <input
+                  id="edit-number"
+                  name="number"
+                  autoComplete="off"
                   placeholder="Numri"
                   value={editNameSq}
                   onChange={(e) => setEditNameSq(e.target.value)}
@@ -440,18 +456,27 @@ export default function ProductsPage() {
               <div className="prod-form-grid modal-3rows">
                 {/* RRESHTI 1 (EMRI) */}
                 <input
+                  id="edit-name-sq"
+                  name="nameSq"
+                  autoComplete="off"
                   className="f-name-sq"
                   placeholder="Emri (Shqip)"
                   value={editNameSq}
                   onChange={(e) => setEditNameSq(e.target.value)}
                 />
                 <input
+                  id="edit-name-en"
+                  name="nameEn"
+                  autoComplete="off"
                   className="f-name-en"
                   placeholder="Name (English)"
                   value={editNameEn}
                   onChange={(e) => setEditNameEn(e.target.value)}
                 />
                 <input
+                  id="edit-name-it"
+                  name="nameIt"
+                  autoComplete="off"
                   className="f-name-it"
                   placeholder="Nome (Italiano)"
                   value={editNameIt}
@@ -460,28 +485,40 @@ export default function ProductsPage() {
 
                 {/* RRESHTI 2 (PERSHKRIMI) */}
                 <input
+                  id="edit-desc-sq"
+                  name="descSq"
+                  autoComplete="off"
                   className="f-desc-sq"
                   placeholder="Përshkrimi (Shqip)"
                   value={editDescSq}
                   onChange={(e) => setEditDescSq(e.target.value)}
                 />
                 <input
+                  id="edit-desc-en"
+                  name="descEn"
+                  autoComplete="off"
                   className="f-desc-en"
                   placeholder="Description (English)"
                   value={editDescEn}
                   onChange={(e) => setEditDescEn(e.target.value)}
                 />
                 <input
+                  id="edit-desc-it"
+                  name="descIt"
+                  autoComplete="off"
                   className="f-desc-it"
                   placeholder="Descrizione (Italiano)"
                   value={editDescIt}
                   onChange={(e) => setEditDescIt(e.target.value)}
                 />
 
-                {/* RRESHTI 3 (CMIMI - vetem) */}
+                {/* RRESHTI 3 (CMIMI) */}
                 <input
+                  id="edit-price"
+                  name="price"
+                  autoComplete="off"
                   className="f-price"
-                  placeholder="Çmimi (€)"
+                  placeholder="Çmimi (ALL)"
                   type="number"
                   value={editPrice}
                   onChange={(e) => setEditPrice(e.target.value)}
@@ -490,10 +527,14 @@ export default function ProductsPage() {
             )}
 
             <div className="prod-modal-actions">
-              <button className="btn ghost" onClick={closeEdit}>
+              <button className="btn ghost" onClick={closeEdit} type="button">
                 Mbyll
               </button>
-              <button className="btn primary" onClick={handleSaveEdit}>
+              <button
+                className="btn primary"
+                onClick={handleSaveEdit}
+                type="button"
+              >
                 Ruaj
               </button>
             </div>

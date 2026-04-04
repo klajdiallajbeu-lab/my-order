@@ -2,26 +2,47 @@ import mongoose from "mongoose";
 
 const supplySchema = new mongoose.Schema(
   {
+    // ✅ konsistente me Business, Order, Product
     businessId: {
-      type: String,
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Business",
       required: true,
+      index: true,
     },
+
+    // ✅ lidhja reale me produktin
+    productId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: "Product",
+      required: true,
+      index: true,
+    },
+
+    // ⚠️ opsionale (legacy / UI / reports)
+    // mos e bëj required, përndryshe addSupply dështon
     productName: {
       type: String,
-      required: true,
       trim: true,
+      default: "",
     },
+
     qty: {
       type: Number,
       required: true,
-      min: 0,
+      min: 1,
     },
-    // opsionale: cmimi me shumicë, nqs do më vonë analiza finance
+
     unitPrice: {
       type: Number,
       default: 0,
+      min: 0,
     },
-    note: String,
+
+    note: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { timestamps: true }
 );

@@ -1,10 +1,8 @@
 // src/api/productApi.js
 import { api } from "./http.js";
 
-// getProducts({ businessId, categoryType, subCategory })
 export const getProducts = async ({ businessId, categoryType, subCategory }) => {
   const bid = (businessId || "").trim();
-
   if (!bid || bid === "undefined" || bid === "null") {
     throw new Error("Mungon businessId. Dil dhe hyr sërish.");
   }
@@ -21,25 +19,25 @@ export const createProduct = async ({ businessId, data }) => {
   const bid = (businessId || "").trim();
   if (!bid) throw new Error("Mungon businessId.");
 
-  const body = { ...data, businessId: bid };
+  const body = { businessId: bid, ...data }; // ✅ flat
   const res = await api.post("/products", body);
   return res.data;
 };
 
-// ✅ UPDATE (query businessId)
 export const updateProduct = async ({ id, businessId, data }) => {
   if (!id) throw new Error("Mungon id.");
   const bid = (businessId || "").trim();
   if (!bid) throw new Error("Mungon businessId.");
 
-  const res = await api.put(`/products/${id}`, data, {
-    params: { businessId: bid },
+  const body = { businessId: bid, ...data }; // ✅ businessId edhe në body
+
+  const res = await api.put(`/products/${id}`, body, {
+    params: { businessId: bid }, // ok ta lësh për kompatibilitet
   });
 
   return res.data;
 };
 
-// ✅ DELETE (query businessId)
 export const deleteProduct = async ({ id, businessId }) => {
   if (!id) throw new Error("Mungon id.");
   const bid = (businessId || "").trim();
@@ -51,7 +49,6 @@ export const deleteProduct = async ({ id, businessId }) => {
   return res.data;
 };
 
-// ✅ Fshi category nga produktet (soft delete)
 export const deleteCategoryFromProducts = async ({ businessId, categoryType }) => {
   const bid = (businessId || "").trim();
   if (!bid) throw new Error("Mungon businessId.");
@@ -63,7 +60,6 @@ export const deleteCategoryFromProducts = async ({ businessId, categoryType }) =
   return res.data;
 };
 
-// ✅ Fshi subCategory nga produktet (soft delete)
 export const deleteSubCategoryFromProducts = async ({
   businessId,
   categoryType,

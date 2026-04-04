@@ -12,17 +12,18 @@ const SubCategorySchema = new mongoose.Schema(
       type: String,
       required: true,
       trim: true,
-      lowercase: true, // ✅ mos krijo "Pije" dhe "pije" si dy kategori
+      lowercase: true,
       index: true,
     },
 
-    name: {
-      type: String,
-      required: true,
-      trim: true,
-    },
+    // ✅ Multi-language
+    nameSq: { type: String, required: true, trim: true },
+    nameEn: { type: String, default: "", trim: true },
+    nameIt: { type: String, default: "", trim: true },
 
-    // ✅ KU SHKON POROSIA PËR KËTË NËN-KATEGORI
+    // ✅ Fallback (për kompatibilitet)
+    name: { type: String, required: true, trim: true },
+
     destination: {
       type: String,
       enum: ["kuzhine", "banak"],
@@ -30,15 +31,15 @@ const SubCategorySchema = new mongoose.Schema(
       required: true,
       index: true,
       trim: true,
-      lowercase: true, // ✅ siguri ekstra
+      lowercase: true,
     },
   },
   { timestamps: true }
 );
 
-// ✅ unik: e njëjta nën-kategori nuk krijohet 2 herë në të njëjtin business + categoryType
+// ✅ unik sipas business + type + nameSq (jo name)
 SubCategorySchema.index(
-  { businessId: 1, categoryType: 1, name: 1 },
+  { businessId: 1, categoryType: 1, nameSq: 1 },
   { unique: true }
 );
 

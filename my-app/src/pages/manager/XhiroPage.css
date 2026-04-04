@@ -1,53 +1,514 @@
-.xhiro-container {
-  padding: 30px;
+/* src/pages/manager/XhiroPage.css */
+
+.xhiro-page {
+  min-height: 100vh;
+  padding: 28px;
+  background:
+    radial-gradient(circle at top right, rgba(59, 130, 246, 0.06), transparent 24%),
+    radial-gradient(circle at bottom left, rgba(34, 197, 94, 0.05), transparent 22%),
+    linear-gradient(180deg, #f8fbff 0%, #f3f7fc 100%);
+  color: #0f172a;
 }
 
-.date-label {
-  margin-bottom: 20px;
-  font-size: 18px;
+/* =========================
+   HEADER
+========================= */
+.xhiro-header {
+  margin-bottom: 22px;
 }
 
-.xhiro-list {
+.back-btn {
+  border: none;
+  background: #e9eef6;
+  color: #334155;
+  padding: 12px 18px;
+  border-radius: 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.04);
+}
+
+.back-btn:hover {
+  transform: translateY(-1px);
+  background: #e2e8f0;
+}
+
+.xhiro-hero-head {
+  margin-top: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.xhiro-header h1 {
+  margin: 0 0 8px;
+  font-size: 44px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.xhiro-period {
+  margin: 0;
+  font-size: 16px;
+  color: #334155;
+  line-height: 1.5;
+}
+
+.xhiro-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.xhiro-action {
+  border: none;
+  border-radius: 16px;
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.xhiro-action:hover {
+  transform: translateY(-1px);
+}
+
+.xhiro-action.ghost {
+  background: #eef5ff;
+  color: #2563eb;
+  border: 1px solid #cfe0ff;
+}
+
+.xhiro-action.solid {
+  background: linear-gradient(135deg, #60a5fa, #2563eb);
+  color: #ffffff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.22);
+}
+
+/* =========================
+   ERROR
+========================= */
+.xhiro-error {
+  margin-bottom: 18px;
+  padding: 14px 16px;
+  border-radius: 18px;
+  border: 1px solid #fecaca;
+  background: linear-gradient(180deg, #fff5f5 0%, #fff1f2 100%);
+  color: #b91c1c;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+/* =========================
+   SUMMARY GRID
+========================= */
+.xhiro-summary-grid {
   display: grid;
-  gap: 15px;
+  grid-template-columns: 1.5fr 0.75fr 0.75fr;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .xhiro-card {
-  background: #ecf8f1;
-  padding: 15px 20px;
-  border-radius: 12px;
-  font-size: 20px;
-  display: flex;
-  justify-content: space-between;
-  border: 1px solid #cce9dd;
-}
-/* karta e madhe e xhiros */
-.xhiro-card-wide {
-  width: 100%;
-}
-
-/* lista e kamarierëve */
-.waiter-list {
-  margin-top: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 26px;
+  padding: 20px 22px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+  min-height: 170px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  justify-content: space-between;
 }
 
-/* çdo rresht – e gjatë, stil si kartat jeshile */
+.xhiro-card h3 {
+  margin: 0 0 14px;
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.xhiro-card-hero {
+  background: linear-gradient(180deg, #eefcf4 0%, #f9fffb 100%);
+  border: 1px solid #cdeed8;
+}
+
+.xhiro-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 14px;
+}
+
+.xhiro-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 7px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.xhiro-chip.success {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.xhiro-chip.info {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.xhiro-chip.danger {
+  background: #fee2e2;
+  color: #b91c1c;
+}
+
+.xhiro-hero-main {
+  display: flex;
+  justify-content: space-between;
+  align-items: stretch;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+
+.value {
+  margin: 0;
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  color: #0f172a;
+}
+
+.value-big {
+  font-size: 48px;
+}
+
+.xhiro-hero-side {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(140px, 1fr));
+  gap: 10px;
+  min-width: 300px;
+  flex: 1;
+}
+
+.hero-mini-stat {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(203, 213, 225, 0.8);
+  border-radius: 18px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.hero-mini-stat span {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  line-height: 1.2;
+}
+
+.hero-mini-stat strong {
+  font-size: 16px;
+  font-weight: 700;
+  color: #0f172a;
+  line-height: 1.2;
+}
+
+.xhiro-muted {
+  margin: 8px 0 0;
+  font-size: 14px;
+  color: #64748b;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.xhiro-empty-small {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+/* =========================
+   PANELS / GRID
+========================= */
+.xhiro-grid {
+  display: grid;
+  grid-template-columns: 1.15fr 0.95fr;
+  gap: 18px;
+}
+
+.xhiro-panel {
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 26px;
+  overflow: hidden;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+.xhiro-panel-wide {
+  grid-column: 1 / -1;
+}
+
+.xhiro-panel-head {
+  padding: 22px 22px 0;
+}
+
+.xhiro-panel-head h2 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #0f172a;
+}
+
+.xhiro-panel-head p {
+  margin: 6px 0 0;
+  font-size: 14px;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.xhiro-panel-body {
+  padding: 18px 22px 22px;
+}
+
+.chart-body {
+  min-height: 360px;
+}
+
+/* =========================
+   LISTS / TABLE STYLE
+========================= */
+.waiter-list {
+  max-height: 380px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.waiter-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.waiter-list::-webkit-scrollbar-thumb {
+  background: #cbd5f5;
+  border-radius: 999px;
+}
+
 .waiter-row {
+  display: grid;
+  grid-template-columns: 1.5fr 0.7fr 0.8fr;
+  align-items: center;
+  gap: 12px;
+  padding: 15px 16px;
+  border-radius: 20px;
+  border: 1px solid #e7edf5;
+  background: linear-gradient(180deg, #f8fbff 0%, #f5f9ff 100%);
+  transition: 0.2s ease;
+}
+
+.waiter-row:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.05);
+}
+
+.waiter-row span {
+  font-size: 14px;
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.waiter-header-row {
+  background: #eef5ff;
+  border: 1px solid #d9e7fb;
+}
+
+.waiter-header-row span {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #475569;
+  font-weight: 700;
+}
+
+.waiter-name-cell {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  background: #e9fbf1;
+  gap: 10px;
+}
+
+.waiter-rank {
+  width: 30px;
+  height: 30px;
   border-radius: 12px;
-  padding: 12px 24px;
-  font-size: 0.95rem;
+  display: grid;
+  place-items: center;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 13px;
+  font-weight: 800;
+  flex-shrink: 0;
 }
 
-/* header i kolonave */
-.waiter-header-row {
-  font-weight: 600;
-  background: #d3f3e2;
+.row-kind {
+  display: block;
+  margin-top: 4px;
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
 }
 
+/* =========================
+   EMPTY STATES
+========================= */
+.xhiro-empty-state {
+  min-height: 250px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 24px;
+  color: #64748b;
+}
+
+.xhiro-empty-state.compact {
+  min-height: 180px;
+}
+
+.empty-icon {
+  font-size: 34px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.xhiro-empty-state h4 {
+  margin: 0 0 8px;
+  font-size: 20px;
+  color: #0f172a;
+  font-weight: 700;
+}
+
+.xhiro-empty-state p {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.6;
+  max-width: 420px;
+}
+
+.xhiro-bottom-empty {
+  margin-top: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+  border: 1px solid #e2e8f0;
+  border-radius: 26px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.04);
+}
+
+/* =========================
+   RESPONSIVE
+========================= */
+@media (max-width: 1250px) {
+  .xhiro-summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .xhiro-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 900px) {
+  .xhiro-page {
+    padding: 18px;
+  }
+
+  .xhiro-header h1 {
+    font-size: 34px;
+  }
+
+  .xhiro-hero-main {
+    flex-direction: column;
+  }
+
+  .xhiro-hero-side {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .waiter-row {
+    grid-template-columns: 1.3fr 0.7fr 0.8fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .xhiro-page {
+    padding: 16px;
+  }
+
+  .xhiro-header h1 {
+    font-size: 28px;
+  }
+
+  .xhiro-period {
+    font-size: 14px;
+  }
+
+  .back-btn,
+  .xhiro-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .xhiro-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .value-big {
+    font-size: 38px;
+  }
+
+  .value {
+    font-size: 28px;
+  }
+
+  .xhiro-hero-side {
+    grid-template-columns: 1fr;
+  }
+
+  .waiter-row,
+  .waiter-header-row {
+    grid-template-columns: 1fr;
+    gap: 8px;
+  }
+
+  .waiter-header-row {
+    display: none;
+  }
+
+  .waiter-row {
+    padding: 14px;
+  }
+
+  .waiter-row span {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .waiter-name-cell {
+    justify-content: flex-start !important;
+  }
+}

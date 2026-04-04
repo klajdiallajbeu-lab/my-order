@@ -2,158 +2,300 @@
 import mongoose from "mongoose";
 import Supply from "../models/Supply.js";
 import Order from "../models/Order.js";
+import Product from "../models/Product.js";
 
-// GET /api/inventory/summary?businessId=...&from=YYYY-MM-DD&to=YYYY-MM-DD
+const toStr = (v) => String(v ?? "").trim();
+const isValidId = (id) => mongoose.Types.ObjectId.isValid(String(id || ""));
+
+// YYYY-MM-DD -> Date (UTC start/end)
+const parseYmdStartUTC = (ymd) => {
+  const s = toStr(ymd);
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map((x) => Number(x));
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d, 0, 0, 0));
+};
+
+const parseYmdEndUTC = (ymd) => {
+  const s = toStr(ymd);
+  if (!s) return null;
+  const [y, m, d] = s.split("-").map((x) => Number(x));
+  if (!y || !m || !d) return null;
+  return new Date(Date.UTC(y, m - 1, d, 23, 59, 59, 999));
+};
+
+const stockableName = (p) =>
+  toStr(p?.nameSq || p?.name || p?.nameEn || p?.nameIt);
+
 export const getInventorySummary = async (req, res) => {
   console.log("📦 [GET] /api/inventory/summary", req.query);
 
   try {
     const { businessId, from, to } = req.query;
 
-    // 1) VALIDIM BAZË
     if (!businessId) {
-      return res
-        .status(400)
-        .json({ message: "businessId është i detyrueshëm" });
+      return res.status(400).json({ message: "businessId është i detyrueshëm" });
+    }
+    if (!isValidId(businessId)) {
+      return res.status(400).json({ message: "businessId jo i vlefshëm" });
     }
 
-    // 2) FILTRI I DATAVE (opsional)
+    const bidObj = new mongoose.Types.ObjectId(businessId);
+    const bidStr = toStr(businessId);
+
+    /* ===============================
+       1) DATE FILTER (opsional)
+    =============================== */
     const createdAtFilter = {};
-    if (from && to) {
-      const start = new Date(`${from}T00:00:00`);
-      const end = new Date(`${to}T23:59:59`);
+    const start = from ? parseYmdStartUTC(from) : null;
+    if (from && !start) {
+      return res.status(400).json({
+        message: "Format i pasaktë 'from'. Përdor YYYY-MM-DD.",
+      });
+    }
+    if (start) createdAtFilter.$gte = start;
 
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return res.status(400).json({
-          message:
-            "Format i pasaktë date. Përdor YYYY-MM-DD për 'from' dhe 'to'.",
-        });
-      }
+    const end = to ? parseYmdEndUTC(to) : null;
+    if (to && !end) {
+      return res.status(400).json({
+        message: "Format i pasaktë 'to'. Përdor YYYY-MM-DD.",
+      });
+    }
+    if (end) createdAtFilter.$lte = end;
 
-      createdAtFilter.$gte = start;
-      createdAtFilter.$lte = end;
+    const hasDateFilter = Object.keys(createdAtFilter).length > 0;
+
+    /* ===============================
+       2) STOCKABLE PRODUCTS (ushqime/pije) + price
+    =============================== */
+    const stockableProducts = await Product.find(
+      { businessId: bidObj, categoryType: { $in: ["ushqime", "pije"] } },
+      { name: 1, nameSq: 1, nameEn: 1, nameIt: 1, categoryType: 1, price: 1 }
+    ).lean();
+
+    if (!stockableProducts.length) {
+      return res.json({
+        items: [],
+        totalProductsWithSales: 0,
+        totalQuantitySold: 0,
+      });
     }
 
-    // 3) FURNIZIMET (Supply) – businessId KËTU është STRING
-    const supplyMatch = { businessId }; // string
-    if (from && to) {
-      supplyMatch.createdAt = createdAtFilter;
+    const productById = new Map(stockableProducts.map((p) => [String(p._id), p]));
+
+    // legacy: emra të lejuar (fallback kur orders/supplies janë by name)
+    const stockableNames = new Set();
+    for (const p of stockableProducts) {
+      const n = stockableName(p);
+      if (n) stockableNames.add(n);
+
+      // ruaj edhe variantet nëse ekzistojnë
+      const n1 = toStr(p?.name);
+      const n2 = toStr(p?.nameSq);
+      const n3 = toStr(p?.nameEn);
+      const n4 = toStr(p?.nameIt);
+      if (n1) stockableNames.add(n1);
+      if (n2) stockableNames.add(n2);
+      if (n3) stockableNames.add(n3);
+      if (n4) stockableNames.add(n4);
     }
 
-    const supplies = await Supply.aggregate([
-      { $match: supplyMatch },
+    /* ===============================
+       3) SUPPLIES
+       - i RI: businessId ObjectId + productId
+       - fallback legacy: businessId string + productName (vetëm nëse s’ka data byId)
+    =============================== */
+    const supplyMatchNew = { businessId: bidObj };
+    const supplyMatchLegacy = { businessId: bidStr };
+
+    if (hasDateFilter) {
+      supplyMatchNew.createdAt = createdAtFilter;
+      supplyMatchLegacy.createdAt = createdAtFilter;
+    }
+
+    const suppliesById = await Supply.aggregate([
+      { $match: supplyMatchNew },
       {
         $group: {
-          _id: "$productName",
-          totalQuantitySupplied: { $sum: "$qty" }, // ⚠️ KETU PËRDORIM qty
+          _id: "$productId",
+          totalQuantitySupplied: { $sum: "$qty" },
         },
       },
     ]);
 
-// 4) SHITJET (Order)
-// businessId te Order.js është ObjectId, por për siguri provojmë si ObjectId DHE si string
-const orderMatch = {};
-if (mongoose.Types.ObjectId.isValid(businessId)) {
-  // nëse është ObjectId i vlefshëm → kërko me ObjectId
-  orderMatch.businessId = new mongoose.Types.ObjectId(businessId);
-} else {
-  // për raste kur mund të jetë ruajtur si string
-  orderMatch.businessId = businessId;
-}
+    const supplyMapById = new Map();
+    for (const s of suppliesById) {
+      const pid = String(s?._id || "");
+      if (!pid) continue;
+      if (!productById.has(pid)) continue;
+      supplyMapById.set(pid, s.totalQuantitySupplied || 0);
+    }
 
-if (from && to) {
-  orderMatch.createdAt = createdAtFilter;
-}
+    // fallback legacy vetëm kur s’ka asnjë supply byId
+    const supplyMapByName = new Map();
+    if (supplyMapById.size === 0) {
+      const suppliesByName = await Supply.aggregate([
+        { $match: supplyMatchLegacy },
+        {
+          $group: {
+            _id: "$productName",
+            totalQuantitySupplied: { $sum: "$qty" },
+          },
+        },
+      ]);
 
-const sales = await Order.aggregate([
-  { $match: orderMatch },
-  { $unwind: "$items" },
-  {
-    $group: {
-      _id: "$items.name",                // emri i produktit nga Order.js
-      totalQuantitySold: { $sum: "$items.qty" }, // qty nga Order.js
-    },
-  },
-]);
+      for (const s of suppliesByName) {
+        const name = toStr(s?._id);
+        if (!name) continue;
+        if (!stockableNames.has(name)) continue;
+        supplyMapByName.set(name, s.totalQuantitySupplied || 0);
+      }
+    }
 
+    /* ===============================
+       4) SALES (Order) – momentalisht by items.name
+    =============================== */
+    const orderMatch = { businessId: bidObj };
+    if (hasDateFilter) orderMatch.createdAt = createdAtFilter;
 
+    const sales = await Order.aggregate([
+      { $match: orderMatch },
+      { $unwind: "$items" },
+      {
+        $group: {
+          _id: "$items.name",
+          totalQuantitySold: { $sum: "$items.qty" },
+        },
+      },
+    ]);
 
-    // 5) MAP I FURNIZIMEVE SIPAS PRODUKTIT
-    const supplyMap = {};
-    supplies.forEach((s) => {
-      if (!s._id) return;
-      supplyMap[s._id] = s.totalQuantitySupplied || 0;
-    });
+    const soldMapByName = new Map();
+    for (const sale of sales) {
+      const name = toStr(sale?._id);
+      if (!name) continue;
+      if (!stockableNames.has(name)) continue;
+      soldMapByName.set(name, sale.totalQuantitySold || 0);
+    }
 
-    // 6) BASHKIMI: SHITJE + FURNIZIME
-    const result = sales.map((sale) => {
-      const name = sale._id;
-      const sold = sale.totalQuantitySold || 0;
+    /* ===============================
+       5) MERGE
+    =============================== */
+    const result = [];
+
+    for (const [pid, p] of productById.entries()) {
+      const displayName = stockableName(p);
+
       const supplied =
-        supplyMap[name] != null ? supplyMap[name] : sold; // nëse s’kemi furnizim, supozojmë supplied = sold
-      const remaining = supplied - sold;
+        supplyMapById.get(pid) ??
+        supplyMapByName.get(displayName) ??
+        0;
 
-      return {
-        productName: name,
+      const sold = soldMapByName.get(displayName) ?? 0;
+
+      result.push({
+        productId: pid,
+        productName: displayName,
+        categoryType: p.categoryType,
+        price: p.price ?? 0,
         supplied,
         sold,
-        remaining,
-      };
-    });
-
-    // 7) SHTO PRODUKTET QË JANË FURNIZUAR POR S’JANË SHITUR FARE
-    Object.keys(supplyMap).forEach((name) => {
-      const exists = result.find((r) => r.productName === name);
-      if (!exists) {
-        result.push({
-          productName: name,
-          supplied: supplyMap[name],
-          sold: 0,
-          remaining: supplyMap[name],
-        });
-      }
-    });
-
-    // 8) KTHE REZULTATIN
-    return res.json({
-      items: result,
-      totalProductsWithSales: result.filter((r) => r.sold > 0).length,
-      totalQuantitySold: result.reduce((sum, r) => sum + r.sold, 0),
-    });
-  } catch (err) {
-    console.error("❌ Gabim te getInventorySummary:", err);
-    return res
-      .status(500)
-      .json({ message: "Gabim në server (inventory)", error: err.message });
-  }
-};
-export const addSupply = async (req, res) => {
-  try {
-    const { businessId, productName, qty, unitPrice, note } = req.body;
-
-    if (!businessId || !productName || qty == null) {
-      return res.status(400).json({
-        message: "businessId, productName dhe qty janë të detyrueshme",
+        remaining: supplied - sold,
       });
     }
 
-    if (qty <= 0) {
+    return res.json({
+      items: result,
+      totalProductsWithSales: result.filter((r) => r.sold > 0).length,
+      totalQuantitySold: result.reduce((sum, r) => sum + (r.sold || 0), 0),
+    });
+  } catch (err) {
+    console.error("❌ Gabim te getInventorySummary:", err);
+    return res.status(500).json({
+      message: "Gabim në server (inventory)",
+      error: err.message,
+    });
+  }
+};
+
+// POST /api/inventory/supply
+// ✅ Ruhet supply (qty, unitPrice) + opsional update Product.price (newPrice)
+export const addSupply = async (req, res) => {
+  try {
+    const { businessId, productId, qty, unitPrice = 0, newPrice, note = "" } = req.body;
+
+    if (!businessId || !productId || qty == null) {
+      return res.status(400).json({
+        message: "businessId, productId dhe qty janë të detyrueshme",
+      });
+    }
+
+    if (!isValidId(businessId)) {
+      return res.status(400).json({ message: "businessId jo i vlefshëm" });
+    }
+    if (!isValidId(productId)) {
+      return res.status(400).json({ message: "productId jo i vlefshëm" });
+    }
+
+    const q = Number(qty);
+    if (!Number.isFinite(q) || q <= 0) {
       return res.status(400).json({ message: "qty duhet të jetë > 0" });
     }
 
+    const up = Number(unitPrice);
+    const safeUnitPrice = Number.isFinite(up) && up >= 0 ? up : 0;
+
+    const bid = new mongoose.Types.ObjectId(businessId);
+    const pid = new mongoose.Types.ObjectId(productId);
+
+    // ✅ vetëm ushqime/pije
+    const product = await Product.findOne({
+      _id: pid,
+      businessId: bid,
+      categoryType: { $in: ["ushqime", "pije"] },
+    })
+      .select("_id name nameSq nameEn nameIt")
+      .lean();
+
+    if (!product) {
+      return res.status(404).json({
+        message: "Produkti nuk ekziston ose nuk lejohet në inventar.",
+      });
+    }
+
+    const displayName = stockableName(product);
+
     const supply = await Supply.create({
-      businessId,                         // STRING sipas Supply.js
-      productName: productName.trim(),
-      qty,
-      unitPrice: unitPrice || 0,
-      note: note || "",
+      businessId: bid,
+      productId: pid,
+      productName: displayName,
+      qty: q,
+      unitPrice: safeUnitPrice,
+      note: toStr(note),
     });
 
-    return res.status(201).json(supply);
+    // ✅ Update çmimin e produktit (shitje) vetëm nëse është dhënë
+    if (newPrice !== undefined && newPrice !== null && newPrice !== "") {
+      const np = Number(newPrice);
+      if (!Number.isFinite(np) || np < 0) {
+        return res.status(400).json({ message: "newPrice duhet të jetë numër >= 0" });
+      }
+
+      await Product.updateOne(
+        { _id: pid, businessId: bid },
+        { $set: { price: np } }
+      );
+    }
+
+    return res.status(201).json({
+      ok: true,
+      supplyId: supply._id,
+      supply,
+    });
   } catch (err) {
     console.error("❌ Gabim te addSupply:", err);
-    return res
-      .status(500)
-      .json({ message: "Gabim në server (addSupply)", error: err.message });
+    return res.status(500).json({
+      message: "Gabim në server (addSupply)",
+      error: err.message,
+    });
   }
 };

@@ -9,6 +9,7 @@ const normalizeDestination = (d) => {
   return x === "banak" ? "banak" : "kuzhine"; // default kuzhine
 };
 
+
 export const getSubCategories = async (req, res) => {
   try {
     const { businessId, categoryType } = req.query;
@@ -86,6 +87,7 @@ export const updateSubCategory = async (req, res) => {
   try {
     const { id } = req.params;
     const { businessId } = req.query;
+
 
     if (!isValidId(id)) return res.status(400).json({ message: "id i pavlefshëm" });
     if (!businessId || !isValidId(businessId)) {

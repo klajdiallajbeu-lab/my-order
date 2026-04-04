@@ -1,13 +1,28 @@
-// src/pages/Waiter/WaiterPage.jsx
 import { useCallback, useEffect, useMemo, useState } from "react";
 import "./WaiterPage.css";
 import { getProducts } from "../../api/productApi.js";
 import { createOrder } from "../../api/ordersApi.js";
 import { socket } from "../../realtime/socket.js";
-import { api } from "../../api/http.js"; // ✅ përdor baseURL sipas VITE_API_URL
+import { api } from "../../api/http.js";
 
 const CURRENT_WAITER_NAME =
   sessionStorage.getItem("waiterName") || "Kamarjer 1";
+
+const getCurrencySymbol = (currency) => {
+  switch (currency) {
+    case "EUR":
+      return "€";
+    case "USD":
+      return "$";
+    case "CHF":
+      return "CHF";
+    case "GBP":
+      return "£";
+    case "ALL":
+    default:
+      return "ALL";
+  }
+};
 
 export default function WaiterPage({ onLogout }) {
   const [locationType, setLocationType] = useState("tavoline");
@@ -35,7 +50,6 @@ export default function WaiterPage({ onLogout }) {
 
   const businessId = useMemo(() => (localStorage.getItem("businessId") || "").trim(), []);
 
-  // ================== FETCH PRODUCTS ==================
   const fetchProducts = useCallback(async () => {
     if (!businessId) {
       setError("Mungon businessId. Hyni përsëri.");
@@ -59,12 +73,10 @@ export default function WaiterPage({ onLogout }) {
     }
   }, [businessId]);
 
-  // ================== FETCH INCOMING ORDERS ==================
   const fetchIncomingOrders = useCallback(async () => {
     if (!businessId) return;
 
     try {
-      // ✅ pa localhost — përdor api instance
       const res = await api.get("/orders", {
         params: { businessId },
         headers: { "Cache-Control": "no-cache" },
@@ -83,6 +95,8 @@ export default function WaiterPage({ onLogout }) {
         sourceNumber: o.sourceNumber,
         items: o.items || [],
         total: Number(o.total || 0),
+        totalALL: Number(o.totalALL || 0),
+        currency: o.currency || "ALL",
         status: o.status || "pending",
         acceptedBy: o.acceptedBy || "",
       }));
@@ -93,19 +107,16 @@ export default function WaiterPage({ onLogout }) {
     }
   }, [businessId]);
 
-  // ================== INITIAL LOAD ==================
   useEffect(() => {
     fetchProducts();
     fetchIncomingOrders();
   }, [fetchProducts, fetchIncomingOrders]);
 
-  // ================== SOCKET REAL-TIME ==================
   useEffect(() => {
     if (!businessId) return;
 
     const join = () => socket.emit("joinBusiness", businessId);
 
-    // ✅ join edhe kur rilidhet socket (shumë e rëndësishme në telefon)
     if (socket.connected) join();
     socket.on("connect", join);
 
@@ -129,14 +140,12 @@ export default function WaiterPage({ onLogout }) {
     };
   }, [businessId, fetchProducts, fetchIncomingOrders]);
 
-  // fallback polling (opsionale)
   useEffect(() => {
     if (!businessId) return;
     const interval = setInterval(fetchIncomingOrders, 20000);
     return () => clearInterval(interval);
   }, [businessId, fetchIncomingOrders]);
 
-  // ================== DERIVATES ==================
   const filteredIncoming = useMemo(
     () => incomingOrders.filter((o) => o.sourceType === locationType),
     [incomingOrders, locationType]
@@ -158,7 +167,6 @@ export default function WaiterPage({ onLogout }) {
     [incomingOrders]
   );
 
-  // ================== CART ==================
   const totalItems = useMemo(
     () => cart.reduce((sum, item) => sum + item.quantity, 0),
     [cart]
@@ -200,7 +208,6 @@ export default function WaiterPage({ onLogout }) {
     });
   };
 
-  // ================== SEND ORDER (tavoline) ==================
   const handleSendOrder = async () => {
     if (locationType !== "tavoline") {
       alert("Zgjidh 'Tavolinë' për të dërguar porosi.");
@@ -236,7 +243,6 @@ export default function WaiterPage({ onLogout }) {
     }
   };
 
-  // ================== ACCEPT / DONE ==================
   const handleAcceptIncoming = async (orderId) => {
     const ok = window.confirm("Ta marrësh këtë porosi?");
     if (!ok) return;
@@ -250,7 +256,6 @@ export default function WaiterPage({ onLogout }) {
     );
 
     try {
-      // ✅ pa localhost
       await api.patch(`/orders/${orderId}/status`, {
         status: "accepted",
         acceptedBy: CURRENT_WAITER_NAME,
@@ -269,7 +274,6 @@ export default function WaiterPage({ onLogout }) {
     );
 
     try {
-      // ✅ pa localhost
       await api.patch(`/orders/${orderId}/status`, { status: "done" });
     } catch (err) {
       console.error("Gabim te updateOrderStatus (done):", err?.response?.data || err);
@@ -277,7 +281,6 @@ export default function WaiterPage({ onLogout }) {
     }
   };
 
-  // ================== KATEGORI & NËN-KATEGORI ==================
   const safeProducts = Array.isArray(products) ? products : [];
 
   const categoryMap = useMemo(() => {
@@ -314,11 +317,8 @@ export default function WaiterPage({ onLogout }) {
     });
   }, [safeProducts, selectedCategoryType, selectedSubCategory]);
 
-  // ================== RENDER ==================
   return (
     <div className="waiter-page">
-      {/* ... pjesa tjetër e renderit mbetet identike ... */}
-      {/* UNCHANGED UI BELOW */}
       <header className="waiter-header">
         <div className="waiter-header-top">
           <div className="waiter-header-left">
@@ -424,7 +424,7 @@ export default function WaiterPage({ onLogout }) {
                 onClick={() => addToCart(p)}
               >
                 <div className="waiter-product-name">{p.name}</div>
-                <div className="waiter-product-price">{p.price} €</div>
+                <div className="waiter-product-price">{p.price} ALL</div>
               </div>
             ))}
 
@@ -464,14 +464,14 @@ export default function WaiterPage({ onLogout }) {
                   <button type="button" onClick={() => removeFromCart(item._id)}>
                     -
                   </button>
-                  <span>{(item.quantity * item.price).toFixed(2)} €</span>
+                  <span>{(item.quantity * item.price).toFixed(2)} ALL</span>
                 </div>
               </div>
             ))}
 
             {cart.length > 0 && (
               <div className="waiter-cart-footer">
-                <span>Total: {totalPrice.toFixed(2)} €</span>
+                <span>Total: {totalPrice.toFixed(2)} ALL</span>
                 <button type="button" className="waiter-send-btn" onClick={handleSendOrder}>
                   Dërgo porosinë
                 </button>
@@ -502,7 +502,10 @@ export default function WaiterPage({ onLogout }) {
                     {order.status === "done" && "E dërguar"}
                   </div>
                 </div>
-                <div className="incoming-total">€{Number(order.total).toFixed(2)}</div>
+
+                <div className="incoming-total">
+                  {Number(order.total).toFixed(2)} {getCurrencySymbol(order.currency)}
+                </div>
               </div>
 
               <div className="incoming-items">

@@ -1,72 +1,243 @@
-/* KONTAINER KRYESOR */
 .user-page-container {
-  padding: 30px;
+  padding: 24px;
+  background: #f5f7fb;
+  min-height: 100vh;
 }
 
-/* ----------- PANELI I SIPËRRM ---------- */
+.user-header-card,
+.user-list-card,
+.user-stat-card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06);
+}
+
 .user-header-card {
-  background: #ffffff;
-  padding: 25px;
-  border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.07);
   display: flex;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  margin-bottom: 25px;
+  gap: 16px;
+  padding: 24px;
+  margin-bottom: 20px;
 }
 
-/* TITULLI */
+
 .user-title {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 800;
+  color: #0f172a;
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 15px;
+  gap: 12px;
 }
 
-.user-title h1 {
-  font-size: 35px;
-  color: #06453e;
+.user-subtitle {
+  margin: 8px 0 0;
+  color: #6b7280;
+  font-size: 14px;
 }
+
 
 .user-icon {
-  font-size: 40px;
+  font-size: 30px;
 }
 
-/* BUTONI SHTO USER – i vogël dhe profesional */
 .add-user-btn {
-  background: #065f46;
-  color: white;
   border: none;
-  width: 200px;
-  padding: 8px 18px;
-  border-radius: 8px;
-  font-size: 16px;
-  cursor: pointer;
-  transition: 0.2s;
-}
-
-.add-user-btn:hover {
-  background: #054a37;
-  transform: scale(1.05);
-}
-
-/* ----------- LISTA E USERAVE ---------- */
-.user-list-card {
-  background: #ffffff;
-  padding: 30px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #fff;
   border-radius: 14px;
-  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-  min-height: 120px;
-  text-align: center;
+  padding: 14px 20px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.2);
 }
 
-.no-users-text {
-  font-size: 18px;
-  color: #555;
+.user-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.user-stat-card {
+  padding: 20px;
+}
+
+.stat-label {
+  display: block;
+  font-size: 13px;
+  color: #6b7280;
+  margin-bottom: 8px;
+}
+
+.user-stat-card h3 {
+  margin: 0;
+  font-size: 28px;
+  color: #111827;
+}
+
+.user-list-card {
+  padding: 22px;
+}
+
+.user-toolbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 20px;
+}
+
+.user-search-input,
+.user-filter-select {
+  height: 48px;
+  border: 1px solid #d1d5db;
+  border-radius: 14px;
+  padding: 0 14px;
+  font-size: 14px;
+  outline: none;
+  background: #fff;
+}
+
+.user-search-input {
+  flex: 1;
+}
+
+.user-search-input:focus,
+.user-filter-select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.user-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .user-item {
-  padding: 12px;
-  border-bottom: 1px solid #ececec;
-  font-size: 17px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  border: 1px solid #e5e7eb;
+  border-radius: 16px;
+  background: #f9fafb;
+}
+
+.user-item-left {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.user-avatar {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.user-info h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #111827;
+}
+
+.user-info p {
+  margin: 4px 0 0;
+  font-size: 13px;
+  color: #6b7280;
+}
+
+.user-item-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-role-badge {
+  padding: 8px 12px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.user-role-badge.waiter {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.user-role-badge.manager {
+  background: #ede9fe;
+  color: #6d28d9;
+}
+
+.user-role-badge.admin {
+  background: #dcfce7;
+  color: #15803d;
+}
+
+.edit-user-btn {
+  border: none;
+  background: #f3f4f6;
+  color: #111827;
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.edit-user-btn:hover {
+  background: #e5e7eb;
+}
+
+.no-users-text {
+  text-align: center;
+  color: #6b7280;
+  padding: 24px 0;
+}
+
+.user-error-text {
+  text-align: center;
+  color: #dc2626;
+  padding: 24px 0;
+  font-weight: 600;
+}
+
+@media (max-width: 768px) {
+  .user-header-card {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .user-stats-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .user-toolbar {
+    flex-direction: column;
+  }
+
+  .user-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 14px;
+  }
+
+  .user-item-right {
+    width: 100%;
+    justify-content: space-between;
+  }
 }

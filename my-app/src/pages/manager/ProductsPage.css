@@ -1,60 +1,133 @@
 /* src/pages/manager/ProductsPage.css */
+@import "react-datepicker/dist/react-datepicker.css";
 
 .prod-page {
   padding: 26px 26px 40px;
 }
 
-/* top header */
-.prod-top {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  margin-bottom: 18px;
-}
-
-.prod-back {
-  width: 150px;
-  height: 58px;
-  border: none;
+/* =========================
+   HEADER (PRO toolbar)
+========================= */
+.prod-top{
+  background: linear-gradient(
+    180deg,
+    rgba(11, 93, 64, 0.06),
+    rgba(11, 93, 64, 0.02)
+  );
+  backdrop-filter: blur(10px);
   border-radius: 16px;
-  background: #0b5d40;
-  color: #fff;
-  font-size: 22px;
-  cursor: pointer;
-  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.12);
+  padding: 0px 18px;
+  border: 1px solid rgba(11, 93, 64, 0.12);
+  box-shadow: 0 12px 28px rgba(16, 24, 40, 0.06);
+
+  /* sticky */
+  position: sticky;
+  top: 12px;
+  z-index: 20;
+  height: 90px;
+
+  /* layout */
+  display: flex;
+  align-items: center;              /* qendër vertikale */
+  justify-content: space-between;
+  gap: 14px;
+
+  /* për titull absolute center */
+  position: sticky;
+  /* sticky pranon edhe relative? Po: vendos relative me inset */
+  /* më e thjeshta: */
+  /* 👇 */
+  left: 0;
+  right: 0;
 }
 
-.prod-title-wrap {
-  flex: 1;
+
+/* Titulli në qendër reale (horizontal + vertical) */
+.prod-title-wrap{
+  position: absolute;
+  left: 50%;
+  top: 65%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  pointer-events: none; /* mos blloko klikimet */
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 60%;
 }
 
-.prod-title {
+/* Titull më elegant */
+.prod-title{
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
   margin: 0;
-  font-size: 44px;
-  letter-spacing: 1px;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: 0.6px; /* CAPS më i pastër */
   color: #0b3f33;
+  line-height: 1.15;
+
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.prod-subtitle {
-  margin-top: 6px;
+
+.prod-subtitle{
+  margin: 0;
   color: #6b7b76;
-  font-size: 16px;
+  font-size: 13px;
 }
 
-.prod-add-open {
-  height: 52px;
-  padding: 0 18px;
-  border-radius: 14px;
+/* add button (with react-icons) */
+.prod-add-open{
+  height: 44px;
+  padding: 0 16px;
+  border-radius: 12px;
   border: none;
   background: #0b5d40;
   color: #fff;
-  font-weight: 800;
-  font-size: 16px;
+  font-weight: 900;
+  font-size: 14px;
   cursor: pointer;
-  box-shadow: 0 10px 18px rgba(11, 93, 64, 0.18);
+
+  box-shadow: 0 10px 18px rgba(11, 93, 64, 0.16);
+  transition: transform .12s ease, filter .12s ease, box-shadow .12s ease;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
 }
 
-/* content */
+.prod-add-open:hover{
+  transform: translateY(-1px);
+  filter: brightness(0.98);
+  box-shadow: 0 14px 26px rgba(11, 93, 64, 0.18);
+}
+
+/* normalize icon sizing (FiPlus, FiEdit2, FiTrash2) */
+.i{
+  font-size: 18px;
+  line-height: 1;
+}
+
+/* mobile */
+@media (max-width: 720px){
+  .prod-top{
+    position: static; /* sticky off on small screens (optional) */
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+
+  .prod-add-open{
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* =========================
+   CONTENT
+========================= */
 .prod-content {
   margin-top: 14px;
 }
@@ -62,12 +135,15 @@
 .prod-empty {
   padding: 22px;
   background: #ffffff;
-  border-radius: 18px;
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.06);
+  border-radius: 16px;
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.05);
   color: #6b7b76;
 }
 
-/* GRID 3 columns (siç do ti) */
+/* =========================
+   GRID
+========================= */
 .prod-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -86,19 +162,26 @@
   }
 }
 
-/* CARD (të duket “si më parë”, por në grid) */
+/* =========================
+   CARD
+========================= */
 .prod-card {
   background: #eaf5f1;
   border-radius: 18px;
-  padding: 12px 12px;
-  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.06);
+  padding: 12px;
   border: 1px solid rgba(11, 93, 64, 0.12);
+  box-shadow: 0 14px 28px rgba(0, 0, 0, 0.05);
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+
+.prod-card:hover{
+  transform: translateY(-1px);
+  box-shadow: 0 18px 32px rgba(0, 0, 0, 0.07);
 }
 
 .prod-card-row {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 12px;
 }
 
@@ -113,7 +196,6 @@
   letter-spacing: 0.3px;
   text-transform: uppercase;
 
-  /* clamp me compatibility */
   display: -webkit-box;
   -webkit-line-clamp: 1;
   line-clamp: 1;
@@ -143,32 +225,52 @@
 
 .prod-card-actions {
   display: flex;
-  gap: 10px;
+  gap: 6px;
+  margin-left: auto;
+}
+.prod-card-left {
+  flex: 1;
+  min-width: 0;
 }
 
-.prod-icon {
+
+
+
+
+
+/* ICON BUTTONS (PRO) */
+.prod-icon{
   width: 42px;
   height: 42px;
   border-radius: 14px;
-  border: none;
+  border: 1px solid rgba(15, 23, 42, 0.06);
   cursor: pointer;
-  background: rgba(255, 255, 255, 0.78);
-  display: grid;
-  place-items: center;
+  background: rgba(255, 255, 255, 0.92);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
   box-shadow: 0 10px 18px rgba(0, 0, 0, 0.06);
-  transition: transform 0.12s ease, background 0.12s ease;
+  transition: transform 0.12s ease, background 0.12s ease, box-shadow 0.12s ease;
+  padding: 0;
+
+  color: #0b3f33;
 }
 
-.prod-icon:hover {
+.prod-icon:hover{
   transform: translateY(-1px);
-  background: rgba(255, 255, 255, 0.92);
+  background: #ffffff;
+  box-shadow: 0 14px 22px rgba(0, 0, 0, 0.08);
 }
 
 .prod-icon.del {
   color: #d94c4c;
 }
 
-/* MODAL */
+/* =========================
+   MODAL
+========================= */
 .prod-modal-overlay {
   position: fixed;
   inset: 0;
@@ -227,7 +329,7 @@
   }
 }
 
-/* ✅ Modal layout: 3 rreshta siç kërkove */
+/* Modal layout: 3 rreshta */
 .prod-form-grid.modal-3rows {
   grid-template-areas:
     "nameSq nameEn nameIt"
@@ -260,7 +362,7 @@
 
 .f-price { grid-area: price; }
 
-/* ✅ wrapper për department (vendose në JSX: className="dept-select f-dept") */
+/* wrapper për department (vendose në JSX: className="dept-select f-dept") */
 .f-dept { grid-area: dept; }
 
 /* inputs */
@@ -308,20 +410,12 @@
 
 .dept-btn.active.kuzhine {
   border-color: rgba(255, 140, 0, 0.55);
-  background: linear-gradient(
-    135deg,
-    rgba(255, 140, 0, 0.22),
-    rgba(255, 80, 0, 0.12)
-  );
+  background: linear-gradient(135deg, rgba(255, 140, 0, 0.22), rgba(255, 80, 0, 0.12));
 }
 
 .dept-btn.active.banak {
   border-color: rgba(0, 160, 200, 0.55);
-  background: linear-gradient(
-    135deg,
-    rgba(0, 212, 255, 0.22),
-    rgba(93, 134, 255, 0.12)
-  );
+  background: linear-gradient(135deg, rgba(0, 212, 255, 0.22), rgba(93, 134, 255, 0.12));
 }
 
 .dept-hint {

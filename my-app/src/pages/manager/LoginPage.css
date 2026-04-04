@@ -1,11 +1,13 @@
 /* QENDRO LOGIN-IN NË MES */
 .login-container {
   display: flex;
-  justify-content: center; /* Qendër horizontale */
-  align-items: center;      /* Qendër vertikale */
-  height: 100vh;            /* Marrë gjatësinë e plotë të ekranit */
+  justify-content: center;
+  align-items: center;
+  min-height: 100dvh; /* 👈 JO 100vh */
   background: #f5f5f5;
 }
+
+
 
 /* KUTIA E LOGIN-IT */
 .login-box {
