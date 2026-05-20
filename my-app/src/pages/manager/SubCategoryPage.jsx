@@ -1,7 +1,17 @@
 // src/pages/manager/SubCategoryPage.jsx
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import {
+  FiEdit2,
+  FiTrash2,
+  FiPlus,
+  FiChevronRight,
+  FiGrid,
+  FiCoffee,
+  FiHome,
+  FiMapPin,
+  FiPackage,
+} from "react-icons/fi";
 
 import "./SubCategoryPage.css";
 
@@ -22,14 +32,45 @@ const safeDecode = (v) => {
 
 const getTitleMeta = (type) => {
   const t = (type || "").toLowerCase();
-  if (t === "ushqime") return { icon: "🍽️", label: "Ushqime" };
-  if (t === "pije") return { icon: "🥤", label: "Pije" };
-  if (t === "cadra") return { icon: "🏖️", label: "Çadra" };
-  if (t === "dhoma") return { icon: "🏨", label: "Dhoma" };
-  return { icon: "📁", label: type || "Kategori" };
+
+  if (t === "ushqime") {
+    return {
+      label: "Restorant",
+      icon: <FiGrid />,
+    };
+  }
+
+  if (t === "pije") {
+    return {
+      label: "Bar",
+      icon: <FiCoffee />,
+    };
+  }
+
+  if (t === "cadra") {
+    return {
+      label: "Çadra",
+      icon: <FiMapPin />,
+      description: "Menaxho kodet dhe aktivizimin për përdorim me QR.",
+    };
+  }
+
+  if (t === "dhoma") {
+    return {
+      label: "Dhoma",
+      icon: <FiHome />,
+      description: "Menaxho dhomat dhe kodet e lidhura me porositë nga klientët.",
+    };
+  }
+
+  return {
+    label: type || "Kategori",
+    icon: <FiPackage />,
+    description: "Menaxho elementët e kësaj kategorie.",
+  };
 };
 
-const deptLabel = (d) => (d === "banak" ? "🍹 Banak" : "🍳 Kuzhinë");
+const deptLabel = (d) => (d === "banak" ? "Banak" : "Kuzhinë");
 
 export default function SubCategoryPage() {
   const [params] = useSearchParams();
@@ -46,7 +87,7 @@ export default function SubCategoryPage() {
     []
   );
 
-  const { icon, label } = useMemo(
+  const { icon, label, description } = useMemo(
     () => getTitleMeta(categoryType),
     [categoryType]
   );
@@ -58,13 +99,13 @@ export default function SubCategoryPage() {
   const isSimpleType = categoryType === "cadra" || categoryType === "dhoma";
 
   // =========================
-  // ADD MODAL (3 gjuhë + department)
+  // ADD MODAL
   // =========================
   const [showAdd, setShowAdd] = useState(false);
   const [addSq, setAddSq] = useState("");
   const [addEn, setAddEn] = useState("");
   const [addIt, setAddIt] = useState("");
-  const [addDepartment, setAddDepartment] = useState("kuzhine"); // ✅ default
+  const [addDepartment, setAddDepartment] = useState("kuzhine");
 
   const resetAdd = () => {
     setAddSq("");
@@ -74,7 +115,7 @@ export default function SubCategoryPage() {
   };
 
   // =========================
-  // EDIT MODAL (3 gjuhë + department)
+  // EDIT MODAL
   // =========================
   const [showEdit, setShowEdit] = useState(false);
   const [editId, setEditId] = useState(null);
@@ -85,13 +126,20 @@ export default function SubCategoryPage() {
 
   const openEdit = (sc) => {
     setEditId(sc._id);
-
     setEditSq((sc.nameSq ?? sc.name ?? "").toString());
     setEditEn((sc.nameEn ?? "").toString());
     setEditIt((sc.nameIt ?? "").toString());
-
     setEditDepartment(sc.destination === "banak" ? "banak" : "kuzhine");
     setShowEdit(true);
+  };
+
+  const closeEdit = () => {
+    setShowEdit(false);
+    setEditId(null);
+    setEditSq("");
+    setEditEn("");
+    setEditIt("");
+    setEditDepartment("kuzhine");
   };
 
   const fetchSubCats = useCallback(async () => {
@@ -102,6 +150,7 @@ export default function SubCategoryPage() {
       if (!businessId || businessId === "undefined" || businessId === "null") {
         throw new Error("Mungon businessId. Hyr sërish si menaxher.");
       }
+
       if (!categoryType) {
         throw new Error("Mungon 'type' në URL.");
       }
@@ -135,7 +184,7 @@ export default function SubCategoryPage() {
       await fetchSubCats();
     } catch (e) {
       console.error("deleteSubCategory error:", e?.response?.data || e);
-      alert(e?.response?.data?.message || "❌ Gabim gjatë fshirjes.");
+      alert(e?.response?.data?.message || "Gabim gjatë fshirjes.");
     }
   };
 
@@ -144,37 +193,32 @@ export default function SubCategoryPage() {
     const en = String(addEn || "").trim();
     const it = String(addIt || "").trim();
 
-    if (!sq) return alert("Emri (Shqip) është i detyrueshëm!");
+    if (!sq) return alert("Emri (Shqip) është i detyrueshëm.");
 
     const exists = subCats.some((s) => {
       const current = (s.nameSq ?? s.name ?? "").toLowerCase().trim();
       return current === sq.toLowerCase();
     });
+
     if (exists) return alert("Kjo nën-kategori ekziston tashmë.");
 
-    const dept = addDepartment === "banak" ? "banak" : "kuzhine";
-
     try {
-await createSubCategory({
-  businessId,
-  categoryType,
-  // ✅ ruaj multi + fallback
-  nameSq: sq,
-  nameEn: en,
-  nameIt: it,
-  name: sq,
-
-  // ✅ KU SHKON POROSIA (kuzhine/banak)
-  destination: addDepartment,
-});
-
+      await createSubCategory({
+        businessId,
+        categoryType,
+        nameSq: sq,
+        nameEn: en,
+        nameIt: it,
+        name: sq,
+        destination: addDepartment === "banak" ? "banak" : "kuzhine",
+      });
 
       resetAdd();
       setShowAdd(false);
       await fetchSubCats();
     } catch (e) {
       console.error("createSubCategory error:", e?.response?.data || e);
-      alert(e?.response?.data?.message || "❌ Gabim gjatë shtimit.");
+      alert(e?.response?.data?.message || "Gabim gjatë shtimit.");
     }
   };
 
@@ -185,9 +229,7 @@ await createSubCategory({
     const en = String(editEn || "").trim();
     const it = String(editIt || "").trim();
 
-    if (!sq) return alert("Emri (Shqip) është i detyrueshëm!");
-
-    const dept = editDepartment === "banak" ? "banak" : "kuzhine";
+    if (!sq) return alert("Emri (Shqip) është i detyrueshëm.");
 
     try {
       await updateSubCategory({
@@ -197,19 +239,24 @@ await createSubCategory({
           nameSq: sq,
           nameEn: en,
           nameIt: it,
-          name: sq, // fallback
+          name: sq,
           destination: editDepartment === "banak" ? "banak" : "kuzhine",
         },
       });
 
-      setShowEdit(false);
-      setEditId(null);
+      closeEdit();
       await fetchSubCats();
     } catch (e) {
       console.error("updateSubCategory error:", e?.response?.data || e);
-      alert(e?.response?.data?.message || "❌ Gabim gjatë përditësimit.");
+      alert(e?.response?.data?.message || "Gabim gjatë përditësimit.");
     }
   };
+
+  const totalCount = subCats.length;
+  const kitchenCount = subCats.filter(
+    (s) => (s.destination || "kuzhine") !== "banak"
+  ).length;
+  const barCount = subCats.filter((s) => s.destination === "banak").length;
 
   // =========================
   // UI: CADRA / DHOMA
@@ -222,34 +269,37 @@ await createSubCategory({
             <div className="subcat-hero-icon">{icon}</div>
             <div>
               <h1 className="subcat-title">{label} – Numrat</h1>
-              <p className="subcat-subtitle">
-              
-              </p>
+              <p className="subcat-subtitle">{description}</p>
             </div>
           </div>
         </div>
 
-<div className="subcat-grid">
-  <button
-    className="subcat-card"
-    onClick={() => {
-      const placeType = categoryType === "dhoma" ? "room" : "umbrella";
-      navigate(`/manager/places?type=${encodeURIComponent(placeType)}`);
-    }}
-  >
-    <div className="subcat-card-left">
-      <div className="subcat-card-badge">🔢</div>
-      <div className="subcat-card-text">
-        <div className="subcat-card-title">Menaxho kodet</div>
-        <div className="subcat-card-desc">
-          Shto/Enable/Disable dhe përdori për QR (vetëm të regjistruarit).
-        </div>
-      </div>
-    </div>
-    <div className="subcat-card-arrow">›</div>
-  </button>
-</div>
+        <div className="subcat-grid">
+          <button
+            className="subcat-card"
+            onClick={() => {
+              const placeType = categoryType === "dhoma" ? "room" : "umbrella";
+              navigate(`/manager/places?type=${encodeURIComponent(placeType)}`);
+            }}
+          >
+            <div className="subcat-card-left">
+              <div className="subcat-card-badge">
+                <FiGrid />
+              </div>
 
+              <div className="subcat-card-text">
+                <div className="subcat-card-title">Menaxho kodet</div>
+                <div className="subcat-card-desc">
+                  Shto, aktivizo ose çaktivizo kodet që përdoren nga QR.
+                </div>
+              </div>
+            </div>
+
+            <div className="subcat-card-arrow">
+              <FiChevronRight />
+            </div>
+          </button>
+        </div>
       </div>
     );
   }
@@ -263,15 +313,26 @@ await createSubCategory({
         <div className="subcat-hero-left">
           <div className="subcat-hero-icon">{icon}</div>
           <div>
+            <div
+              style={{
+                fontSize: "13px",
+                fontWeight: "700",
+                color: "#64748b",
+                marginBottom: "4px",
+              }}
+            >
+              Menaxhim produktesh
+            </div>
+
             <h1 className="subcat-title">{label} – Nën-kategoritë</h1>
-            <p className="subcat-subtitle">
-            </p>
+            <p className="subcat-subtitle">{description}</p>
           </div>
         </div>
 
         <div className="subcat-hero-actions">
           <button className="subcat-add" onClick={() => setShowAdd(true)}>
-            + Shto
+            <FiPlus />
+            <span>Shto</span>
           </button>
         </div>
       </div>
@@ -283,17 +344,18 @@ await createSubCategory({
         <div className="subcat-grid">
           {subCats.length === 0 ? (
             <div className="subcat-empty">
-              <div className="subcat-empty-icon">🗂️</div>
+              <div className="subcat-empty-icon">
+                <FiPackage />
+              </div>
               <div className="subcat-empty-title">Nuk ka nën-kategori</div>
               <div className="subcat-empty-desc">
-                Shto të parën me butonin “+ Shto”.
+                Shto nën-kategorinë e parë për të organizuar më mirë produktet.
               </div>
             </div>
           ) : (
             subCats.map((sc) => {
               const title = (sc.nameSq ?? sc.name ?? "").trim() || "Pa emër";
               const dept = sc.destination === "banak" ? "banak" : "kuzhine";
-
 
               return (
                 <div
@@ -305,21 +367,23 @@ await createSubCategory({
                     navigate(
                       `/manager/products?type=${encodeURIComponent(
                         categoryType
-                      )}&cat=${encodeURIComponent(title)}`
-                    )
-                  }
+                      )}&subCategoryId=${encodeURIComponent(sc._id)}`
+  )
+}
                   onKeyDown={(e) => {
                     if (e.key === "Enter") {
                       navigate(
                         `/manager/products?type=${encodeURIComponent(
                           categoryType
-                        )}&cat=${encodeURIComponent(title)}`
+                        )}&subCategoryId=${encodeURIComponent(sc._id)}`
                       );
                     }
                   }}
                 >
                   <div className="subcat-card-left">
-                    <div className="subcat-card-badge">📄</div>
+                    <div className="subcat-card-badge">
+                      <FiGrid />
+                    </div>
 
                     <div className="subcat-card-text">
                       <div className="subcat-card-title">{title}</div>
@@ -331,44 +395,41 @@ await createSubCategory({
                               ? "subcat-dept-tag banak"
                               : "subcat-dept-tag kuzhine"
                           }
-                          title="Ku shkojnë porositë për këtë nën-kategori?"
+                          title="Ku shkon porosia?"
                         >
                           {deptLabel(dept)}
                         </span>
                       </div>
                     </div>
                   </div>
-                  
-                  
-          <div className="subcat-card-right">
-  <button
-    className="subcat-icon edit"
-    title="Ndrysho"
-    onClick={(e) => {
-      e.stopPropagation();
-      openEdit(sc);
-    }}
-  >
-    <FiEdit2 className="i" />
-  </button>
 
-  <button
-    className="subcat-icon del"
-    title="Fshi"
-    onClick={(e) => {
-      e.stopPropagation();
-      handleDeleteSub(sc._id, title);
-    }}
-  >
-    <FiTrash2 className="i" />
-  </button>
+                  <div className="subcat-card-right">
+                    <button
+                      className="subcat-icon edit"
+                      title="Ndrysho"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openEdit(sc);
+                      }}
+                    >
+                      <FiEdit2 className="i" />
+                    </button>
 
-  <div className="subcat-card-arrow">›</div>
-</div>
+                    <button
+                      className="subcat-icon del"
+                      title="Fshi"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDeleteSub(sc._id, title);
+                      }}
+                    >
+                      <FiTrash2 className="i" />
+                    </button>
 
-
-
-
+                    <div className="subcat-card-arrow">
+                      <FiChevronRight />
+                    </div>
+                  </div>
                 </div>
               );
             })
@@ -376,81 +437,80 @@ await createSubCategory({
         </div>
       )}
 
-{/* ================= ADD MODAL ================= */}
-{showAdd && (
-  <div className="subcat-modal-overlay" onClick={() => setShowAdd(false)}>
-    <div className="subcat-modal" onClick={(e) => e.stopPropagation()}>
-      <h2>Shto Nën-kategori</h2>
+      {/* ================= ADD MODAL ================= */}
+      {showAdd && (
+        <div className="subcat-modal-overlay" onClick={() => setShowAdd(false)}>
+          <div className="subcat-modal" onClick={(e) => e.stopPropagation()}>
+            <h2>Shto Nën-kategori</h2>
 
-      <div className="subcat-3grid">
-        <input
-          placeholder="Emri (Shqip)"
-          value={addSq}
-          onChange={(e) => setAddSq(e.target.value)}
-        />
-        <input
-          placeholder="Name (English)"
-          value={addEn}
-          onChange={(e) => setAddEn(e.target.value)}
-        />
-        <input
-          placeholder="Nome (Italiano)"
-          value={addIt}
-          onChange={(e) => setAddIt(e.target.value)}
-        />
-      </div>
+            <div className="subcat-3grid">
+              <input
+                placeholder="Emri (Shqip)"
+                value={addSq}
+                onChange={(e) => setAddSq(e.target.value)}
+              />
+              <input
+                placeholder="Name (English)"
+                value={addEn}
+                onChange={(e) => setAddEn(e.target.value)}
+              />
+              <input
+                placeholder="Nome (Italiano)"
+                value={addIt}
+                onChange={(e) => setAddIt(e.target.value)}
+              />
+            </div>
 
-      {/* ✅ KU SHKOJNË POROSITË PËR KËTË NËN-KATEGORI */}
-      <div className="subcat-dept-pick">
-        <div className="subcat-dept-label">Ku shkon porosia?</div>
+            <div className="subcat-dept-pick">
+              <div className="subcat-dept-label">Ku shkon porosia?</div>
 
-        <div className="subcat-dept-buttons">
-          <button
-            type="button"
-            className={
-              addDepartment === "kuzhine"
-                ? "subcat-dept-btn active kuzhine"
-                : "subcat-dept-btn kuzhine"
-            }
-            onClick={() => setAddDepartment("kuzhine")}
-          >
-            🍳 Kuzhinë
-          </button>
+              <div className="subcat-dept-buttons">
+                <button
+                  type="button"
+                  className={
+                    addDepartment === "kuzhine"
+                      ? "subcat-dept-btn active kuzhine"
+                      : "subcat-dept-btn kuzhine"
+                  }
+                  onClick={() => setAddDepartment("kuzhine")}
+                >
+                  Kuzhinë
+                </button>
 
-          <button
-            type="button"
-            className={
-              addDepartment === "banak"
-                ? "subcat-dept-btn active banak"
-                : "subcat-dept-btn banak"
-            }
-            onClick={() => setAddDepartment("banak")}
-          >
-            🍹 Banak
-          </button>
+                <button
+                  type="button"
+                  className={
+                    addDepartment === "banak"
+                      ? "subcat-dept-btn active banak"
+                      : "subcat-dept-btn banak"
+                  }
+                  onClick={() => setAddDepartment("banak")}
+                >
+                  Banak
+                </button>
+              </div>
+
+              <div className="subcat-dept-hint">
+                Kjo zgjedhje vlen për të gjithë produktet brenda kësaj
+                nën-kategorie.
+              </div>
+            </div>
+
+            <div className="subcat-modal-actions">
+              <button className="btn-secondary" onClick={() => setShowAdd(false)}>
+                Mbyll
+              </button>
+              <button className="btn-primary" onClick={handleAddSub}>
+                Ruaj
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div className="subcat-dept-hint">
-          Kjo zgjedhje vlen për të gjithë produktet brenda kësaj nën-kategorie.
-        </div>
-      </div>
-
-      <div className="subcat-modal-actions">
-        <button className="btn-secondary" onClick={() => setShowAdd(false)}>
-          Mbyll
-        </button>
-        <button className="btn-primary" onClick={handleAddSub}>
-          Ruaj
-        </button>
-      </div>
-    </div>
-  </div>
-)}
-
+      )}
 
       {/* ================= EDIT MODAL ================= */}
       {showEdit && (
-        <div className="subcat-modal-overlay" onClick={() => setShowEdit(false)}>
+        <div className="subcat-modal-overlay" onClick={closeEdit}>
           <div className="subcat-modal" onClick={(e) => e.stopPropagation()}>
             <h2>Ndrysho Nën-kategorinë</h2>
 
@@ -472,7 +532,6 @@ await createSubCategory({
               />
             </div>
 
-            {/* ✅ EDIT: KU SHKOJNË POROSITË */}
             <div className="subcat-dept-pick">
               <div className="subcat-dept-label">Ku shkon porosia?</div>
 
@@ -486,7 +545,7 @@ await createSubCategory({
                   }
                   onClick={() => setEditDepartment("kuzhine")}
                 >
-                  🍳 Kuzhinë
+                  Kuzhinë
                 </button>
 
                 <button
@@ -498,16 +557,18 @@ await createSubCategory({
                   }
                   onClick={() => setEditDepartment("banak")}
                 >
-                  🍹 Banak
+                  Banak
                 </button>
               </div>
 
               <div className="subcat-dept-hint">
+                Përditëso destinacionin ku do të dërgohen porositë për këtë
+                nën-kategori.
               </div>
             </div>
 
             <div className="subcat-modal-actions">
-              <button className="btn-secondary" onClick={() => setShowEdit(false)}>
+              <button className="btn-secondary" onClick={closeEdit}>
                 Mbyll
               </button>
               <button className="btn-primary" onClick={handleSaveEdit}>

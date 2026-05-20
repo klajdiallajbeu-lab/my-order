@@ -1,5 +1,5 @@
 // src/pages/manager/ProductsPage.jsx
-import { useSearchParams, useNavigate } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { FiEdit2, FiTrash2 } from "react-icons/fi";
 import "./ProductsPage.css";
@@ -10,6 +10,8 @@ import {
   updateProduct,
   deleteProduct,
 } from "../../api/productApi.js";
+import { getSubCategories } from "../../api/subCategoryApi.js";
+import { api } from "../../api/http.js";
 
 const safeDecode = (v) => {
   try {
@@ -19,21 +21,31 @@ const safeDecode = (v) => {
   }
 };
 
+const pickSubCatName = (sc) => String(sc?.nameSq ?? sc?.name ?? "").trim();
+
+const pickProductSubCatName = (p) =>
+  String(
+    p?.subCategoryId?.nameSq ??
+      p?.subCategoryId?.name ??
+      p?.subCategory ??
+      ""
+  ).trim();
+
+const getImageUrl = (img) => {
+  if (!img) return "";
+  if (String(img).startsWith("http")) return img;
+  return img;
+};
+
 export default function ProductsPage() {
   const [params] = useSearchParams();
-  const navigate = useNavigate();
 
   const categoryTypeRaw = params.get("type") || "";
-  const subCategoryRaw = params.get("cat") || "";
+  const subCategoryId = (params.get("subCategoryId") || "").trim();
 
   const categoryType = useMemo(
     () => safeDecode(categoryTypeRaw).trim().toLowerCase(),
     [categoryTypeRaw]
-  );
-
-  const subCategory = useMemo(
-    () => safeDecode(subCategoryRaw).trim(),
-    [subCategoryRaw]
   );
 
   const businessId = useMemo(
@@ -41,24 +53,12 @@ export default function ProductsPage() {
     []
   );
 
-  const isNumberOnly =
-    categoryType &&
-    subCategory &&
-    (categoryType === "cadra" || categoryType === "dhoma") &&
-    subCategory.toLowerCase() === "numrat";
-
-  if (!categoryType || !subCategory) {
-    return (
-      <div style={{ padding: 40, textAlign: "center", fontSize: 18 }}>
-        ❌ <b>Gabim:</b> Nuk u gjet nën-kategoria.
-      </div>
-    );
-  }
-
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(false);
 
-  // ---------- ADD MODAL ----------
+  const [subCats, setSubCats] = useState([]);
+  const [subCatsLoading, setSubCatsLoading] = useState(false);
+
   const [showAdd, setShowAdd] = useState(false);
   const [addPrice, setAddPrice] = useState("");
   const [addNameSq, setAddNameSq] = useState("");
@@ -68,8 +68,9 @@ export default function ProductsPage() {
   const [addDescEn, setAddDescEn] = useState("");
   const [addDescIt, setAddDescIt] = useState("");
   const [addDepartment, setAddDepartment] = useState("kuzhine");
+  const [addImage, setAddImage] = useState(null);
+  const [addImagePreview, setAddImagePreview] = useState("");
 
-  // ---------- EDIT MODAL ----------
   const [editId, setEditId] = useState(null);
   const [showEdit, setShowEdit] = useState(false);
   const [editPrice, setEditPrice] = useState("");
@@ -80,6 +81,24 @@ export default function ProductsPage() {
   const [editDescEn, setEditDescEn] = useState("");
   const [editDescIt, setEditDescIt] = useState("");
   const [editDepartment, setEditDepartment] = useState("kuzhine");
+  const [editImage, setEditImage] = useState(null);
+  const [editImagePreview, setEditImagePreview] = useState("");
+
+  const currentSubCategoryObj = useMemo(() => {
+    return subCats.find((sc) => String(sc?._id) === String(subCategoryId)) || null;
+  }, [subCats, subCategoryId]);
+
+  const currentSubCategoryId = currentSubCategoryObj?._id || "";
+  const currentSubCategoryName =
+    pickSubCatName(currentSubCategoryObj) || "Nën-kategori";
+
+  const isNumberOnly =
+    !!categoryType &&
+    !!currentSubCategoryName &&
+    (categoryType === "cadra" || categoryType === "dhoma") &&
+    currentSubCategoryName.toLowerCase() === "numrat";
+
+  const hasValidParams = !!categoryType && !!subCategoryId;
 
   const resetAddForm = () => {
     setAddPrice("");
@@ -90,6 +109,8 @@ export default function ProductsPage() {
     setAddDescEn("");
     setAddDescIt("");
     setAddDepartment("kuzhine");
+    setAddImage(null);
+    setAddImagePreview("");
   };
 
   const closeAdd = () => setShowAdd(false);
@@ -97,19 +118,77 @@ export default function ProductsPage() {
   const closeEdit = () => {
     setShowEdit(false);
     setEditId(null);
+    setEditImage(null);
+    setEditImagePreview("");
   };
 
-  // ====== LOAD PRODUCTS ======
+  const uploadImage = async (file) => {
+    if (!file) return "";
+
+    const formData = new FormData();
+    formData.append("image", file);
+
+    const res = await api.post("/products/upload-image", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
+
+    return res?.data?.imageUrl || "";
+  };
+
+  const reloadSubCats = useCallback(async () => {
+    if (!businessId || !categoryType) {
+      setSubCats([]);
+      return;
+    }
+
+    try {
+      setSubCatsLoading(true);
+      const res = await getSubCategories({ businessId, categoryType });
+      const data = res?.data ?? res ?? [];
+      setSubCats(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("❌ getSubCategories error:", err?.response?.data || err);
+      setSubCats([]);
+    } finally {
+      setSubCatsLoading(false);
+    }
+  }, [businessId, categoryType]);
+
+  useEffect(() => {
+    if (!hasValidParams) return;
+    reloadSubCats();
+  }, [reloadSubCats, hasValidParams]);
+
   const reloadProducts = useCallback(async () => {
-    if (!businessId) {
+    if (!businessId || !categoryType || !subCategoryId) {
       setProducts([]);
       return;
     }
 
     try {
       setLoading(true);
-      const data = await getProducts({ businessId, categoryType, subCategory });
-      setProducts(Array.isArray(data) ? data : []);
+
+      const data = await getProducts({
+        businessId,
+        categoryType,
+        ...(currentSubCategoryId ? { subCategoryId: currentSubCategoryId } : {}),
+      });
+
+      const list = Array.isArray(data) ? data : [];
+      const filtered = list.filter((p) => {
+        const pid = String(p?.subCategoryId?._id || p?.subCategoryId || "");
+
+        if (pid && pid === String(currentSubCategoryId)) return true;
+
+        const name = pickProductSubCatName(p).toLowerCase();
+        const currentName = currentSubCategoryName.toLowerCase();
+
+        return name === currentName;
+      });
+
+      setProducts(filtered);
     } catch (err) {
       console.error("❌ getProducts error:", err?.response?.data || err);
       setProducts([]);
@@ -120,13 +199,19 @@ export default function ProductsPage() {
     } finally {
       setLoading(false);
     }
-  }, [businessId, categoryType, subCategory]);
+  }, [
+    businessId,
+    categoryType,
+    subCategoryId,
+    currentSubCategoryId,
+    currentSubCategoryName,
+  ]);
 
   useEffect(() => {
+    if (!hasValidParams) return;
     reloadProducts();
-  }, [reloadProducts]);
+  }, [reloadProducts, hasValidParams]);
 
-  // ====== ADD PRODUCT ======
   const handleAdd = async () => {
     if (isNumberOnly) {
       if (!addNameSq.trim()) return alert("Shkruaj numrin!");
@@ -137,11 +222,18 @@ export default function ProductsPage() {
     }
 
     try {
+      let imageUrl = "";
+
+      if (addImage) {
+        imageUrl = await uploadImage(addImage);
+      }
+
       await createProduct({
         businessId,
         data: {
           categoryType,
-          subCategory,
+          subCategory: currentSubCategoryName,
+          subCategoryId: currentSubCategoryId || undefined,
 
           nameSq: addNameSq.trim(),
           nameEn: addNameEn.trim(),
@@ -151,11 +243,11 @@ export default function ProductsPage() {
           descEn: addDescEn.trim(),
           descIt: addDescIt.trim(),
 
-          // fallback
           name: addNameSq.trim(),
-
           price: isNumberOnly ? null : Number(addPrice),
           destination: addDepartment,
+
+          image: imageUrl,
         },
       });
 
@@ -168,7 +260,6 @@ export default function ProductsPage() {
     }
   };
 
-  // ====== OPEN EDIT ======
   const openEdit = (p) => {
     setEditId(p._id);
 
@@ -182,10 +273,13 @@ export default function ProductsPage() {
 
     setEditPrice(p.price ?? "");
     setEditDepartment(p.destination || "kuzhine");
+
+    setEditImage(null);
+    setEditImagePreview(getImageUrl(p.image || p.imageUrl || ""));
+
     setShowEdit(true);
   };
 
-  // ====== SAVE EDIT ======
   const handleSaveEdit = async () => {
     if (!editId) return;
 
@@ -198,10 +292,19 @@ export default function ProductsPage() {
     }
 
     try {
+      let imageUrl = editImagePreview;
+
+      if (editImage) {
+        imageUrl = await uploadImage(editImage);
+      }
+
       await updateProduct({
         id: editId,
         businessId,
         data: {
+          subCategory: currentSubCategoryName,
+          subCategoryId: currentSubCategoryId || undefined,
+
           nameSq: editNameSq.trim(),
           nameEn: editNameEn.trim(),
           nameIt: editNameIt.trim(),
@@ -210,9 +313,11 @@ export default function ProductsPage() {
           descEn: editDescEn.trim(),
           descIt: editDescIt.trim(),
 
-          name: editNameSq.trim(), // fallback
+          name: editNameSq.trim(),
           price: isNumberOnly ? null : Number(editPrice),
           destination: editDepartment,
+
+          image: imageUrl,
         },
       });
 
@@ -227,7 +332,6 @@ export default function ProductsPage() {
     }
   };
 
-  // ====== DELETE ======
   const removeProduct = async (productId) => {
     const ok = window.confirm("Je i sigurt që do ta fshish këtë produkt?");
     if (!ok) return;
@@ -243,22 +347,32 @@ export default function ProductsPage() {
 
   const renderCardTitle = (p) => (p.nameSq ?? p.name ?? "").trim() || "Pa emër";
 
+  if (!hasValidParams) {
+    return (
+      <div style={{ padding: 40, textAlign: "center", fontSize: 18 }}>
+        <b>Gabim:</b> Nuk u gjet nën-kategoria.
+      </div>
+    );
+  }
+
   return (
     <div className="prod-page">
-      {/* ====================== HEADER ======================= */}
       <div className="prod-top">
         <div className="prod-top-left" />
 
         <div className="prod-title-wrap">
-          <h1 className="prod-title">{subCategory.toUpperCase()}</h1>
+          <h1 className="prod-title">{currentSubCategoryName.toUpperCase()}</h1>
         </div>
 
-        <button className="prod-add-open" onClick={() => setShowAdd(true)}>
+        <button
+          className="prod-add-open"
+          onClick={() => setShowAdd(true)}
+          disabled={subCatsLoading}
+        >
           + Shto
         </button>
       </div>
 
-      {/* ====================== LIST ======================= */}
       <div className="prod-content">
         {loading ? (
           <div className="prod-empty">Duke ngarkuar...</div>
@@ -268,8 +382,11 @@ export default function ProductsPage() {
           <div className="prod-grid">
             {products.map((p) => {
               const title = renderCardTitle(p);
+              const img = getImageUrl(p.image || p.imageUrl || "");
+
               return (
                 <div className="prod-card" key={p._id}>
+
                   <div className="prod-card-row">
                     <div className="prod-card-left">
                       <div className="prod-card-name" title={title}>
@@ -322,7 +439,6 @@ export default function ProductsPage() {
         )}
       </div>
 
-      {/* ====================== ADD MODAL ======================= */}
       {showAdd && (
         <div className="prod-modal-overlay" onClick={closeAdd}>
           <div className="prod-modal" onClick={(e) => e.stopPropagation()}>
@@ -345,77 +461,101 @@ export default function ProductsPage() {
                 />
               </div>
             ) : (
-              <div className="prod-form-grid modal-3rows">
-                {/* RRESHTI 1 (EMRI) */}
-                <input
-                  id="add-name-sq"
-                  name="nameSq"
-                  autoComplete="off"
-                  className="f-name-sq"
-                  placeholder="Emri (Shqip)"
-                  value={addNameSq}
-                  onChange={(e) => setAddNameSq(e.target.value)}
-                />
-                <input
-                  id="add-name-en"
-                  name="nameEn"
-                  autoComplete="off"
-                  className="f-name-en"
-                  placeholder="Name (English)"
-                  value={addNameEn}
-                  onChange={(e) => setAddNameEn(e.target.value)}
-                />
-                <input
-                  id="add-name-it"
-                  name="nameIt"
-                  autoComplete="off"
-                  className="f-name-it"
-                  placeholder="Nome (Italiano)"
-                  value={addNameIt}
-                  onChange={(e) => setAddNameIt(e.target.value)}
-                />
+              <>
+                <div className="prod-form-grid modal-3rows">
+                  <input
+                    id="add-name-sq"
+                    name="nameSq"
+                    autoComplete="off"
+                    className="f-name-sq"
+                    placeholder="Emri (Shqip)"
+                    value={addNameSq}
+                    onChange={(e) => setAddNameSq(e.target.value)}
+                  />
+                  <input
+                    id="add-name-en"
+                    name="nameEn"
+                    autoComplete="off"
+                    className="f-name-en"
+                    placeholder="Name (English)"
+                    value={addNameEn}
+                    onChange={(e) => setAddNameEn(e.target.value)}
+                  />
+                  <input
+                    id="add-name-it"
+                    name="nameIt"
+                    autoComplete="off"
+                    className="f-name-it"
+                    placeholder="Nome (Italiano)"
+                    value={addNameIt}
+                    onChange={(e) => setAddNameIt(e.target.value)}
+                  />
 
-                {/* RRESHTI 2 (PERSHKRIMI) */}
-                <input
-                  id="add-desc-sq"
-                  name="descSq"
-                  autoComplete="off"
-                  className="f-desc-sq"
-                  placeholder="Përshkrimi (Shqip)"
-                  value={addDescSq}
-                  onChange={(e) => setAddDescSq(e.target.value)}
-                />
-                <input
-                  id="add-desc-en"
-                  name="descEn"
-                  autoComplete="off"
-                  className="f-desc-en"
-                  placeholder="Description (English)"
-                  value={addDescEn}
-                  onChange={(e) => setAddDescEn(e.target.value)}
-                />
-                <input
-                  id="add-desc-it"
-                  name="descIt"
-                  autoComplete="off"
-                  className="f-desc-it"
-                  placeholder="Descrizione (Italiano)"
-                  value={addDescIt}
-                  onChange={(e) => setAddDescIt(e.target.value)}
-                />
+                  <input
+                    id="add-desc-sq"
+                    name="descSq"
+                    autoComplete="off"
+                    className="f-desc-sq"
+                    placeholder="Përshkrimi (Shqip)"
+                    value={addDescSq}
+                    onChange={(e) => setAddDescSq(e.target.value)}
+                  />
+                  <input
+                    id="add-desc-en"
+                    name="descEn"
+                    autoComplete="off"
+                    className="f-desc-en"
+                    placeholder="Description (English)"
+                    value={addDescEn}
+                    onChange={(e) => setAddDescEn(e.target.value)}
+                  />
+                  <input
+                    id="add-desc-it"
+                    name="descIt"
+                    autoComplete="off"
+                    className="f-desc-it"
+                    placeholder="Descrizione (Italiano)"
+                    value={addDescIt}
+                    onChange={(e) => setAddDescIt(e.target.value)}
+                  />
 
-                {/* RRESHTI 3 (CMIMI) */}
-                <input
-                  id="add-price"
-                  name="price"
-                  autoComplete="off"
-                  className="f-price"
-                  placeholder="Çmimi (ALL)"
-                  type="number"
-                  value={addPrice}
-                  onChange={(e) => setAddPrice(e.target.value)}
-                />
-              </div>
+                  <input
+                    id="add-price"
+                    name="price"
+                    autoComplete="off"
+                    className="f-price"
+                    placeholder="Çmimi (ALL)"
+                    type="number"
+                    value={addPrice}
+                    onChange={(e) => setAddPrice(e.target.value)}
+                  />
+                </div>
+
+                <div className="prod-image-upload">
+                  {addImagePreview ? (
+                    <img
+                      src={addImagePreview}
+                      alt="preview"
+                      className="prod-image-preview"
+                    />
+                  ) : null}
+
+                  <label className="prod-image-label">
+                    Zgjidh foto produkti
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        setAddImage(file);
+                        setAddImagePreview(URL.createObjectURL(file));
+                      }}
+                    />
+                  </label>
+                </div>
+              </>
             )}
 
             <div className="prod-modal-actions">
@@ -430,7 +570,6 @@ export default function ProductsPage() {
         </div>
       )}
 
-      {/* ====================== EDIT MODAL ======================= */}
       {showEdit && (
         <div className="prod-modal-overlay" onClick={closeEdit}>
           <div className="prod-modal" onClick={(e) => e.stopPropagation()}>
@@ -453,77 +592,101 @@ export default function ProductsPage() {
                 />
               </div>
             ) : (
-              <div className="prod-form-grid modal-3rows">
-                {/* RRESHTI 1 (EMRI) */}
-                <input
-                  id="edit-name-sq"
-                  name="nameSq"
-                  autoComplete="off"
-                  className="f-name-sq"
-                  placeholder="Emri (Shqip)"
-                  value={editNameSq}
-                  onChange={(e) => setEditNameSq(e.target.value)}
-                />
-                <input
-                  id="edit-name-en"
-                  name="nameEn"
-                  autoComplete="off"
-                  className="f-name-en"
-                  placeholder="Name (English)"
-                  value={editNameEn}
-                  onChange={(e) => setEditNameEn(e.target.value)}
-                />
-                <input
-                  id="edit-name-it"
-                  name="nameIt"
-                  autoComplete="off"
-                  className="f-name-it"
-                  placeholder="Nome (Italiano)"
-                  value={editNameIt}
-                  onChange={(e) => setEditNameIt(e.target.value)}
-                />
+              <>
+                <div className="prod-form-grid modal-3rows">
+                  <input
+                    id="edit-name-sq"
+                    name="nameSq"
+                    autoComplete="off"
+                    className="f-name-sq"
+                    placeholder="Emri (Shqip)"
+                    value={editNameSq}
+                    onChange={(e) => setEditNameSq(e.target.value)}
+                  />
+                  <input
+                    id="edit-name-en"
+                    name="nameEn"
+                    autoComplete="off"
+                    className="f-name-en"
+                    placeholder="Name (English)"
+                    value={editNameEn}
+                    onChange={(e) => setEditNameEn(e.target.value)}
+                  />
+                  <input
+                    id="edit-name-it"
+                    name="nameIt"
+                    autoComplete="off"
+                    className="f-name-it"
+                    placeholder="Nome (Italiano)"
+                    value={editNameIt}
+                    onChange={(e) => setEditNameIt(e.target.value)}
+                  />
 
-                {/* RRESHTI 2 (PERSHKRIMI) */}
-                <input
-                  id="edit-desc-sq"
-                  name="descSq"
-                  autoComplete="off"
-                  className="f-desc-sq"
-                  placeholder="Përshkrimi (Shqip)"
-                  value={editDescSq}
-                  onChange={(e) => setEditDescSq(e.target.value)}
-                />
-                <input
-                  id="edit-desc-en"
-                  name="descEn"
-                  autoComplete="off"
-                  className="f-desc-en"
-                  placeholder="Description (English)"
-                  value={editDescEn}
-                  onChange={(e) => setEditDescEn(e.target.value)}
-                />
-                <input
-                  id="edit-desc-it"
-                  name="descIt"
-                  autoComplete="off"
-                  className="f-desc-it"
-                  placeholder="Descrizione (Italiano)"
-                  value={editDescIt}
-                  onChange={(e) => setEditDescIt(e.target.value)}
-                />
+                  <input
+                    id="edit-desc-sq"
+                    name="descSq"
+                    autoComplete="off"
+                    className="f-desc-sq"
+                    placeholder="Përshkrimi (Shqip)"
+                    value={editDescSq}
+                    onChange={(e) => setEditDescSq(e.target.value)}
+                  />
+                  <input
+                    id="edit-desc-en"
+                    name="descEn"
+                    autoComplete="off"
+                    className="f-desc-en"
+                    placeholder="Description (English)"
+                    value={editDescEn}
+                    onChange={(e) => setEditDescEn(e.target.value)}
+                  />
+                  <input
+                    id="edit-desc-it"
+                    name="descIt"
+                    autoComplete="off"
+                    className="f-desc-it"
+                    placeholder="Descrizione (Italiano)"
+                    value={editDescIt}
+                    onChange={(e) => setEditDescIt(e.target.value)}
+                  />
 
-                {/* RRESHTI 3 (CMIMI) */}
-                <input
-                  id="edit-price"
-                  name="price"
-                  autoComplete="off"
-                  className="f-price"
-                  placeholder="Çmimi (ALL)"
-                  type="number"
-                  value={editPrice}
-                  onChange={(e) => setEditPrice(e.target.value)}
-                />
-              </div>
+                  <input
+                    id="edit-price"
+                    name="price"
+                    autoComplete="off"
+                    className="f-price"
+                    placeholder="Çmimi (ALL)"
+                    type="number"
+                    value={editPrice}
+                    onChange={(e) => setEditPrice(e.target.value)}
+                  />
+                </div>
+
+                <div className="prod-image-upload">
+                  {editImagePreview ? (
+                    <img
+                      src={editImagePreview}
+                      alt="preview"
+                      className="prod-image-preview"
+                    />
+                  ) : null}
+
+                  <label className="prod-image-label">
+                    Ndrysho foto produkti
+                    <input
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (!file) return;
+
+                        setEditImage(file);
+                        setEditImagePreview(URL.createObjectURL(file));
+                      }}
+                    />
+                  </label>
+                </div>
+              </>
             )}
 
             <div className="prod-modal-actions">

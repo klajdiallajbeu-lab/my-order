@@ -13,7 +13,10 @@ export default function AdminLoginPage() {
       const res = await fetch("http://localhost:5000/api/admin/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password }),
+        body: JSON.stringify({
+          username: username.trim(),
+          password,
+        }),
       });
 
       const data = await res.json();
@@ -24,8 +27,10 @@ export default function AdminLoginPage() {
       }
 
       localStorage.setItem("adminId", data.adminId);
+      localStorage.setItem("adminToken", data.token);
       window.location.href = "/admin/dashboard";
     } catch (err) {
+      console.error("Gabim te admin login:", err);
       setError("Gabim serveri!");
     }
   };

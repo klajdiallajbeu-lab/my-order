@@ -81,33 +81,6 @@ router.patch("/order-access", async (req, res) => {
   }
 });
 
-/* =========================
-   ORDER PIN (REAL DAILY CODE)
-========================= */
-router.get("/order-pin", async (req, res) => {
-  try {
-    const { businessId } = req.query;
-
-    if (!businessId) {
-      return res.status(400).json({ message: "Missing businessId" });
-    }
-
-    const b = await Business.findById(businessId).lean();
-
-    if (!b) {
-      return res.status(404).json({ message: "Business not found" });
-    }
-
-    return res.json({
-      code: b.orderPin?.code || "",
-      day: b.orderPin?.day || "",
-      enabled: b.orderPin?.enabled !== false,
-    });
-  } catch (err) {
-    console.error("GET /api/business/order-pin error:", err);
-    return res.status(500).json({ message: "Server error" });
-  }
-});
 
 router.get("/:id/settings", getBusinessSettings);
 router.patch("/:id/settings", updateBusinessSettings);

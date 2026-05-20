@@ -176,3 +176,79 @@
   from { opacity: 0; transform: translateY(-15px); }
   to   { opacity: 1; transform: translateY(0); }
 }
+/* HEADER FIX - Fatura / Print / Back */
+
+.order-detail-page,
+.invoice-detail-page {
+  padding-top: 24px;
+}
+
+.back-btn,
+.invoice-back-btn {
+  height: 48px;
+  padding: 0 18px;
+  border: 1px solid rgba(226, 232, 240, 0.9);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #2563eb;
+  font-size: 16px;
+  font-weight: 700;
+  box-shadow: 0 8px 20px rgba(15, 23, 42, 0.05);
+}
+
+.invoice-header,
+.order-detail-header {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.invoice-title-row,
+.order-detail-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.invoice-title-row h1,
+.order-detail-title-row h1,
+.invoice-header h1,
+.order-detail-header h1 {
+  margin: 0;
+  font-size: 38px;
+  line-height: 1;
+  font-weight: 850;
+  letter-spacing: -1.2px;
+  color: #0f172a;
+}
+
+.print-btn,
+.invoice-print-btn,
+.order-print-btn {
+  height: 46px;
+  min-width: 160px;
+  border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: white;
+  font-size: 15px;
+  font-weight: 800;
+  box-shadow: 0 10px 20px rgba(37, 99, 235, 0.22);
+}
+
+@media (max-width: 520px) {
+  .invoice-title-row h1,
+  .order-detail-title-row h1,
+  .invoice-header h1,
+  .order-detail-header h1 {
+    font-size: 34px;
+  }
+
+  .print-btn,
+  .invoice-print-btn,
+  .order-print-btn {
+    min-width: 140px;
+    height: 44px;
+  }
+}

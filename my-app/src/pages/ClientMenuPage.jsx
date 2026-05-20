@@ -10,63 +10,42 @@ function useQuery() {
   return useMemo(() => new URLSearchParams(search), [search]);
 }
 
-/* =========================
-   i18n (SQ / EN / IT)
-========================= */
 const dict = {
   sq: {
-    menu: "Miresevini ne menunë tonë",
+    subtitle: "Zbulo ushqimet dhe pijet tona",
     syncing: "Po përditësohet",
     loading: "Duke ngarkuar menunë...",
     invalidQR: "Nuk u gjet biznesi. QR është i pavlefshëm.",
     loadError: "Gabim gjatë ngarkimit të menysë.",
     cantLoad: "Nuk mund të ngarkoj menunë.",
-    emptyTitle: "Zgjidh Bar ose Restorant",
-    emptySub: "Pasi të zgjedhësh njërën, do të shfaqen kategoritë dhe produktet.",
     emptyProductsTitle: "S’u gjet asnjë produkt",
-    emptyProductsSub: "Provo një kategori tjetër.",
-    items: "artikuj",
-    categories: "Kategoritë",
-    noDesc: "Pa përshkrim",
+    emptyProductsSub: "Provo Bar ose Restaurant.",
     bar: "Bar",
-    restaurant: "Restorant",
-    menuType: "Zgjidh menunë",
+    restaurant: "Restaurant",
   },
   en: {
-    menu: "Welcome to our menu",
+    subtitle: "Discover our delicious food and drinks",
     syncing: "Updating",
     loading: "Loading menu...",
     invalidQR: "Business not found. Invalid QR.",
     loadError: "Error while loading the menu.",
     cantLoad: "Unable to load the menu.",
-    emptyTitle: "Choose Bar or Restaurant",
-    emptySub: "After choosing one, categories and products will appear.",
     emptyProductsTitle: "No products found",
-    emptyProductsSub: "Try another category.",
-    items: "items",
-    categories: "Categories",
-    noDesc: "No description",
+    emptyProductsSub: "Try Bar or Restaurant.",
     bar: "Bar",
     restaurant: "Restaurant",
-    menuType: "Choose menu",
   },
   it: {
-    menu: "Benvenuto nel nostro menù",
+    subtitle: "Scopri il nostro cibo e le nostre bevande",
     syncing: "Aggiornamento",
     loading: "Caricamento menù...",
     invalidQR: "Attività non trovata. QR non valido.",
     loadError: "Errore durante il caricamento del menù.",
     cantLoad: "Impossibile caricare il menù.",
-    emptyTitle: "Scegli Bar o Ristorante",
-    emptySub: "Dopo la scelta appariranno categorie e prodotti.",
     emptyProductsTitle: "Nessun prodotto trovato",
-    emptyProductsSub: "Prova un’altra categoria.",
-    items: "articoli",
-    categories: "Categorie",
-    noDesc: "Nessuna descrizione",
+    emptyProductsSub: "Prova Bar o Ristorante.",
     bar: "Bar",
-    restaurant: "Ristorante",
-    menuType: "Scegli il menù",
+    restaurant: "Restaurant",
   },
 };
 
@@ -74,6 +53,8 @@ function normalizeLang(x) {
   const v = String(x || "").toLowerCase().trim();
   return ["sq", "en", "it"].includes(v) ? v : "sq";
 }
+
+const norm = (v) => String(v || "").trim().toLowerCase();
 
 const pickName = (p, lang) => {
   const sq = String(p?.nameSq ?? p?.name ?? "").trim();
@@ -95,82 +76,63 @@ const pickDesc = (p, lang) => {
   return sq || en || it;
 };
 
-const BAR_CATEGORIES = [
-  "BIRRA",
-  "BIRA",
-  "ALKOLIKE",
-  "ALKOOLIKE",
-  "KAFE",
-  "PIJE",
-  "PIJE TE FTOHTA",
-  "PIJE TË FTOHTA",
-  "KOKTEJ",
-  "COCKTAIL",
-  "VERA",
-  "WINE",
-  "LIKER",
-  "LIKERË",
-  "LIKERET",
-  "FRAPE",
-  "SMOOTHIE",
-  "FRESH",
-  "CAJ",
-  "ÇAJ",
-  "TE NGROHTA",
-  "TË NGROHTA",
-];
+const pickSubCategoryName = (p, lang) => {
+  const sq = String(
+    p?.subCategoryId?.nameSq ||
+    p?.subCategoryNameSq ||
+    p?.subCategoryName ||
+    p?.subCategory ||
+    ""
+  ).trim();
 
-const RESTAURANT_CATEGORIES = [
-  "PASTA",
-  "PICA",
-  "PIZZA",
-  "RISOTO",
-  "SUPA",
-  "SALLATA",
-  "SALLATË",
-  "MISH",
-  "SEAFOOD",
-  "OMELET",
-  "BREAKFAST",
-  "MENGJES",
-  "MËNGJES",
-  "BURGER",
-  "SANDWICH",
-  "SENDVIÇ",
-  "SENDEVIC",
-  "MAKARONA",
-  "ORIZ",
-  "DESERT",
-  "DESSERT",
-  "EMBELSIRA",
-  "ËMBËLSIRA",
-  "AKULLORE",
-  "ICE CREAM",
-];
+  const en = String(
+    p?.subCategoryId?.nameEn ||
+    p?.subCategoryNameEn ||
+    ""
+  ).trim();
 
-function normalizeCategoryName(cat) {
-  return String(cat || "").trim().toUpperCase();
-}
+  const it = String(
+    p?.subCategoryId?.nameIt ||
+    p?.subCategoryNameIt ||
+    ""
+  ).trim();
 
-function isBarCategory(cat) {
-  return BAR_CATEGORIES.includes(normalizeCategoryName(cat));
-}
+  if (lang === "en") return en || sq;
+  if (lang === "it") return it || en || sq;
 
-function isRestaurantCategory(cat) {
-  return RESTAURANT_CATEGORIES.includes(normalizeCategoryName(cat));
-}
+  return sq || en || it;
+};
 
-function renderCategorySection(cat, items, lang, t) {
+const getProductImage = (p) => p?.imageUrl || p?.image || p?.photoUrl || "";
+
+const productMenuType = (p) => {
+  const categoryType = norm(p?.categoryType);
+  const destination = norm(p?.destination);
+
+  if (categoryType === "pije" || categoryType === "bar" || destination === "banak") {
+    return "pije";
+  }
+
+  if (
+    categoryType === "ushqime" ||
+    categoryType === "restorant" ||
+    categoryType === "restaurant" ||
+    destination === "kuzhine" ||
+    destination === "kuzhinë"
+  ) {
+    return "ushqime";
+  }
+
+  return "pije";
+};
+
+function renderCategorySection(cat, items, lang) {
   return (
     <section key={cat} className="cm-section">
       <div className="cm-section-head">
         <div className="cm-section-title-wrap">
-          <span className="cm-section-bar" />
+          <span className="cm-section-icon">◎</span>
           <h2 className="cm-section-title">{cat}</h2>
-        </div>
-
-        <div className="cm-section-count">
-          {items.length} {t.items}
         </div>
       </div>
 
@@ -179,33 +141,21 @@ function renderCategorySection(cat, items, lang, t) {
           const title = pickName(p, lang);
           const desc = pickDesc(p, lang);
           const price = Number(p?.price || 0).toFixed(2);
+          const img = getProductImage(p);
 
           return (
             <article key={p._id} className="cm-card">
-              <div className="cm-card-top">
-                <div className="cm-name-wrap">
-                  <h3 className="cm-name">{title}</h3>
-                </div>
-
-                <div className="cm-price">{price} ALL</div>
-              </div>
-
-              {desc ? (
-                <div className="cm-desc">{desc}</div>
+              {img ? (
+                <img className="cm-img" src={img} alt={title} loading="lazy" />
               ) : (
-                <div className="cm-desc muted">{t.noDesc}</div>
+                <div className="cm-img cm-img-placeholder" />
               )}
 
-              {p.imageUrl ? (
-                <div className="cm-imgWrap">
-                  <img
-                    className="cm-img"
-                    src={p.imageUrl}
-                    alt={title}
-                    loading="lazy"
-                  />
-                </div>
-              ) : null}
+              <div className="cm-card-overlay">
+                <h3 className="cm-name">{title}</h3>
+                {desc ? <p className="cm-desc">{desc}</p> : null}
+                <div className="cm-price">{price} ALL</div>
+              </div>
             </article>
           );
         })}
@@ -226,22 +176,18 @@ export default function ClientMenuPage() {
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState("");
-  const [activeCat, setActiveCat] = useState("");
-  const [menuType, setMenuType] = useState("");
+  const [menuType, setMenuType] = useState("pije");
 
   const syncTimerRef = useRef(null);
+  const t = useMemo(() => dict[lang] || dict.sq, [lang]);
 
   useEffect(() => {
-    if (urlLang) {
-      setLang(urlLang);
-    }
+    if (urlLang) setLang(urlLang);
   }, [urlLang]);
 
   useEffect(() => {
     localStorage.setItem("lang", lang);
-  }, [lang]);
 
-  useEffect(() => {
     try {
       const u = new URL(window.location.href);
       u.searchParams.set("lang", lang);
@@ -250,21 +196,6 @@ export default function ClientMenuPage() {
       //
     }
   }, [lang]);
-
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (langRef.current && !langRef.current.contains(event.target)) {
-        setShowLang(false);
-      }
-    };
-
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, []);
-
-  const t = useMemo(() => dict[lang] || dict.sq, [lang]);
 
   const fetchProducts = useCallback(
     async ({ showLoading = false } = {}) => {
@@ -321,9 +252,7 @@ export default function ClientMenuPage() {
     socket.on("connect", join);
 
     const onProductsChanged = (payload) => {
-      if (payload?.businessId && String(payload.businessId) !== String(businessId)) {
-        return;
-      }
+      if (payload?.businessId && String(payload.businessId) !== String(businessId)) return;
 
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
 
@@ -341,11 +270,18 @@ export default function ClientMenuPage() {
     };
   }, [businessId, fetchProducts]);
 
+  const filteredProducts = useMemo(() => {
+    return products.filter((p) => productMenuType(p) === menuType);
+  }, [products, menuType]);
+
   const groupedByCategory = useMemo(() => {
     const groups = {};
 
-    for (const p of products) {
-      const rawCat = p?.subCategoryName ?? p?.subCategory ?? p?.category ?? "Other";
+    for (const p of filteredProducts) {
+      const rawCat =
+  pickSubCategoryName(p, lang) ||
+  p?.category ||
+  "Other";
       const cat = String(rawCat || "Other").trim() || "Other";
 
       if (!groups[cat]) groups[cat] = [];
@@ -359,163 +295,82 @@ export default function ClientMenuPage() {
     });
 
     return groups;
-  }, [products, lang]);
+  }, [filteredProducts, lang]);
 
-  const allCategoryKeys = useMemo(() => {
+  const filteredCategoryKeys = useMemo(() => {
     return Object.keys(groupedByCategory).sort((a, b) => a.localeCompare(b));
   }, [groupedByCategory]);
 
-  const barKeys = useMemo(
-    () => allCategoryKeys.filter((cat) => isBarCategory(cat)),
-    [allCategoryKeys]
-  );
-
-  const restaurantKeys = useMemo(
-    () => allCategoryKeys.filter((cat) => isRestaurantCategory(cat)),
-    [allCategoryKeys]
-  );
-
-  const visibleCategoryKeys = useMemo(() => {
-    if (menuType === "bar") return barKeys;
-    if (menuType === "restaurant") return restaurantKeys;
-    return [];
-  }, [menuType, barKeys, restaurantKeys]);
-
-  const categories = useMemo(() => {
-    return visibleCategoryKeys;
-  }, [visibleCategoryKeys]);
-
-  useEffect(() => {
-    setActiveCat("");
-  }, [menuType]);
-
-  useEffect(() => {
-    if (!activeCat) return;
-
-    if (!categories.includes(activeCat)) {
-      setActiveCat("");
-    }
-  }, [activeCat, categories]);
-
-  const filteredGrouped = useMemo(() => {
-    if (!menuType) return {};
-
-    const selectedCategories = activeCat ? [activeCat] : visibleCategoryKeys;
-    const out = {};
-
-    for (const cat of selectedCategories) {
-      const arr = groupedByCategory[cat] || [];
-      if (arr.length) out[cat] = arr;
-    }
-
-    return out;
-  }, [groupedByCategory, activeCat, visibleCategoryKeys, menuType]);
-
-  const filteredCategoryKeys = useMemo(
-    () => Object.keys(filteredGrouped),
-    [filteredGrouped]
-  );
-
-  const hasMenuSelected = !!menuType;
   const hasResults = filteredCategoryKeys.length > 0;
 
-  if (loading) {
-    return <div className="cm-loading">{t.loading}</div>;
-  }
-
-  if (error) {
-    return <div className="cm-error">{error}</div>;
-  }
+  if (loading) return <div className="cm-loading">{t.loading}</div>;
+  if (error) return <div className="cm-error">{error}</div>;
 
   return (
-    <div
-      className="cm-page"
-      style={{
-        backgroundImage: `url(${bgImage})`,
-        backgroundSize: "",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
+    <div className="cm-page" style={{ backgroundImage: `url(${bgImage})` }}>
+      <div className="cm-overlay" />
+
       <header className="cm-header">
-        <div className="cm-header-inner">
-          <div className="cm-brand">
-            <h1 className="cm-title">{t.menu}</h1>
-            <p className="cm-subtitle">
-              {syncing ? <span className="cm-sync">{t.syncing}</span> : null}
-            </p>
+        <div className="cm-nav clean">
+          <div />
+
+          <div className="cm-lang-native">
+            <span className="cm-lang-native-icon">🌐</span>
+            <select
+              className="cm-lang-native-select"
+              value={lang}
+              onChange={(e) => setLang(normalizeLang(e.target.value))}
+              aria-label="Language"
+            >
+              <option value="sq">SQ</option>
+              <option value="en">EN</option>
+              <option value="it">IT</option>
+            </select>
           </div>
+        </div>
 
-          <div className="cm-topbar">
-            <div className="cm-lang-native">
-  <span className="cm-lang-native-icon">🌐</span>
+        <div className="cm-hero">
+          <h1 className="cm-title luxury">
+            <span className="cm-title-script">Welcome</span>
+            <span className="cm-title-small">TO OUR</span>
+            <span className="cm-title-main">MENU</span>
+          </h1>
 
-  <select
-    className="cm-lang-native-select"
-    value={lang}
-    onChange={(e) => setLang(normalizeLang(e.target.value))}
-    aria-label="Language"
-  >
-    <option value="sq">SQ</option>
-    <option value="en">EN</option>
-    <option value="it">IT</option>
-  </select>
-</div>
+          <div className="cm-ornament" />
 
-            <div className="cm-menu-type-label">{t.menuType}</div>
+          <p className="cm-subtitle">{syncing ? t.syncing : t.subtitle}</p>
+        </div>
 
-            <div className="cm-menu-type">
-              <button
-                type="button"
-                className={`cm-menu-type-btn ${menuType === "bar" ? "active" : ""}`}
-                onClick={() => setMenuType("bar")}
-              >
-                {t.bar}
-              </button>
+        <div className="cm-menu-type segmented">
+          <button
+            type="button"
+            className={`cm-menu-type-btn ${menuType === "pije" ? "active" : ""}`}
+            onClick={() => setMenuType("pije")}
+          >
+            <span></span>
+            {t.bar}
+          </button>
 
-              <button
-                type="button"
-                className={`cm-menu-type-btn ${
-                  menuType === "restaurant" ? "active" : ""
-                }`}
-                onClick={() => setMenuType("restaurant")}
-              >
-                {t.restaurant}
-              </button>
-            </div>
-
-            {hasMenuSelected ? (
-              <div className="cm-chips" role="tablist" aria-label={t.categories}>
-                {categories.map((cat) => (
-                  <button
-                    key={cat}
-                    type="button"
-                    className={`cm-chip ${activeCat === cat ? "active" : ""}`}
-                    onClick={() => setActiveCat((prev) => (prev === cat ? "" : cat))}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-            ) : null}
-          </div>
+          <button
+            type="button"
+            className={`cm-menu-type-btn ${menuType === "ushqime" ? "active" : ""}`}
+            onClick={() => setMenuType("ushqime")}
+          >
+            <span></span>
+            {t.restaurant}
+          </button>
         </div>
       </header>
 
       <main className="cm-content">
-        {!hasMenuSelected ? (
-          <div className="cm-empty">
-            <div className="cm-empty-title">{t.emptyTitle}</div>
-            <div className="cm-empty-sub">{t.emptySub}</div>
-          </div>
-        ) : !hasResults ? (
+        {!hasResults ? (
           <div className="cm-empty">
             <div className="cm-empty-title">{t.emptyProductsTitle}</div>
             <div className="cm-empty-sub">{t.emptyProductsSub}</div>
           </div>
         ) : (
           filteredCategoryKeys.map((cat) =>
-            renderCategorySection(cat, filteredGrouped[cat], lang, t)
+            renderCategorySection(cat, groupedByCategory[cat], lang)
           )
         )}
       </main>

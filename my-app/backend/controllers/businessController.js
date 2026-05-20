@@ -43,6 +43,10 @@ export const updateBusinessSettings = async (req, res) => {
       gbpRate,
       baseCurrency,
       showCurrencies,
+
+      kitchenPrinterName,
+      barPrinterName,
+      invoicePrinterName,
     } = req.body;
 
     const update = {};
@@ -96,6 +100,18 @@ export const updateBusinessSettings = async (req, res) => {
       }
 
       update["settings.showCurrencies"] = showCurrencies;
+    }
+
+    if (kitchenPrinterName !== undefined) {
+      update["settings.kitchenPrinterName"] = String(kitchenPrinterName || "").trim();
+    }
+
+    if (barPrinterName !== undefined) {
+      update["settings.barPrinterName"] = String(barPrinterName || "").trim();
+    }
+
+    if (invoicePrinterName !== undefined) {
+      update["settings.invoicePrinterName"] = String(invoicePrinterName || "").trim();
     }
 
     const business = await Business.findByIdAndUpdate(

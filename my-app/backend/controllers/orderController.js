@@ -3,6 +3,7 @@ import Order from "../models/Order.js";
 import Business from "../models/Business.js";
 import Product from "../models/Product.js";
 import SubCategory from "../models/SubCategory.js";
+import GuestSession from "../models/GuestSession.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -113,9 +114,18 @@ export const getOrderById = async (req, res) => {
 export const createOrder = async (req, res) => {
   try {
     console.log("📥 BODY /api/orders:", req.body);
+    const {
+  businessId,
+  sourceType,
+  sourceNumber,
+  items,
+  createdBy,
+  waiterId,
+  note,
+  orderNote,
+} = req.body;
 
-    const { businessId, sourceType, sourceNumber, items, createdBy } = req.body;
-
+const noteSafe = String(note || orderNote || "").trim();
     if (!businessId || !sourceType || !sourceNumber) {
       return res.status(400).json({
         message: "businessId, sourceType, sourceNumber janë të detyrueshme",
@@ -271,7 +281,10 @@ export const createOrder = async (req, res) => {
       const ct = String(p?.categoryType || "").trim().toLowerCase();
       const sc = String(p?.subCategory || "").trim();
       const fromSub = subMap.get(`${ct}||${sc}`);
-      const destination = fromSub || defaultDestByCategoryType(ct);
+      const destination =
+  ct === "pije"
+    ? "banak"
+    : "kuzhine";
 
       const priceFinal =
         it.price === undefined ? safeNum(p?.price, 0) : safeNum(it.price, safeNum(p?.price, 0));
@@ -318,10 +331,11 @@ export const createOrder = async (req, res) => {
             currency === "ALL"
               ? 1
               : safeNum(settings[`${currency.toLowerCase()}Rate`], 1),
-          createdBy: createdBySafe,
-          status: "pending",
-          destination: "kuzhine",
-          batchId,
+              createdBy: createdBySafe,
+waiterId: waiterId || "",
+note: noteSafe,
+orderNote: noteSafe,
+status: "pending",
         })
       );
     }
@@ -342,70 +356,392 @@ export const createOrder = async (req, res) => {
             currency === "ALL"
               ? 1
               : safeNum(settings[`${currency.toLowerCase()}Rate`], 1),
-          createdBy: createdBySafe,
-          status: "pending",
-          destination: "banak",
-          batchId,
+              createdBy: createdBySafe,
+waiterId: waiterId || "",
+status: "pending",
+destination: "banak",
+batchId,
         })
       );
     }
 
-    if (createdOrders.length === 0) {
-      return res.status(400).json({ message: "Nuk u krijua asnjë porosi (items bosh)." });
-    }
+if (createdOrders.length === 0) {
+  return res.status(400).json({
+    message: "Nuk u krijua asnjë porosi (items bosh).",
+  });
+}
 
-    const io = req.app.get("io");
-    for (const o of createdOrders) {
-      io?.to(`business:${businessId}`).emit("orders:created", {
-        businessId,
-        orderId: o._id.toString(),
-        sourceType: o.sourceType,
-        sourceNumber: o.sourceNumber,
-        status: o.status,
-        destination: o.destination,
-        batchId: o.batchId || "",
-        createdAt: o.createdAt,
-        total: o.total,
-        totalALL: o.totalALL,
-        currency: o.currency || "ALL",
-      });
-    }
+const createdIds = createdOrders.map((o) => o._id);
 
-    io?.to(`business:${businessId}`).emit("orders:changed", { businessId });
+const populatedOrders = await Order.find({ _id: { $in: createdIds } })
+  .populate({
+    path: "businessId",
+    select: "name nipt address settings",
+  })
+  .sort({ createdAt: 1 })
+  .lean();
 
-    return res.status(201).json(createdOrders.length === 1 ? createdOrders[0] : createdOrders);
-  } catch (err) {
-    console.error("❌ Gabim te createOrder:", err);
-    return res.status(500).json({ message: "Gabim serveri", error: err.message });
+const normalizedOrders = populatedOrders.map((order) => ({
+  ...order,
+  business: order.businessId || null,
+}));
+
+
+// 📡 SOCKET EVENTS
+// 📡 SOCKET EVENTS
+const io = req.app.get("io");
+
+for (const o of normalizedOrders) {
+  io?.to(`business:${businessId}`).emit("orders:created", {
+    businessId,
+    orderId: String(o._id),
+    sourceType: o.sourceType,
+    sourceNumber: o.sourceNumber,
+    status: o.status,
+    destination: o.destination,
+    batchId: o.batchId || "",
+    createdAt: o.createdAt,
+    total: o.total,
+    totalALL: o.totalALL,
+    currency: o.currency || "ALL",
+  });
+}
+
+io?.to(`business:${businessId}`).emit("orders:changed", {
+  businessId,
+});
+
+io?.to(`business:${businessId}`).emit("orders:changed", { businessId });
+
+// 🔒 1 SCAN = 1 POROSI (disable session)
+if (req.guestSession?._id) {
+  try {
+    req.guestSession.active = false;
+    await req.guestSession.save();
+  } catch (e) {
+    console.error("❌ Error disabling guest session:", e);
   }
+}
+
+// ✅ RESPONSE
+return res.status(201).json(
+  normalizedOrders.length === 1
+    ? normalizedOrders[0]
+    : normalizedOrders
+);
+} catch (err) {
+  console.error("❌ Gabim te createOrder:", err);
+  return res.status(500).json({
+    message: "Gabim serveri",
+    error: err.message,
+  });
+}
 };
 
 export const updateOrderStatus = async (req, res) => {
   try {
     const { id } = req.params;
-    const { status, acceptedBy } = req.body;
+    const { status, acceptedBy, acceptedByName } = req.body;
 
     if (!isValidObjectId(id)) {
       return res.status(400).json({ message: "id nuk është ObjectId valid" });
     }
 
     const allowed = ["pending", "accepted", "done"];
+
     if (!status || !allowed.includes(status)) {
       return res.status(400).json({ message: "status i pavlefshëm" });
     }
 
     const update = { status };
-    if (status === "accepted") update.acceptedBy = acceptedBy || "";
 
-    const order = await Order.findByIdAndUpdate(id, update, { new: true }).lean();
+    if (status === "accepted") {
+      update.acceptedBy = acceptedBy || "";
+      update.acceptedByName = acceptedByName || "";
+    }
+
+    const order = await Order.findByIdAndUpdate(id, update, { new: true })
+      .populate({
+        path: "businessId",
+        select: "name nipt address settings",
+      })
+      .lean();
 
     if (!order) {
       return res.status(404).json({ message: "Porosia nuk u gjet" });
     }
 
-    return res.json(order);
+    const io = req.app.get("io");
+    const businessId = String(order.businessId?._id || order.businessId);
+
+    io?.to(`business:${businessId}`).emit("orders:changed", { businessId });
+
+    io?.to(`business:${businessId}`).emit("order:updated", {
+      businessId,
+      orderId: String(order._id),
+      sourceType: order.sourceType,
+      sourceNumber: order.sourceNumber,
+      status: order.status,
+      acceptedBy: order.acceptedBy || "",
+      acceptedByName: order.acceptedByName || "",
+    });
+
+    return res.json({
+      ...order,
+      business: order.businessId || null,
+    });
   } catch (err) {
     console.error("❌ Gabim te updateOrderStatus:", err);
-    return res.status(500).json({ message: "Gabim serveri", error: err.message });
+    return res.status(500).json({
+      message: "Gabim serveri",
+      error: err.message,
+    });
+  }
+};
+
+export const closeTableOrders = async (req, res) => {
+  try {
+    const { businessId, sourceType, sourceNumber } = req.body;
+
+    if (!businessId || !sourceType || !sourceNumber) {
+      return res.status(400).json({
+        message: "businessId, sourceType, sourceNumber janë të detyrueshme",
+      });
+    }
+
+    const business = await Business.findById(businessId).lean();
+
+    const orders = await Order.find({
+      businessId,
+      sourceType: String(sourceType).toLowerCase(),
+      sourceNumber: String(sourceNumber).trim(),
+      status: { $in: ["pending", "accepted"] },
+    }).lean();
+
+    if (!orders.length) {
+      return res.status(404).json({
+        message: "Nuk ka porosi të hapura për këtë burim",
+      });
+    }
+
+    const itemsMap = {};
+
+    orders.forEach((order) => {
+      (order.items || []).forEach((it) => {
+        const key = `${it.name}_${Number(it.price || 0)}`;
+
+        if (!itemsMap[key]) {
+          itemsMap[key] = {
+            name: it.name,
+            qty: 0,
+            price: Number(it.price || 0),
+          };
+        }
+
+        itemsMap[key].qty += Number(it.qty || 0);
+      });
+    });
+
+    const mergedItems = Object.values(itemsMap);
+
+    const totalALL = mergedItems.reduce(
+      (sum, it) => sum + Number(it.qty || 0) * Number(it.price || 0),
+      0
+    );
+
+    await Order.updateMany(
+      {
+        businessId,
+        sourceType: String(sourceType).toLowerCase(),
+        sourceNumber: String(sourceNumber).trim(),
+        status: { $in: ["pending", "accepted"] },
+      },
+      {
+        $set: {
+          status: "done",
+        },
+      }
+    );
+
+    const invoice = {
+      invoiceType: "total",
+      business,
+      businessId,
+      sourceType: String(sourceType).toLowerCase(),
+      sourceNumber: String(sourceNumber).trim(),
+      items: mergedItems,
+      totalALL,
+      waiterName:
+        orders[0]?.acceptedByName ||
+        orders[0]?.acceptedBy ||
+        orders[0]?.createdBy ||
+        "",
+      createdAt: new Date(),
+    };
+
+    return res.json({
+      message: "Fatura totale u krijua",
+      invoice,
+    });
+  } catch (err) {
+    console.error("❌ Gabim te closeTableOrders:", err);
+    return res.status(500).json({
+      message: "Gabim serveri",
+      error: err.message,
+    });
+  }
+};
+
+const buildWaiterShiftReport = async ({ businessId, waiterId, waiterName }) => {
+  const start = new Date();
+  start.setHours(0, 0, 0, 0);
+
+  const end = new Date();
+  end.setHours(23, 59, 59, 999);
+
+  const waiterMatch = [];
+
+  if (waiterId) {
+    waiterMatch.push({ waiterId: String(waiterId) });
+    waiterMatch.push({ acceptedBy: String(waiterId) });
+  }
+
+  if (waiterName) {
+    waiterMatch.push({ createdBy: String(waiterName) });
+    waiterMatch.push({ acceptedBy: String(waiterName) });
+    waiterMatch.push({ acceptedByName: String(waiterName) });
+  }
+
+  const orders = await Order.find({
+    businessId,
+    createdAt: { $gte: start, $lte: end },
+    shiftClosed: { $ne: true },
+
+    // merr çdo porosi të ditës përveç anulimeve
+    status: { $ne: "cancelled" },
+
+    ...(waiterMatch.length > 0 ? { $or: waiterMatch } : {}),
+  }).lean();
+
+  const itemsMap = {};
+
+  orders.forEach((order) => {
+    (order.items || []).forEach((it) => {
+      const key = `${it.name}_${Number(it.price || 0)}`;
+
+      if (!itemsMap[key]) {
+        itemsMap[key] = {
+          name: it.name,
+          qty: 0,
+          price: Number(it.price || 0),
+        };
+      }
+
+      itemsMap[key].qty += Number(it.qty || 0);
+    });
+  });
+
+  const mergedItems = Object.values(itemsMap);
+
+  const totalALL = mergedItems.reduce(
+    (sum, it) => sum + Number(it.qty || 0) * Number(it.price || 0),
+    0
+  );
+
+  const business = await Business.findById(businessId).lean();
+
+  return {
+    orders,
+    report: {
+      reportType: "waiterShift",
+      business,
+      waiterId: waiterId || "",
+      waiterName: waiterName || "",
+      items: mergedItems,
+      totalALL,
+      orderCount: orders.length,
+      createdAt: new Date(),
+    },
+  };
+};
+export const closeWaiterShift = async (req, res) => {
+  try {
+    const { businessId, waiterId, waiterName } = req.body;
+
+    if (!businessId || (!waiterId && !waiterName)) {
+      return res.status(400).json({
+        message: "businessId dhe kamarieri janë të detyrueshme",
+      });
+    }
+
+    const { orders, report } = await buildWaiterShiftReport({
+      businessId,
+      waiterId,
+      waiterName,
+    });
+
+    if (!orders.length) {
+      return res.status(404).json({
+        message: "Nuk ka porosi për këtë kamarier sot",
+      });
+    }
+
+    await Order.updateMany(
+      {
+        _id: { $in: orders.map((o) => o._id) },
+      },
+      {
+        $set: {
+          shiftClosed: true,
+          shiftClosedAt: new Date(),
+        },
+      }
+    );
+
+    return res.json({
+      message: "Xhiro e kamarierit u mbyll",
+      report,
+    });
+  } catch (err) {
+    console.error("❌ Gabim te closeWaiterShift:", err);
+    return res.status(500).json({
+      message: "Gabim serveri",
+      error: err.message,
+    });
+  }
+};
+
+export const getWaiterShiftPreview = async (req, res) => {
+  try {
+    const { businessId, waiterId, waiterName } = req.body;
+
+    if (!businessId || (!waiterId && !waiterName)) {
+      return res.status(400).json({
+        message: "businessId dhe kamarieri janë të detyrueshme",
+      });
+    }
+
+    const { orders, report } = await buildWaiterShiftReport({
+      businessId,
+      waiterId,
+      waiterName,
+    });
+
+    if (!orders.length) {
+      return res.status(404).json({
+        message: "Nuk ka porosi për këtë kamarier sot",
+      });
+    }
+
+    return res.json({
+      message: "Preview i xhiros",
+      report,
+    });
+  } catch (err) {
+    console.error("❌ Gabim te getWaiterShiftPreview:", err);
+    return res.status(500).json({
+      message: "Gabim serveri",
+      error: err.message,
+    });
   }
 };

@@ -13,7 +13,6 @@ const readBusinessId = (req) => {
   return q.businessId || b.businessId || p.businessId;
 };
 
-
 const emitProductsChanged = (req, businessId) => {
   const io = req.app.get("io");
   io?.to(`business:${businessId}`).emit("products:changed", { businessId });
@@ -30,17 +29,18 @@ const requiresSubCategory = (categoryType) => {
 const SUBCAT_MARKER_NAME = "__subcat__";
 
 /* ============================================================
-   GET /api/products?businessId=...&categoryType=...&subCategory=...
+   GET /api/products?businessId=...&categoryType=...&subCategory=...&subCategoryId=...
 ============================================================ */
 export const getProducts = async (req, res) => {
   try {
-     console.log("REQ CHECK:", {
+    console.log("REQ CHECK:", {
       hasReq: !!req,
       hasQuery: !!req?.query,
       method: req?.method,
       url: req?.originalUrl,
     });
-    const { categoryType, subCategory } = req.query;
+
+    const { categoryType, subCategory, subCategoryId } = req.query;
     const businessId = readBusinessId(req);
 
     if (!businessId || !isValidId(businessId)) {
@@ -49,29 +49,37 @@ export const getProducts = async (req, res) => {
 
     const filter = {
       businessId: new mongoose.Types.ObjectId(businessId),
-
-      // ✅ vetëm produkte me kategori (jo legacy)
       categoryType: { $exists: true, $ne: null, $ne: "" },
-
-      // ✅ mos kthe placeholder-a gabimisht
       name: { $ne: SUBCAT_MARKER_NAME },
     };
 
-    if (categoryType) filter.categoryType = normalizeStr(categoryType);
-    if (subCategory) filter.subCategory = normalizeStr(subCategory);
+    if (categoryType) {
+      filter.categoryType = normalizeStr(categoryType);
+    }
 
-    // ✅ hide "Numrat" për cadra/dhoma kur hideNumbers=1
-const hideNumbers = String(req.query.hideNumbers || "") === "1";
+    if (subCategoryId && isValidId(subCategoryId)) {
+      filter.subCategoryId = new mongoose.Types.ObjectId(subCategoryId);
+    } else if (subCategory) {
+      filter.subCategory = normalizeStr(subCategory);
+    }
 
-if (hideNumbers) {
-  filter.$or = [
-    { categoryType: { $nin: ["cadra", "dhoma"] } },
-    { subCategory: { $ne: "Numrat" } },
-  ];
-}
+    const hideNumbers = String(req.query.hideNumbers || "") === "1";
 
+    if (hideNumbers) {
+      filter.$or = [
+        { categoryType: { $nin: ["cadra", "dhoma"] } },
+        { subCategory: { $ne: "Numrat" } },
+      ];
+    }
 
-    const products = await Product.find(filter).sort({ name: 1 }).lean();
+    const products = await Product.find(filter)
+      .populate(
+        "subCategoryId",
+        "name nameSq nameEn nameIt categoryType destination"
+      )
+      .sort({ name: 1 })
+      .lean();
+
     return res.json(products);
   } catch (err) {
     console.error("❌ Gabim te getProducts:", err);
@@ -84,26 +92,35 @@ if (hideNumbers) {
 ============================================================ */
 export const createProduct = async (req, res) => {
   try {
+    console.log("📦 CREATE BODY:", req.body);
+
     const businessId = readBusinessId(req);
+
     if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId i pavlefshëm" });
     }
 
-    const ct = normalizeStr(req.body.categoryType);
+    const ct = normalizeLower(req.body.categoryType);
     if (!ct) {
-      return res.status(400).json({ message: "categoryType është i detyrueshëm" });
+      return res
+        .status(400)
+        .json({ message: "categoryType është i detyrueshëm" });
     }
 
     const sc = normalizeStr(req.body.subCategory);
+    const rawSubCategoryId = req.body.subCategoryId;
 
-    // ✅ detyro subCategory për pije/ushqime
-    if (requiresSubCategory(ct) && !sc) {
-      return res
-        .status(400)
-        .json({ message: "subCategory është e detyrueshme për Pije/Ushqime" });
+    const subCategoryId =
+      rawSubCategoryId && isValidId(rawSubCategoryId)
+        ? new mongoose.Types.ObjectId(rawSubCategoryId)
+        : undefined;
+
+    if (requiresSubCategory(ct) && !sc && !subCategoryId) {
+      return res.status(400).json({
+        message: "subCategory është e detyrueshme për Bar/Restorant",
+      });
     }
 
-    // ✅ multi-language fields
     const nameSq = normalizeStr(req.body.nameSq);
     const nameEn = normalizeStr(req.body.nameEn);
     const nameIt = normalizeStr(req.body.nameIt);
@@ -112,7 +129,6 @@ export const createProduct = async (req, res) => {
     const descEn = normalizeStr(req.body.descEn);
     const descIt = normalizeStr(req.body.descIt);
 
-    // ✅ fallback name: prefer Sq, pastaj name, pastaj En/It
     const cleanName =
       nameSq || normalizeStr(req.body.name) || nameEn || nameIt;
 
@@ -124,25 +140,31 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ message: "Emër produkti i pavlefshëm." });
     }
 
-    // ✅ destination (kuzhine/banak)
     const destinationRaw = normalizeLower(req.body.destination);
-    const destination =
-      destinationRaw === "banak" ? "banak" : "kuzhine";
+    const destination = destinationRaw === "banak" ? "banak" : "kuzhine";
 
-    // ✅ price (kujdes për cadra/dhoma numrat)
-    const priceRaw = req.body.price;
+    let numericPrice;
 
-    // Nëse do lejohet null për numra, mos e detyro këtu.
-    // Por me schema aktuale (price required) duhet numër:
-    const numericPrice = Number(priceRaw);
+    if (
+      req.body.price === null ||
+      req.body.price === "" ||
+      req.body.price === undefined
+    ) {
+      numericPrice = 0;
+    } else {
+      numericPrice = Number(req.body.price);
+    }
+
     if (Number.isNaN(numericPrice)) {
       return res.status(400).json({ message: "price duhet të jetë numër" });
     }
 
-    const product = await Product.create({
+    const image = normalizeStr(req.body.image);
+
+    const productData = {
       businessId: new mongoose.Types.ObjectId(businessId),
       categoryType: ct,
-      subCategory: sc || undefined,
+
       destination,
 
       name: cleanName,
@@ -155,13 +177,37 @@ export const createProduct = async (req, res) => {
       descIt,
 
       price: numericPrice,
-    });
+
+      image,
+    };
+
+    if (subCategoryId) {
+      productData.subCategoryId = subCategoryId;
+    }
+
+    if (sc) {
+      productData.subCategory = sc;
+    }
+
+    const product = await Product.create(productData);
+
+    const populated = await Product.findById(product._id)
+      .populate(
+        "subCategoryId",
+        "name nameSq nameEn nameIt categoryType destination"
+      )
+      .lean();
 
     emitProductsChanged(req, businessId);
-    return res.status(201).json(product);
+    return res.status(201).json(populated);
   } catch (err) {
-    console.error("❌ Gabim te createProduct:", err);
-    return res.status(500).json({ message: "Gabim serveri" });
+    console.error("❌ CREATE PRODUCT ERROR FULL:", err);
+    console.error("❌ ERROR MESSAGE:", err.message);
+    console.error("❌ STACK:", err.stack);
+
+    return res.status(500).json({
+      message: err.message || "Gabim serveri",
+    });
   }
 };
 
@@ -170,12 +216,15 @@ export const createProduct = async (req, res) => {
 ============================================================ */
 export const updateProduct = async (req, res) => {
   try {
+    console.log("🛠 UPDATE BODY:", req.body);
+
     const { id } = req.params;
     const businessId = readBusinessId(req);
 
     if (!isValidId(id)) {
       return res.status(400).json({ message: "id i pavlefshëm" });
     }
+
     if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId i pavlefshëm" });
     }
@@ -183,10 +232,11 @@ export const updateProduct = async (req, res) => {
     const patch = { ...req.body };
     delete patch.businessId;
 
-    // ✅ mos lejo të bëhet "__subcat__" me update
     if (patch.name !== undefined) {
       const cleanName = normalizeStr(patch.name);
-      if (!cleanName) return res.status(400).json({ message: "name nuk mund të jetë bosh" });
+      if (!cleanName) {
+        return res.status(400).json({ message: "name nuk mund të jetë bosh" });
+      }
       if (cleanName.toLowerCase() === SUBCAT_MARKER_NAME) {
         return res.status(400).json({ message: "Emër produkti i pavlefshëm." });
       }
@@ -194,62 +244,93 @@ export const updateProduct = async (req, res) => {
     }
 
     if (patch.price !== undefined) {
-      const numericPrice = Number(patch.price);
+      let numericPrice;
+
+      if (patch.price === null || patch.price === "") {
+        numericPrice = 0;
+      } else {
+        numericPrice = Number(patch.price);
+      }
+
       if (Number.isNaN(numericPrice)) {
         return res.status(400).json({ message: "price duhet të jetë numër" });
       }
+
       patch.price = numericPrice;
     }
 
     if (patch.categoryType !== undefined) {
-      patch.categoryType = patch.categoryType ? normalizeStr(patch.categoryType) : undefined;
+      patch.categoryType = patch.categoryType
+        ? normalizeStr(patch.categoryType)
+        : undefined;
     }
 
     if (patch.subCategory !== undefined) {
-      patch.subCategory = patch.subCategory ? normalizeStr(patch.subCategory) : undefined;
+      patch.subCategory = patch.subCategory
+        ? normalizeStr(patch.subCategory)
+        : undefined;
     }
 
-    // ✅ merr produktin aktual që të dimë categoryType final
+    if (patch.subCategoryId !== undefined) {
+      if (patch.subCategoryId && isValidId(patch.subCategoryId)) {
+        patch.subCategoryId = new mongoose.Types.ObjectId(patch.subCategoryId);
+      } else {
+        delete patch.subCategoryId;
+      }
+    }
+
     const current = await Product.findOne({
       _id: id,
       businessId: new mongoose.Types.ObjectId(businessId),
     }).lean();
 
     if (!current) {
-      return res.status(404).json({ message: "Produkti nuk u gjet për këtë biznes" });
+      return res
+        .status(404)
+        .json({ message: "Produkti nuk u gjet për këtë biznes" });
     }
 
-    const finalCategoryType = normalizeStr(patch.categoryType ?? current.categoryType);
+    const finalCategoryType = normalizeStr(
+      patch.categoryType ?? current.categoryType
+    );
 
-    // ✅ për pije/ushqime: mos lejo subCategory bosh
     if (requiresSubCategory(finalCategoryType)) {
-      const finalSub = patch.subCategory !== undefined ? patch.subCategory : current.subCategory;
-      if (!normalizeStr(finalSub)) {
-        return res
-          .status(400)
-          .json({ message: "subCategory nuk mund të jetë bosh për Pije/Ushqime" });
+      const finalSubCategoryId =
+        patch.subCategoryId !== undefined
+          ? patch.subCategoryId
+          : current.subCategoryId;
+
+      const finalSubCategory =
+        patch.subCategory !== undefined
+          ? patch.subCategory
+          : current.subCategory;
+
+      if (!finalSubCategoryId && !normalizeStr(finalSubCategory)) {
+        return res.status(400).json({
+          message: "subCategory nuk mund të jetë bosh për Bar/Restorant",
+        });
       }
     }
-    // ✅ trim për multi-language fields
-
 
     if (patch.nameSq !== undefined) patch.nameSq = normalizeStr(patch.nameSq);
     if (patch.nameEn !== undefined) patch.nameEn = normalizeStr(patch.nameEn);
     if (patch.nameIt !== undefined) patch.nameIt = normalizeStr(patch.nameIt);
+
     if (patch.descSq !== undefined) patch.descSq = normalizeStr(patch.descSq);
     if (patch.descEn !== undefined) patch.descEn = normalizeStr(patch.descEn);
     if (patch.descIt !== undefined) patch.descIt = normalizeStr(patch.descIt);
 
-// ✅ destination
-if (patch.destination !== undefined) {
-  patch.destination = normalizeLower(patch.destination) === "banak" ? "banak" : "kuzhine";
+    if (patch.destination !== undefined) {
+      patch.destination =
+        normalizeLower(patch.destination) === "banak" ? "banak" : "kuzhine";
+    }
+    if (patch.image !== undefined) {
+  patch.image = normalizeStr(patch.image);
 }
 
-// ✅ fallback name: nëse po ndryshon nameSq dhe s’po dërgon name, vendose name = nameSq
-if (patch.name === undefined && patch.nameSq) {
-  patch.name = patch.nameSq;
-}
-
+    if (patch.name === undefined && patch.nameSq) {
+      patch.name = patch.nameSq;
+    }
 
     const updated = await Product.findOneAndUpdate(
       {
@@ -258,13 +339,21 @@ if (patch.name === undefined && patch.nameSq) {
       },
       patch,
       { new: true }
+    ).populate(
+      "subCategoryId",
+      "name nameSq nameEn nameIt categoryType destination"
     );
 
     emitProductsChanged(req, businessId);
     return res.json(updated);
   } catch (err) {
-    console.error("❌ Gabim te updateProduct:", err);
-    return res.status(500).json({ message: "Gabim serveri" });
+    console.error("❌ UPDATE PRODUCT ERROR FULL:", err);
+    console.error("❌ ERROR MESSAGE:", err.message);
+    console.error("❌ STACK:", err.stack);
+
+    return res.status(500).json({
+      message: err.message || "Gabim serveri",
+    });
   }
 };
 
@@ -279,6 +368,7 @@ export const deleteProduct = async (req, res) => {
     if (!isValidId(id)) {
       return res.status(400).json({ message: "id i pavlefshëm" });
     }
+
     if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId i pavlefshëm" });
     }
@@ -289,7 +379,9 @@ export const deleteProduct = async (req, res) => {
     });
 
     if (!deleted) {
-      return res.status(404).json({ message: "Produkti nuk u gjet për këtë biznes" });
+      return res
+        .status(404)
+        .json({ message: "Produkti nuk u gjet për këtë biznes" });
     }
 
     emitProductsChanged(req, businessId);
@@ -298,7 +390,6 @@ export const deleteProduct = async (req, res) => {
     console.error("❌ Gabim te deleteProduct:", err);
     return res.status(500).json({ message: "Gabim serveri" });
   }
-  
 };
 
 /* ============================================================
@@ -313,6 +404,7 @@ export const deleteCategoryFromProducts = async (req, res) => {
     if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId i pavlefshëm" });
     }
+
     if (!categoryType || !normalizeStr(categoryType)) {
       return res.status(400).json({ message: "categoryType mungon" });
     }
@@ -322,7 +414,7 @@ export const deleteCategoryFromProducts = async (req, res) => {
         businessId: new mongoose.Types.ObjectId(businessId),
         categoryType: normalizeStr(categoryType),
       },
-      { $unset: { categoryType: "", subCategory: "" } }
+      { $unset: { categoryType: "", subCategory: "", subCategoryId: "" } }
     );
 
     emitProductsChanged(req, businessId);
@@ -335,31 +427,37 @@ export const deleteCategoryFromProducts = async (req, res) => {
 
 /* ============================================================
    DELETE SUBCATEGORY (soft delete)
-   DELETE /api/products/subcategory?businessId=...&categoryType=...&subCategory=...
+   DELETE /api/products/subcategory?businessId=...&categoryType=...&subCategory=...&subCategoryId=...
 ============================================================ */
 export const deleteSubCategoryFromProducts = async (req, res) => {
   try {
     const businessId = readBusinessId(req);
-    const { categoryType, subCategory } = req.query;
+    const { categoryType, subCategory, subCategoryId } = req.query;
 
     if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId i pavlefshëm" });
     }
+
     if (!categoryType || !normalizeStr(categoryType)) {
       return res.status(400).json({ message: "categoryType mungon" });
     }
-    if (!subCategory || !normalizeStr(subCategory)) {
+
+    const filter = {
+      businessId: new mongoose.Types.ObjectId(businessId),
+      categoryType: normalizeStr(categoryType),
+    };
+
+    if (subCategoryId && isValidId(subCategoryId)) {
+      filter.subCategoryId = new mongoose.Types.ObjectId(subCategoryId);
+    } else if (subCategory && normalizeStr(subCategory)) {
+      filter.subCategory = normalizeStr(subCategory);
+    } else {
       return res.status(400).json({ message: "subCategory mungon" });
     }
 
-    const result = await Product.updateMany(
-      {
-        businessId: new mongoose.Types.ObjectId(businessId),
-        categoryType: normalizeStr(categoryType),
-        subCategory: normalizeStr(subCategory),
-      },
-      { $unset: { subCategory: "" } }
-    );
+    const result = await Product.updateMany(filter, {
+      $unset: { subCategory: "", subCategoryId: "" },
+    });
 
     emitProductsChanged(req, businessId);
     return res.json({ success: true, modified: result.modifiedCount });

@@ -400,38 +400,85 @@ export default function KembimiValutorPage() {
                 <option value="GBP">GBP</option>
               </select>
             </div>
-
             <div className="chart-wrap">
-              {chartLoading ? (
-                <div className="chart-placeholder">
-                  <div className="chart-placeholder-title">Duke ngarkuar grafikun...</div>
-                </div>
-              ) : (
-                <ResponsiveContainer width="100%" height={280}>
-                  <LineChart
-                    data={chartData}
-                    margin={{ top: 10, right: 10, left: 0, bottom: 0 }}
-                  >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="date" />
-                    <YAxis
-                    domain={[
-                      (dataMin) => Math.floor(dataMin - 2),
-                      (dataMax) => Math.ceil(dataMax + 2),
-                    ]}
-                    ticks={chartData.map((d) => d.live)}
-                    />
-                    <Tooltip />
-                    <Line
-                      type="monotone"
-                      dataKey="live"
-                      strokeWidth={3}
-                      dot={false}
-                    />
-                  </LineChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+  {chartLoading ? (
+    <div className="chart-placeholder">
+      <div className="chart-placeholder-title">
+        Duke ngarkuar grafikun...
+      </div>
+    </div>
+  ) : (
+    <ResponsiveContainer width="100%" height={360}>
+      <LineChart
+        data={chartData}
+        margin={{
+          top: 20,
+          right: 24,
+          left: 10,
+          bottom: 20,
+        }}
+      >
+        <CartesianGrid
+          strokeDasharray="4 4"
+          vertical={false}
+          stroke="#dbeafe"
+        />
+
+        <XAxis
+          dataKey="label"
+          interval="preserveStartEnd"
+          tick={{
+            fill: "#64748b",
+            fontSize: 12,
+          }}
+          tickMargin={12}
+          axisLine={false}
+          tickLine={false}
+        />
+
+        <YAxis
+          domain={["auto", "auto"]}
+          tickCount={5}
+          width={55}
+          tick={{
+            fill: "#64748b",
+            fontSize: 12,
+          }}
+          axisLine={false}
+          tickLine={false}
+        />
+
+        <Tooltip
+          contentStyle={{
+            borderRadius: "16px",
+            border: "1px solid #dbeafe",
+            background: "#ffffff",
+            boxShadow:
+              "0 14px 34px rgba(37,99,235,.10)",
+          }}
+          labelStyle={{
+            color: "#64748b",
+            fontWeight: 700,
+          }}
+        />
+
+        <Line
+          type="monotone"
+          dataKey="live"
+          stroke="#2563eb"
+          strokeWidth={4}
+          dot={false}
+          activeDot={{
+            r: 7,
+            fill: "#2563eb",
+            stroke: "#ffffff",
+            strokeWidth: 3,
+          }}
+        />
+      </LineChart>
+    </ResponsiveContainer>
+  )}
+</div>
           </div>
         </>
       )}

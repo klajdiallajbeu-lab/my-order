@@ -13,7 +13,7 @@ const OrderItemSchema = new mongoose.Schema(
 
     name: { type: String, required: true, trim: true },
     price: { type: Number, required: true, default: 0, min: 0 },
-    qty: { type: Number, required: true, default: 1, min: 1 },
+    qty: { type: Number, required: true, default: 1, min: 0.01 },
   },
   { _id: false }
 );
@@ -57,7 +57,10 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    items: { type: [OrderItemSchema], default: [] },
+    items: {
+      type: [OrderItemSchema],
+      default: [],
+    },
 
     total: {
       type: Number,
@@ -91,22 +94,69 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
-    createdBy: { type: String, default: "", trim: true },
-    acceptedBy: { type: String, default: "", trim: true },
+    createdBy: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
+
+    waiterId: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
+
+    acceptedBy: {
+      type: String,
+      default: "",
+      trim: true,
+      index: true,
+    },
+
+    acceptedByName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    shiftClosed: {
+      type: Boolean,
+      default: false,
+      index: true,
+    },
+
+    shiftClosedAt: {
+      type: Date,
+      default: null,
+    },
   },
   { timestamps: true }
 );
 
 OrderSchema.index({ businessId: 1, createdAt: -1 });
 OrderSchema.index({ businessId: 1, "items.productId": 1, createdAt: -1 });
+OrderSchema.index({ businessId: 1, createdBy: 1, createdAt: -1 });
+OrderSchema.index({ businessId: 1, createdBy: 1, shiftClosed: 1, createdAt: -1 });
+OrderSchema.index({ businessId: 1, waiterId: 1, shiftClosed: 1, createdAt: -1 });
+OrderSchema.index({ businessId: 1, acceptedBy: 1, shiftClosed: 1, createdAt: -1 });
+
+// Fshin automatikisht faturat/orders pas 30 ditësh
+OrderSchema.index(
+  { createdAt: 1 },
+  { expireAfterSeconds: 60 * 60 * 24 * 30 }
+);
 
 OrderSchema.pre("save", function (next) {
   if (Array.isArray(this.items)) {
     const totalAllCalc = this.items.reduce((sum, it) => {
       const price = Number(it?.price || 0);
-      const qty = Number(it?.qty || 1);
+      const qty = Number(it?.qty ?? 1);
+
       const p = Number.isFinite(price) ? price : 0;
-      const q = Number.isFinite(qty) ? qty : 1;
+      const q = Number.isFinite(qty) && qty > 0 ? qty : 1;
+
       return sum + p * q;
     }, 0);
 

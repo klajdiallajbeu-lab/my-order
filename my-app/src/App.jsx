@@ -2,14 +2,17 @@
 import { useMemo, useState } from "react";
 import { Routes, Route, Navigate } from "react-router-dom";
 
-
 /* WAITER */
 import WaiterPage from "./pages/Waiter/WaiterPage.jsx";
+import WaiterTableOrderPage from "./pages/Waiter/WaiterTableOrderPage.jsx";
+import WaiterDesktopPage from "./pages/Waiter/WaiterDesktopPage";
+import WaiterOpenTablesDesktopPage from "./pages/Waiter/WaiterOpenTablesDesktopPage";
+import WaiterXhiroDesktopPage from "./pages/Waiter/WaiterXhiroDesktopPage.jsx";
 
 /* MANAGER */
 import ProfilePage from "./pages/manager/ProfilePage";
-import LoginPage from "./pages/manager/LoginPage.jsx";
-import ManagerPage from "./pages/manager/ManagerPage.jsx";
+import LoginPage from "./pages/login/LoginPage.jsx";
+import SignupPage from "./pages/login/SignupPage.jsx";
 import DashboardPage from "./pages/manager/DashboardPage.jsx";
 import InventoryPage from "./pages/manager/InventoryPage.jsx";
 import ChangePasswordPage from "./pages/manager/ChangePasswordPage.jsx";
@@ -24,7 +27,12 @@ import ClientMenuPage from "./pages/ClientMenuPage.jsx";
 import ClientOrderPage from "./pages/ClientOrderPage.jsx";
 import KembimiValutorPage from "./pages/manager/KembimiValutorPage.jsx";
 import PlacesPage from "./pages/manager/PlacesPage.jsx";
+import PrinterSettingsPage from "./pages/manager/PrinterSettingsPage";
 
+/* MOBILE VERSION MANAGER */
+import ManagerLayout from "./pages/manager/ManagerLayout.jsx";
+import PorosiMobilePage from "./pages/manager/PorosiMobilePage.jsx";
+import XhiroMobilePage from "./pages/manager/XhiroMobilePage.jsx";
 
 
 /* ADMIN */
@@ -36,10 +44,10 @@ import ViewBusinessesPage from "./pages/admin/ViewBusinessesPage.jsx";
 /* API */
 import { loginUserApi } from "./api/userApi.js";
 
+import LoginPagePhone from "./pages/login/LoginPagePhone.jsx";
+
 /* =========================
-   HELPERS (TAB-SAFE)
-   ✅ Auth në sessionStorage (çdo tab veç)
-   ✅ businessId mund ta lësh në localStorage (shared) ose sessionStorage
+   HELPERS
 ========================= */
 const readRole = () =>
   (sessionStorage.getItem("role") || "").toLowerCase().trim();
@@ -53,9 +61,11 @@ const clearAuth = () => {
   sessionStorage.removeItem("token");
   sessionStorage.removeItem("waiterId");
   sessionStorage.removeItem("waiterName");
+  sessionStorage.removeItem("businessId");
 
-  // businessId s’po e pastrojmë (që ta mbash sipas biznesit)
-  // localStorage.removeItem("businessId");
+  localStorage.removeItem("waiterId");
+  localStorage.removeItem("waiterName");
+  localStorage.removeItem("businessId");
 };
 
 /* =========================
@@ -69,6 +79,7 @@ const AdminProtected = ({ children }) => {
 const ManagerProtected = ({ children }) => {
   const userId = readUserId();
   const role = readRole();
+
   return userId && role && role !== "waiter"
     ? children
     : <Navigate to="/login" replace />;
@@ -77,13 +88,13 @@ const ManagerProtected = ({ children }) => {
 const WaiterProtected = ({ children }) => {
   const userId = readUserId();
   const role = readRole();
+
   return userId && role === "waiter"
     ? children
     : <Navigate to="/login" replace />;
 };
 
 export default function App() {
-  // ✅ inicializim nga sessionStorage (që mos prishen tab-et)
   const [isLoggedIn, setIsLoggedIn] = useState(!!readUserId());
   const [role, setRole] = useState(readRole() || null);
 
@@ -92,7 +103,6 @@ export default function App() {
     return role === "waiter" ? "/waiter" : "/manager";
   }, [isLoggedIn, role]);
 
-  // ✅ LOGOUT pa white screen (hard redirect -> rivesh auth guard menjëherë)
   const handleLogout = () => {
     clearAuth();
     setIsLoggedIn(false);
@@ -100,42 +110,65 @@ export default function App() {
     window.location.assign("/login");
   };
 
-  // ✅ LOGIN (manager / waiter)
   const handleLogin = async (username, password) => {
     try {
       const user = await loginUserApi(username, password);
+      console.log("LOGIN USER:", user);
+
       const normalizedRole = (user.role || "").toLowerCase().trim();
+      const userId = String(user.id || user._id || "");
+      const userName = String(user.name || "");
+      const businessId = String(user.businessId || "");
 
-      // businessId mund të jetë shared
-      localStorage.setItem("businessId", user.businessId);
+      if (!userId) {
+        alert("Mungon userId nga backend.");
+        return;
+      }
 
-      // ✅ auth në sessionStorage
+      if (!businessId) {
+        alert("Mungon businessId nga backend.");
+        return;
+      }
+
+      clearAuth();
+
       sessionStorage.setItem("role", normalizedRole);
-      sessionStorage.setItem("userName", user.name);
-      sessionStorage.setItem("userId", user.id);
+      sessionStorage.setItem("userName", userName);
+      sessionStorage.setItem("userId", userId);
+      sessionStorage.setItem("businessId", businessId);
+
+      localStorage.setItem("businessId", businessId);
 
       if (normalizedRole === "waiter") {
-        sessionStorage.setItem("waiterId", user.id);
-        sessionStorage.setItem("waiterName", user.name);
+        sessionStorage.setItem("waiterId", userId);
+        sessionStorage.setItem("waiterName", userName);
+
+        localStorage.setItem("waiterId", userId);
+        localStorage.setItem("waiterName", userName);
       } else {
         sessionStorage.removeItem("waiterId");
         sessionStorage.removeItem("waiterName");
+        localStorage.removeItem("waiterId");
+        localStorage.removeItem("waiterName");
       }
 
       setIsLoggedIn(true);
       setRole(normalizedRole);
 
-      // ✅ hard redirect: s’ka “white screen” / state race
-      window.location.assign(normalizedRole === "waiter" ? "/waiter" : "/manager");
+      window.location.assign(
+        normalizedRole === "waiter" ? "/waiter" : "/manager"
+      );
     } catch (err) {
-      console.error("❌ Gabim te handleLogin:", err.response?.data || err);
-      alert(err.response?.data?.message || "❌ Kredencialet janë të pasakta!");
+      console.error("Gabim te handleLogin:", err?.response?.data || err);
+      alert(err?.response?.data?.message || "Kredencialet janë të pasakta!");
     }
   };
 
+  const isMobile = window.innerWidth <= 900;
+
   return (
     <Routes>
-      {/* ---------------------- ADMIN ---------------------- */}
+      {/* ADMIN */}
       <Route path="/admin" element={<AdminLoginPage />} />
       <Route
         path="/admin/dashboard"
@@ -162,46 +195,69 @@ export default function App() {
         }
       />
 
-      {/* ---------------------- PUBLIKE (QR) ---------------------- */}
+      {/* PUBLIKE */}
       <Route path="/menu" element={<ClientMenuPage />} />
       <Route path="/order/:token" element={<ClientOrderPage />} />
-
-
-      {/* ---------------------- LOGIN ---------------------- */}
       <Route
-        path="/login"
-        element={
-          isLoggedIn ? (
-            <Navigate to={defaultRoute} replace />
-          ) : (
-            <LoginPage onLogin={handleLogin} />
-          )
-        }
+        path="/order-session/:sessionToken"
+        element={<ClientOrderPage />}
       />
 
-      {/* ---------------------- MANAGER ---------------------- */}
-<Route
-  path="/manager"
+      {/* LOGIN */}
+      <Route
+  path="/login"
   element={
-    <ManagerProtected>
-      <ManagerPage onLogout={handleLogout} />
-    </ManagerProtected>
+    isLoggedIn ? (
+      <Navigate to={defaultRoute} replace />
+    ) : isMobile ? (
+      <LoginPagePhone onLogin={handleLogin} />
+    ) : (
+      <LoginPage onLogin={handleLogin} />
+    )
   }
->
-  <Route index element={<DashboardPage />} />
-  <Route path="dashboard" element={<DashboardPage />} />
-  <Route path="users" element={<UserPage />} />
-  <Route path="qr" element={<QrPage />} />
-  <Route path="subcategory" element={<SubCategoryPage />} />
-  <Route path="products" element={<ProductsPage />} />
-  <Route path="inventari" element={<InventoryPage />} />
-  <Route path="xhiro" element={<XhiroPage />} />
-  <Route path="orders" element={<PorosiPage />} />
-  <Route path="kembimi-valutor" element={<KembimiValutorPage />} />
-  <Route path="places" element={<PlacesPage />} />
-  <Route path="profile" element={<ProfilePage />} />
-  <Route path="change-password" element={<ChangePasswordPage />} />
-</Route>
+/>
+      <Route path="/signup" element={<SignupPage />} />
+
+      {/* MANAGER */}
+      <Route
+        path="/manager"
+        element={
+          <ManagerProtected>
+            <ManagerLayout setIsLoggedIn={setIsLoggedIn} />
+          </ManagerProtected>
+        }
+      >
+        <Route index element={<Navigate to="xhiro" replace />} />
+
+        <Route path="dashboard" element={<DashboardPage />} />
+        <Route path="users" element={<UserPage />} />
+        <Route path="qr" element={<QrPage />} />
+        <Route path="subcategory" element={<SubCategoryPage />} />
+        <Route path="products" element={<ProductsPage />} />
+        <Route path="inventari" element={<InventoryPage />} />
+
+        <Route
+          path="xhiro"
+          element={isMobile ? <XhiroMobilePage /> : <XhiroPage />}
+        />
+
+        <Route
+          path="orders"
+          element={isMobile ? <PorosiMobilePage /> : <PorosiPage />}
+        />
+
+        <Route
+          path="kembimi-valutor"
+          element={<KembimiValutorPage />}
+        />
+        <Route path="places" element={<PlacesPage />} />
+        <Route path="profile" element={<ProfilePage />} />
+        <Route
+          path="change-password"
+          element={<ChangePasswordPage />}
+        />
+        <Route path="printers" element={<PrinterSettingsPage />} />
+      </Route>
 
       <Route
         path="/manager/order/:id"
@@ -212,17 +268,52 @@ export default function App() {
         }
       />
 
-      {/* ---------------------- WAITER ---------------------- */}
-      <Route
-        path="/waiter"
-        element={
-          <WaiterProtected>
-            <WaiterPage onLogout={handleLogout} />
-          </WaiterProtected>
-        }
-      />
+{/* WAITER */}
+<Route
+  path="/waiter"
+  element={
+    <WaiterProtected>
+      {isMobile ? (
+        <WaiterPage onLogout={handleLogout} />
+      ) : (
+        <WaiterDesktopPage onLogout={handleLogout} />
+      )}
+    </WaiterProtected>
+  }
+/>
 
-      {/* ---------------------- DEFAULT ---------------------- */}
+<Route
+  path="/waiter-desktop"
+  element={
+    <WaiterProtected>
+      <WaiterDesktopPage onLogout={handleLogout} />
+    </WaiterProtected>
+  }
+/>
+
+<Route
+  path="/waiter/table/:tableNumber"
+  element={
+    <WaiterProtected>
+      <WaiterTableOrderPage />
+    </WaiterProtected>
+  }
+/>
+
+<Route
+  path="/waiter/open-tables"
+  element={
+    <WaiterProtected>
+      <WaiterOpenTablesDesktopPage />
+    </WaiterProtected>
+  }
+/>
+<Route path="/waiter/xhiro" element={<WaiterXhiroDesktopPage />} />
+
+
+
+
+      {/* DEFAULT */}
       <Route path="/" element={<Navigate to={defaultRoute} replace />} />
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>

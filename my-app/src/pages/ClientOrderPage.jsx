@@ -15,17 +15,6 @@ function useQuery() {
   return useMemo(() => new URLSearchParams(search), [search]);
 }
 
-const looksLikePinError = (msg = "") => {
-  const text = String(msg || "").toLowerCase();
-  return (
-    text.includes("pin") ||
-    text.includes("kod") ||
-    text.includes("order access") ||
-    text.includes("access") ||
-    text.includes("ditës") ||
-    text.includes("dites")
-  );
-};
 
 function FoodIcon() {
   return (
@@ -71,7 +60,7 @@ function ReceiptIcon() {
 }
 
 export default function ClientOrderPage() {
-  const { token } = useParams();
+  const { token, sessionToken } = useParams();
   const query = useQuery();
 
   const [lang, setLang] = useState(() => getInitialLang(query));
@@ -95,15 +84,10 @@ export default function ClientOrderPage() {
   const [activeCatId, setActiveCatId] = useState("all");
   const [search, setSearch] = useState("");
 
-  const [pinCode, setPinCode] = useState(
-    () => (localStorage.getItem("orderPin") || "").trim().toUpperCase()
-  );
-  const [pinSavedMsg, setPinSavedMsg] = useState("");
 
   const [openMenuType, setOpenMenuType] = useState(null);
-  const [pinRequired, setPinRequired] = useState(true);
-  const [pinLoaded, setPinLoaded] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [orderNote, setOrderNote] = useState("");
 
   const businessId = place?.businessId ? String(place.businessId) : "";
   const locationType = place?.type || "";
@@ -128,44 +112,41 @@ export default function ClientOrderPage() {
   const clearTopMessages = () => {
     setBannerError("");
     setSuccess("");
-    setPinSavedMsg("");
   };
 
-  useEffect(() => {
-    localStorage.removeItem("orderPin");
-  }, []);
-
-  useEffect(() => {
-    const fetchTodayPinStatus = async () => {
-      if (!businessId) return;
-
-      try {
-        const res = await fetch(
-          `/api/pin/today?businessId=${encodeURIComponent(businessId)}`,
-          { cache: "no-store" }
-        );
-
-        const data = await res.json().catch(() => null);
-
-        if (!res.ok || !data) {
-          setPinRequired(true);
-          setPinLoaded(true);
-          return;
-        }
-
-        setPinRequired(data.enabled === true);
-        setPinLoaded(true);
-      } catch (err) {
-        console.error("Gabim te fetch pin status:", err);
-        setPinRequired(true);
-        setPinLoaded(true);
-      }
-    };
-
-    fetchTodayPinStatus();
-  }, [businessId]);
 
   const fetchPlace = useCallback(async () => {
+
+    // ✅ nëse jemi në session mode (mos përdor QR më)
+if (sessionToken) {
+  const savedToken = sessionStorage.getItem("guestSessionToken");
+
+  if (!savedToken || savedToken !== sessionToken) {
+    setFatalError("Sesioni nuk është valid. Ju lutem skanoni përsëri QR.");
+    setPlaceLoading(false);
+    return;
+  }
+
+  const businessId = sessionStorage.getItem("guestBusinessId");
+  const sourceType = sessionStorage.getItem("guestSourceType");
+  const sourceNumber = sessionStorage.getItem("guestSourceNumber");
+
+  if (!businessId || !sourceType || !sourceNumber) {
+    setFatalError("Sesioni mungon. Ju lutem skanoni përsëri QR.");
+    setPlaceLoading(false);
+    return;
+  }
+
+  // vendos place manualisht pa backend
+  setPlace({
+    businessId,
+    type: sourceType === "dhoma" ? "room" : "umbrella",
+    code: sourceNumber,
+  });
+
+  setPlaceLoading(false);
+  return;
+}
     if (!token) {
       setFatalError(t("invalidQR"));
       setPlace(null);
@@ -191,7 +172,37 @@ export default function ClientOrderPage() {
         return;
       }
 
-      setPlace(data);
+const placeData = data?.place || data;
+
+console.log("BY TOKEN RESPONSE:", data);
+console.log("SESSION TOKEN FROM BACKEND:", data?.sessionToken);
+
+setPlace(placeData);
+
+if (data?.sessionToken) {
+  sessionStorage.setItem("guestSessionToken", data.sessionToken);
+  sessionStorage.setItem("guestSessionExpiresAt", data.expiresAt);
+  sessionStorage.setItem("guestBusinessId", data.businessId);
+  sessionStorage.setItem("guestSourceType", data.sourceType);
+  sessionStorage.setItem("guestSourceNumber", data.sourceNumber);
+
+  console.log("✅ TOKEN SAVED:", data.sessionToken);
+} else {
+  console.warn("❌ Nuk erdhi sessionToken nga backend");
+}
+// 🚀 redirect në session URL (mos përdor më token e QR)
+if (data?.sessionToken) {
+  window.history.replaceState(
+    {},
+    "",
+    `/order-session/${data.sessionToken}`
+  );
+}
+
+console.log(
+  "👉 STORAGE TOKEN:",
+  sessionStorage.getItem("guestSessionToken")
+);
     } catch (err) {
       console.error("Gabim te fetchPlace:", err);
       setFatalError("Gabim gjatë komunikimit me serverin.");
@@ -474,106 +485,89 @@ export default function ClientOrderPage() {
 
   const printInvoice = () => window.print();
 
-  const savePinLocally = () => {
-    const cleaned = String(pinCode || "").trim().toUpperCase();
+const handleSendOrder = async () => {
+  if (cart.length === 0) {
+    alert(t("chooseAtLeastOne"));
+    return;
+  }
 
-    if (!cleaned) {
-      setBannerError("Shkruaj PIN-in e ditës.");
-      return false;
-    }
+  if (!businessId || !locationType || !locationCode) {
+    alert(t("invalidQR"));
+    return;
+  }
 
-    localStorage.setItem("orderPin", cleaned);
-    setPinCode(cleaned);
-    setPinSavedMsg("PIN-i u ruajt me sukses.");
+  try {
+    setSending(true);
     setBannerError("");
-    return true;
-  };
+    setSuccess("");
+    setLastOrder(null);
 
-  const clearSavedPin = () => {
-    localStorage.removeItem("orderPin");
-    setPinCode("");
-    setPinSavedMsg("");
-    setBannerError("");
-  };
+const payload = {
+  businessId:
+    (sessionStorage.getItem("guestBusinessId") || businessId || "")
+      .trim(),
+  sourceType:
+    (sessionStorage.getItem("guestSourceType") || normalizedSourceType || "")
+      .trim()
+      .toLowerCase(),
+  sourceNumber:
+    (sessionStorage.getItem("guestSourceNumber") || locationCode || "")
+      .trim()
+      .toUpperCase(),
+  items: cart.map((item) => ({
+    productId: item._id,
+    name: item.name,
+    price: Number(item.price || 0),
+    qty: Number(item.quantity || 0),
+  })),
+  total: totalPrice,
+  createdBy: `Klient (${locationLabel})`,
+  note: orderNote.trim(),
+  orderNote: orderNote.trim(),
+  fromClient: true,
+  placeId: place?._id,
+};
 
-  const handleSendOrder = async () => {
-    if (!pinLoaded) return;
+    const created = await createOrder(payload);
+    const orderObj = created?.data ? created.data : created;
 
-    if (cart.length === 0) {
-      alert(t("chooseAtLeastOne"));
-      return;
+    setLastOrder(orderObj || null);
+setCart([]);
+setOrderNote("");
+setSuccess(t("orderSent"));
+setOpenMenuType(null);
+setShowConfirmModal(false);
+
+sessionStorage.removeItem("guestSessionToken");
+sessionStorage.removeItem("guestSessionExpiresAt");
+sessionStorage.removeItem("guestBusinessId");
+sessionStorage.removeItem("guestSourceType");
+sessionStorage.removeItem("guestSourceNumber");
+  } catch (err) {
+    console.error("Gabim gjatë dërgimit të porosisë:", err);
+
+    const msg =
+      err?.response?.data?.message ||
+      err?.message ||
+      "Nuk mund ta dërgoj porosinë. Provo përsëri.";
+
+    setBannerError(msg);
+
+    if (err?.response?.status === 401) {
+      sessionStorage.removeItem("guestSessionToken");
+      sessionStorage.removeItem("guestSessionExpiresAt");
+      sessionStorage.removeItem("guestBusinessId");
+      sessionStorage.removeItem("guestSourceType");
+      sessionStorage.removeItem("guestSourceNumber");
     }
+  } finally {
+    setSending(false);
+  }
+};
 
-    if (!businessId || !locationType || !locationCode) {
-      alert(t("invalidQR"));
-      return;
-    }
-
-    const savedPin = String(pinCode || "").trim().toUpperCase();
-
-    if (pinRequired && !savedPin) {
-      setBannerError("Vendos PIN-in për të vazhduar.");
-      setShowConfirmModal(true);
-      return;
-    }
-
-    try {
-      setSending(true);
-      setBannerError("");
-      setSuccess("");
-      setPinSavedMsg("");
-      setLastOrder(null);
-
-      const payload = {
-        businessId,
-        sourceType: normalizedSourceType,
-        sourceNumber: String(locationCode),
-        items: cart.map((item) => ({
-          productId: item._id,
-          name: item.name,
-          price: Number(item.price || 0),
-          qty: Number(item.quantity || 0),
-        })),
-        total: totalPrice,
-        createdBy: `Klient (${locationLabel})`,
-        fromClient: true,
-        placeId: place?._id,
-      };
-
-      const created = await createOrder(payload);
-      const orderObj = created?.data ? created.data : created;
-
-      setLastOrder(orderObj || null);
-      setCart([]);
-      setSuccess(t("orderSent"));
-      setOpenMenuType(null);
-      setShowConfirmModal(false);
-    } catch (err) {
-      console.error("Gabim gjatë dërgimit të porosisë:", err);
-
-      const msg =
-        err?.response?.data?.message ||
-        err?.message ||
-        "Nuk mund ta dërgoj porosinë. Provo përsëri.";
-
-      setBannerError(msg);
-
-      if (looksLikePinError(msg)) {
-        setShowConfirmModal(true);
-      }
-    } finally {
-      setSending(false);
-    }
-  };
-
-  const handleConfirmOrder = async () => {
-    if (pinRequired) {
-      const ok = savePinLocally();
-      if (!ok) return;
-    }
-
-    await handleSendOrder();
-  };
+const handleConfirmOrder = async () => {
+  await handleSendOrder();
+};
 
   const changeLang = (next) => {
     if (!LANGS.includes(next)) return;
@@ -716,8 +710,8 @@ export default function ClientOrderPage() {
                   type="button"
                   className={`co-lang-btn ${openMenuType === "drink" ? "active" : ""}`}
                   onClick={() => toggleMenuType("drink")}
-                  aria-label="Pije"
-                  title="Pije"
+                  aria-label="Bar"
+                  title="Bar"
                 >
                   <DrinkIcon />
                 </button>
@@ -805,40 +799,25 @@ export default function ClientOrderPage() {
             </div>
           </div>
         </div>
-
-        {(bannerError || pinSavedMsg) && (
-          <div className="co-top-messages">
-            {bannerError ? (
-              <div className="client-order-error-banner">
-                <div>
-                  <strong>Vëmendje:</strong> {bannerError}
-                </div>
-
-                <button
-                  type="button"
-                  className="co-inline-close"
-                  onClick={() => setBannerError("")}
-                >
-                  ✕
-                </button>
-              </div>
-            ) : null}
-
-            {pinSavedMsg ? (
-              <div className="client-order-success-banner">
-                <span>{pinSavedMsg}</span>
-                <button
-                  type="button"
-                  className="co-inline-close"
-                  onClick={() => setPinSavedMsg("")}
-                >
-                  ✕
-                </button>
-              </div>
-            ) : null}
-          </div>
-        )}
       </header>
+
+      {bannerError && (
+  <div className="co-top-messages">
+    <div className="client-order-error-banner">
+      <div>
+        <strong>Vëmendje:</strong> {bannerError}
+      </div>
+
+      <button
+        type="button"
+        className="co-inline-close"
+        onClick={() => setBannerError("")}
+      >
+        ✕
+      </button>
+    </div>
+  </div>
+)}
 
       {success && (
         <div className="client-order-success">
@@ -873,7 +852,7 @@ export default function ClientOrderPage() {
                       <b>{it.qty}x</b> {it.name}
                     </div>
                     <div className="invoice-right">
-                      {(Number(it.price || 0) * Number(it.qty || 0)).toFixed(2)} €
+                      {(Number(it.price || 0) * Number(it.qty || 0)).toFixed(2)} ALL
                     </div>
                   </div>
                 ))}
@@ -881,7 +860,7 @@ export default function ClientOrderPage() {
 
               <div className="invoice-total">
                 <span>{t("total")}</span>
-                <b>{Number(lastOrder.total || 0).toFixed(2)} €</b>
+                <b>{Number(lastOrder.total || 0).toFixed(2)} ALL</b>
               </div>
 
               <div className="invoice-actions">
@@ -902,7 +881,6 @@ export default function ClientOrderPage() {
                     setSearch("");
                     setActiveCatId("all");
                     setOpenMenuType(null);
-                    clearSavedPin();
                   }}
                 >
                   Porosi tjetër
@@ -947,7 +925,7 @@ export default function ClientOrderPage() {
                     )}
 
                     <div className="client-order-item-price">
-                      {Number(p.price || 0).toFixed(2)} €
+                      {Number(p.price || 0).toFixed(2)} ALL
                     </div>
                   </div>
 
@@ -996,7 +974,7 @@ export default function ClientOrderPage() {
           <div className="co-sum-left">
             <div className="co-sum-title">{locationLabel}</div>
             <div className="co-sum-sub">
-              {totalItems} {t("items")} • {totalPrice.toFixed(2)} €
+              {totalItems} {t("items")} • {totalPrice.toFixed(2)} ALL
             </div>
           </div>
 
@@ -1006,7 +984,7 @@ export default function ClientOrderPage() {
               clearTopMessages();
               setShowConfirmModal(true);
             }}
-            disabled={sending || cart.length === 0 || !pinLoaded}
+            disabled={sending || cart.length === 0}
           >
             {sending ? t("sending") : t("send")}
           </button>
@@ -1040,32 +1018,24 @@ export default function ClientOrderPage() {
                     <b>{item.quantity}x</b> {item.name}
                   </span>
                   <span>
-                    {(Number(item.quantity || 0) * Number(item.price || 0)).toFixed(2)} €
+                    {(Number(item.quantity || 0) * Number(item.price || 0)).toFixed(2)} ALL
                   </span>
                 </div>
               ))}
             </div>
+            <div className="confirm-note-box">
+  <label>Shënim opsional</label>
+  <textarea
+    value={orderNote}
+    onChange={(e) => setOrderNote(e.target.value)}
+    placeholder="P.sh. pa akull, pa qepë, silleni te dera..."
+  />
+</div>
 
             <div className="confirm-total">
               <span>Total</span>
-              <b>{totalPrice.toFixed(2)} €</b>
+              <b>{totalPrice.toFixed(2)} ALL</b>
             </div>
-
-            {pinRequired && (
-              <div className="confirm-pin-wrap">
-                <label className="confirm-label">PIN i ditës</label>
-                <input
-                  type="text"
-                  className="confirm-pin"
-                  value={pinCode}
-                  onChange={(e) =>
-                    setPinCode(String(e.target.value || "").toUpperCase())
-                  }
-                  placeholder="Vendos PIN"
-                  maxLength={20}
-                />
-              </div>
-            )}
 
             <div className="confirm-actions">
               <button

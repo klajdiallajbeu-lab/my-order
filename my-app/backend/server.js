@@ -20,7 +20,9 @@ import subCategoryRoutes from "./routes/subCategoryRoutes.js";
 import categoryRoutes from "./routes/categoryRoutes.js";
 import exchangeRoutes from "./routes/exchangeRoutes.js";
 import businessRoutes from "./routes/businessRoutes.js";
-import placesRoutes from "./routes/placesRoutes.js"; // ✅
+import placesRoutes from "./routes/placesRoutes.js";
+import businessRequestRoutes from "./routes/businessRequestRoutes.js";
+import tableRoutes from "./routes/tableRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,17 +35,68 @@ const server = http.createServer(app);
 app.set("etag", false);
 
 const io = new Server(server, {
-  cors: { origin: true, credentials: true },
+  cors: {
+    origin: true,
+    credentials: true,
+  },
 });
+
 app.set("io", io);
+
+/* =========================
+   SOCKET.IO
+========================= */
 
 io.on("connection", (socket) => {
   console.log("🟢 Socket connected:", socket.id);
 
   socket.on("joinBusiness", (businessId) => {
     if (!businessId) return;
-    socket.join(`business:${businessId}`);
-    console.log("🏢 Joined business room:", businessId);
+
+    const room = `business:${businessId}`;
+    socket.join(room);
+
+    console.log("🏢 Joined business room:", room);
+  });
+
+  const emitTableInvoice = (payload, eventName) => {
+    if (!payload?.businessId) {
+      console.log(`⚠️ ${eventName} pa businessId`);
+      return;
+    }
+
+    const room = `business:${payload.businessId}`;
+
+    console.log(`✅ SERVER MORI ${eventName}:`, payload.businessId);
+    console.log(`📤 Po e dërgoj te room: ${room}`);
+
+    io.to(room).emit("table:invoice", payload);
+  };
+
+  socket.on("table:invoice", (payload) => {
+    emitTableInvoice(payload, "table:invoice");
+  });
+
+  socket.on("tableInvoice", (payload) => {
+    emitTableInvoice(payload, "tableInvoice");
+  });
+
+  socket.on("manager:print-table-invoice", (payload) => {
+    emitTableInvoice(payload, "manager:print-table-invoice");
+  });
+
+  socket.on("waiter:shift-report", (payload) => {
+    if (!payload?.businessId) {
+      console.log("⚠️ waiter:shift-report pa businessId");
+      return;
+    }
+
+    const room = `business:${payload.businessId}`;
+
+    console.log("✅ SERVER MORI waiter:shift-report:", payload.businessId);
+    console.log(`📤 Po e dërgoj xhiron te room: ${room}`);
+
+    io.to(room).emit("waiter:shift-report", payload);
   });
 
   socket.on("disconnect", () => {
@@ -51,13 +104,27 @@ io.on("connection", (socket) => {
   });
 });
 
+/* =========================
+   MIDDLEWARE
+========================= */
+
+app.use(
+  cors({
+    origin: true,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-app.use(cors({ origin: true, credentials: true }));
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/api/health", (req, res) => {
-  res.json({ ok: true, time: new Date().toISOString() });
+  res.json({
+    ok: true,
+    time: new Date().toISOString(),
+  });
 });
 
 connectDB();
@@ -68,10 +135,14 @@ app.use((req, res, next) => {
     url: req.originalUrl,
     query: req.query,
   });
+
   next();
 });
 
-/* ROUTES */
+/* =========================
+   ROUTES
+========================= */
+
 app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
@@ -83,19 +154,34 @@ app.use("/api/subcategories", subCategoryRoutes);
 app.use("/api/categories", categoryRoutes);
 app.use("/api/exchange", exchangeRoutes);
 app.use("/api/business", businessRoutes);
+app.use("/api/places", placesRoutes);
+app.use("/api/business-request", businessRequestRoutes);
+app.use("/api/tables", tableRoutes);
 
-app.use("/api/places", placesRoutes); // ✅ FIX
+/* =========================
+   ERRORS
+========================= */
 
 app.use((req, res) => {
-  res.status(404).json({ message: "Route not found" });
+  res.status(404).json({
+    message: "Route not found",
+  });
 });
 
 app.use((err, req, res, next) => {
   console.error("❌ Server error:", err);
-  res.status(err.status || 500).json({ message: err.message || "Server error" });
+
+  res.status(err.status || 500).json({
+    message: err.message || "Server error",
+  });
 });
 
+/* =========================
+   START
+========================= */
+
 const PORT = process.env.PORT || 5000;
+
 server.listen(PORT, "0.0.0.0", () => {
   console.log(`✅ Server running on http://0.0.0.0:${PORT}`);
 });

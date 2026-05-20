@@ -57,6 +57,24 @@ const businessSchema = new mongoose.Schema(
           default: ["room", "umbrella"],
         },
       },
+
+      kitchenPrinterName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+
+      barPrinterName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
+
+      invoicePrinterName: {
+        type: String,
+        default: "",
+        trim: true,
+      },
     },
   },
   { timestamps: true }

@@ -278,3 +278,107 @@
     align-items: flex-start;
   }
 }
+.orders-premium-header{
+  background:
+    linear-gradient(
+      180deg,
+      #ffffff 0%,
+      #f8fbff 100%
+    );
+
+  border:1px solid #dbeafe;
+  border-radius:28px;
+
+  padding:32px;
+  margin-bottom:28px;
+
+  display:flex;
+  align-items:center;
+
+  box-shadow:
+    0 18px 45px
+    rgba(37,99,235,.08);
+}
+
+.orders-header-left{
+  width:100%;
+}
+
+.orders-mini-label{
+  display:inline-flex;
+  background:#eff6ff;
+  color:#2563eb;
+
+  padding:8px 14px;
+  border-radius:999px;
+
+  font-size:13px;
+  font-weight:800;
+
+  margin-bottom:14px;
+}
+
+.orders-big-title{
+  margin:0;
+  color:#0f172a;
+
+  font-size:54px;
+  font-weight:950;
+  letter-spacing:-2px;
+}
+
+.orders-description{
+  margin-top:12px;
+  color:#64748b;
+  font-size:16px;
+  font-weight:600;
+  max-width:550px;
+}
+
+.orders-header-right{
+  display:flex;
+  gap:14px;
+}
+
+.orders-stat-card{
+  min-width:170px;
+  background:#ffffff;
+
+  border:1px solid #dbeafe;
+  border-radius:24px;
+
+  padding:20px;
+
+  box-shadow:
+    0 8px 25px
+    rgba(15,23,42,.04);
+}
+
+.orders-stat-card span{
+  color:#64748b;
+  font-size:14px;
+  font-weight:700;
+}
+
+.orders-stat-card h2{
+  margin-top:10px;
+  color:#0f172a;
+  font-size:30px;
+  font-weight:900;
+}
+
+.orders-stat-card.primary{
+  background:
+    linear-gradient(
+      135deg,
+      #2563eb,
+      #3b82f6
+    );
+
+  border:none;
+}
+
+.orders-stat-card.primary span,
+.orders-stat-card.primary h2{
+  color:#fff;
+}

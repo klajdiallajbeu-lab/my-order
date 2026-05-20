@@ -41,12 +41,13 @@ export default function CreateBusinessPage() {
     }
 
     try {
-      const res = await fetch(
-        "http://localhost:5000/api/admin/business/create",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
+      const res = await fetch("http://localhost:5000/api/admin/business/create", {
+  method: "POST",
+  headers: {
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+  },
+  body: JSON.stringify({
             businessName,
             phone,
             email,

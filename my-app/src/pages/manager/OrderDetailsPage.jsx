@@ -64,172 +64,176 @@ export default function OrderDetailsPage() {
     };
   }, [id, isValidMongoId]);
 
-  const handlePrint = async () => {
-    try {
-      if (!order) return;
+const handlePrint = async () => {
+  try {
+    if (!order) return;
 
-      if (!window.qz) {
-        alert("QZ Tray nuk u gjet.");
-        return;
-      }
-
-      if (!window.qz.websocket.isActive()) {
-        await window.qz.websocket.connect();
-      }
-
-      const printer = "RONGTA RPP02 Series Printer(1)";
-      const config = window.qz.configs.create(printer);
-
-      const businessName =
-        localStorage.getItem("hotelName") ||
-        order?.business?.name ||
-        "Biznesi";
-
-      const nipt =
-        localStorage.getItem("nipt") ||
-        order?.business?.nipt ||
-        "";
-
-      const address =
-        localStorage.getItem("address") ||
-        order?.business?.address ||
-        "";
-
-      const sourceLabel =
-        `${order?.sourceType || ""} ${order?.sourceNumber || ""}`.trim() || "-";
-
-      const totalNumber = Number(order?.totalALL) || Number(order?.total) || 0;
-      const total = totalNumber.toFixed(0);
-
-      const printedDate = new Date(
-        order?.createdAt || order?.updatedAt || Date.now()
-      ).toLocaleString("sq-AL", {
-        day: "2-digit",
-        month: "2-digit",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-        hour12: false,
-      });
-
-      const settings = order?.business?.settings || {};
-
-      const eurRate = Number(settings?.eurRate) || 0;
-      const usdRate = Number(settings?.usdRate) || 0;
-      const gbpRate = Number(settings?.gbpRate) || 0;
-      const chfRate = Number(settings?.chfRate) || 0;
-
-      const convertFromALL = (amount, rate, code) => {
-        if (!rate || rate <= 0) return "-";
-        return `${(Number(amount) / Number(rate)).toFixed(2)} ${code}`;
-      };
-
-      const eurText = convertFromALL(totalNumber, eurRate, "EUR");
-      const usdText = convertFromALL(totalNumber, usdRate, "USD");
-      const gbpText = convertFromALL(totalNumber, gbpRate, "GBP");
-      const chfText = convertFromALL(totalNumber, chfRate, "CHF");
-
-      const LINE_WIDTH = 32;
-
-      const padRight = (text, length) => {
-        const str = String(text ?? "");
-        if (str.length >= length) return str.slice(0, length);
-        return str + " ".repeat(length - str.length);
-      };
-
-      const makeLeftRightLine = (left, right) => {
-        const l = String(left ?? "");
-        const r = String(right ?? "");
-
-        if (r.length >= LINE_WIDTH) return `${r}\n`;
-
-        const leftWidth = LINE_WIDTH - r.length;
-        return `${padRight(l, leftWidth)}${r}\n`;
-      };
-
-      const splitText = (text, maxLen) => {
-        const str = String(text || "");
-        if (!str) return [""];
-        if (str.length <= maxLen) return [str];
-
-        const words = str.split(" ");
-        const lines = [];
-        let current = "";
-
-        for (const word of words) {
-          const test = current ? `${current} ${word}` : word;
-          if (test.length <= maxLen) {
-            current = test;
-          } else {
-            if (current) lines.push(current);
-            current = word;
-          }
-        }
-
-        if (current) lines.push(current);
-        return lines.length ? lines : [str.slice(0, maxLen)];
-      };
-
-      const line = "--------------------------------\n";
-
-      const itemsLines = (order.items || []).flatMap((it) => {
-        const qty = Number(it?.qty) || 0;
-        const itemName = String(it?.name || "Artikull").trim();
-        const leftText = `${qty}x ${itemName}`;
-        const rightText = `${(qty * (Number(it?.price) || 0)).toFixed(0)} ALL`;
-
-        const leftMaxWidth = LINE_WIDTH - rightText.length;
-        const wrappedNameLines = splitText(leftText, leftMaxWidth);
-
-        return wrappedNameLines.map((part, index) => {
-          if (index === 0) {
-            return makeLeftRightLine(part, rightText);
-          }
-          return `${part}\n`;
-        });
-      });
-
-      const data = [
-        "\x1B\x40",
-
-        "\x1B\x61\x01",
-        `${businessName}\n`,
-        ...(nipt ? [`NIPT: ${nipt}\n`] : []),
-        ...(address ? [`${address}\n`] : []),
-        "\nFATURE\n\n",
-
-        "\x1B\x61\x00",
-        line,
-        `ID: ${order?._id || "-"}\n`,
-        `Burimi: ${sourceLabel}\n`,
-        `Status: ${String(order?.status || "PENDING").toUpperCase()}\n`,
-        `Kamarier: ${order?.acceptedBy || "-"}\n`,
-        `Data: ${printedDate}\n`,
-        line,
-
-        ...itemsLines,
-
-        line,
-        makeLeftRightLine("TOTAL:", `${total} ALL`),
-        line,
-        `EUR: ${eurText}\n`,
-        `USD: ${usdText}\n`,
-        `GBP: ${gbpText}\n`,
-        `CHF: ${chfText}\n`,
-
-        "\x1B\x61\x01",
-        "\nJu Faleminderit!\n",
-        "www.myOrder.al\n",
-        "\n\n\n",
-      ];
-
-      await window.qz.print(config, data);
-    } catch (error) {
-      console.error("Print error:", error);
-      alert("Gabim gjatë printimit.");
+    if (!window.qz) {
+      alert("QZ Tray nuk u gjet.");
+      return;
     }
-  };
+
+    if (!window.qz.websocket.isActive()) {
+      await window.qz.websocket.connect();
+    }
+
+    const printer = "RONGTA RPP02 Series Printer(1)";
+    const config = window.qz.configs.create(printer);
+
+    const businessName =
+      localStorage.getItem("hotelName") ||
+      order?.business?.name ||
+      "Biznesi";
+
+    const nipt =
+      localStorage.getItem("nipt") ||
+      order?.business?.nipt ||
+      "";
+
+    const address =
+      localStorage.getItem("address") ||
+      order?.business?.address ||
+      "";
+
+    const sourceLabel =
+      `${order?.sourceType || ""} ${order?.sourceNumber || ""}`.trim() || "-";
+
+    const waiterName =
+      order?.acceptedBy ||
+      order?.createdBy ||
+      localStorage.getItem("name") ||
+      "-";
+
+    const totalNumber = Number(order?.totalALL) || Number(order?.total) || 0;
+    const total = totalNumber.toFixed(0);
+
+    const printedDate = new Date(
+      order?.createdAt || order?.updatedAt || Date.now()
+    ).toLocaleString("sq-AL", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+
+    const settings = order?.business?.settings || {};
+
+    const eurRate = Number(settings?.eurRate) || 0;
+    const usdRate = Number(settings?.usdRate) || 0;
+    const gbpRate = Number(settings?.gbpRate) || 0;
+    const chfRate = Number(settings?.chfRate) || 0;
+
+    const convertFromALL = (amount, rate, code) => {
+      if (!rate || rate <= 0) return "-";
+      return `${(Number(amount) / Number(rate)).toFixed(2)} ${code}`;
+    };
+
+    const eurText = convertFromALL(totalNumber, eurRate, "EUR");
+    const usdText = convertFromALL(totalNumber, usdRate, "USD");
+    const gbpText = convertFromALL(totalNumber, gbpRate, "GBP");
+    const chfText = convertFromALL(totalNumber, chfRate, "CHF");
+
+    const LINE_WIDTH = 32;
+
+    const padRight = (text, length) => {
+      const str = String(text ?? "");
+      if (str.length >= length) return str.slice(0, length);
+      return str + " ".repeat(length - str.length);
+    };
+
+    const makeLeftRightLine = (left, right) => {
+      const l = String(left ?? "");
+      const r = String(right ?? "");
+
+      if (r.length >= LINE_WIDTH) return `${r}\n`;
+
+      const leftWidth = LINE_WIDTH - r.length;
+      return `${padRight(l, leftWidth)}${r}\n`;
+    };
+
+    const splitText = (text, maxLen) => {
+      const str = String(text || "");
+      if (!str) return [""];
+      if (str.length <= maxLen) return [str];
+
+      const words = str.split(" ");
+      const lines = [];
+      let current = "";
+
+      for (const word of words) {
+        const test = current ? `${current} ${word}` : word;
+        if (test.length <= maxLen) {
+          current = test;
+        } else {
+          if (current) lines.push(current);
+          current = word;
+        }
+      }
+
+      if (current) lines.push(current);
+      return lines.length ? lines : [str.slice(0, maxLen)];
+    };
+
+    const line = "--------------------------------\n";
+
+    const itemsLines = (order.items || []).flatMap((it) => {
+      const qty = Number(it?.qty) || 0;
+      const itemName = String(it?.name || "Artikull").trim();
+      const leftText = `${qty}x ${itemName}`;
+      const rightText = `${(qty * (Number(it?.price) || 0)).toFixed(0)} ALL`;
+
+      const leftMaxWidth = LINE_WIDTH - rightText.length;
+      const wrappedNameLines = splitText(leftText, leftMaxWidth);
+
+      return wrappedNameLines.map((part, index) => {
+        if (index === 0) {
+          return makeLeftRightLine(part, rightText);
+        }
+        return `${part}\n`;
+      });
+    });
+
+    const data = [
+      "\x1B\x40",
+
+      "\x1B\x61\x01",
+      `${businessName}\n`,
+      ...(nipt ? [`NIPT: ${nipt}\n`] : []),
+      ...(address ? [`${address}\n`] : []),
+      "\nFATURE\n\n",
+
+      "\x1B\x61\x00",
+      line,
+      `Burimi: ${sourceLabel}\n`,
+      `Kamarier: ${waiterName}\n`,
+      `Data: ${printedDate}\n`,
+      line,
+
+      ...itemsLines,
+
+      line,
+      makeLeftRightLine("TOTAL:", `${total} ALL`),
+      line,
+      makeLeftRightLine("EUR:", eurText),
+      makeLeftRightLine("USD:", usdText),
+      makeLeftRightLine("GBP:", gbpText),
+      makeLeftRightLine("CHF:", chfText),
+
+      "\x1B\x61\x01",
+      "\nJu Faleminderit!\n",
+      "www.myOrder.al\n",
+      "\n\n\n",
+    ];
+
+    await window.qz.print(config, data);
+  } catch (error) {
+    console.error("Print error:", error);
+    alert("Gabim gjatë printimit.");
+  }
+};
 
   if (loading) {
     return <div className="order-details-container">Duke ngarkuar faturën...</div>;

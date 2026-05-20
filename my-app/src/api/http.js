@@ -1,8 +1,7 @@
-// src/api/http.js
 import axios from "axios";
 
 export const api = axios.create({
-  baseURL: "/api",            // 🔥 Vite proxy → backend
+  baseURL: "/api",
   withCredentials: true,
   headers: {
     "Content-Type": "application/json",
@@ -14,21 +13,31 @@ export const api = axios.create({
 ========================= */
 api.interceptors.request.use(
   (config) => {
-    // 🔐 PIN për porosi nga klienti (QR)
-    const pin = (localStorage.getItem("orderPin") || "")
-      .trim()
-      .toUpperCase();
+    // 👨‍🍳 WAITER ID (PANELI I KAMARJERIT)
+    const waiterId =
+  (sessionStorage.getItem("waiterId") ||
+    localStorage.getItem("waiterId") ||
+    "").trim();
 
-    if (pin) {
-      config.headers["x-order-pin"] = pin;
+    if (waiterId) {
+      config.headers["x-waiter-id"] = waiterId;
     }
 
-    // 🧭 Debug (hiqe në prodhim)
+    // 👤 GUEST SESSION (QR)
+    const guestSessionToken =
+      (sessionStorage.getItem("guestSessionToken") || "").trim();
+
+    if (guestSessionToken) {
+      config.headers["x-guest-session"] = guestSessionToken;
+    }
+
+    // 🧭 DEBUG
     console.log(
       "➡️",
       (config.method || "GET").toUpperCase(),
       config.baseURL + config.url,
-      pin ? "PIN=ON" : "PIN=OFF"
+      waiterId ? "WAITER=ON" : "WAITER=OFF",
+      guestSessionToken ? "GUEST=ON" : "GUEST=OFF"
     );
 
     return config;
@@ -44,7 +53,6 @@ api.interceptors.response.use(
   (error) => {
     const status = error?.response?.status;
 
-    // 🔒 PIN i munguar / i gabuar
     if (status === 401 || status === 403) {
       console.warn("🔐 Access denied:", error?.response?.data?.message);
     }

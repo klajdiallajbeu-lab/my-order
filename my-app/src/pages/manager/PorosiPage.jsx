@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./PorosiPage.css";
 import { getOrders } from "../../api/ordersApi.js";
 import { useNavigate } from "react-router-dom";
+import { socket } from "../../realtime/socket.js";
 
 const DASHBOARD_FROM_KEY = "dashboard_from_date";
 const DASHBOARD_TO_KEY = "dashboard_to_date";
@@ -29,14 +30,10 @@ export default function PorosiPage() {
     return id && id !== "undefined" && id !== "null" ? id : "";
   }, []);
 
-  const printedBy = useMemo(() => {
-    const name = (localStorage.getItem("name") || "").trim();
-    return name || "-";
-  }, []);
-
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
+
 
   const loadOrders = useCallback(async () => {
     try {
@@ -46,7 +43,7 @@ export default function PorosiPage() {
       if (!businessId) {
         setAllOrders([]);
         setErrMsg("Mungon businessId. Hyni sërish në sistem.");
-        return;
+        return [];
       }
 
       const from = getSavedDate(DASHBOARD_FROM_KEY);
@@ -65,6 +62,7 @@ export default function PorosiPage() {
       );
 
       setAllOrders(list);
+      return list;
     } catch (err) {
       console.error("getOrders error:", err?.response?.data || err);
       setAllOrders([]);
@@ -72,6 +70,7 @@ export default function PorosiPage() {
         err?.response?.data?.message ||
           "Nuk po arrij të marr porositë nga serveri."
       );
+      return [];
     } finally {
       setLoading(false);
     }
@@ -79,26 +78,7 @@ export default function PorosiPage() {
 
   useEffect(() => {
     loadOrders();
-    const t = setInterval(loadOrders, 5000);
-    return () => clearInterval(t);
   }, [loadOrders]);
-
-  const orders = useMemo(() => {
-    return allOrders.filter((o) => {
-      const matchesSource =
-        (o?.sourceType || "").toLowerCase() === sourceFilter;
-
-      const matchesWaiter = String(o?.createdBy || "")
-        .toLowerCase()
-        .includes(waiterFilter.toLowerCase().trim());
-
-      const matchesTable = String(o?.sourceNumber || "")
-        .toLowerCase()
-        .includes(tableFilter.toLowerCase().trim());
-
-      return matchesSource && matchesWaiter && matchesTable;
-    });
-  }, [allOrders, sourceFilter, waiterFilter, tableFilter]);
 
   const formatTime = (iso) => {
     if (!iso) return "-";
@@ -106,6 +86,7 @@ export default function PorosiPage() {
     return d.toLocaleTimeString("sq-AL", {
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
     });
   };
 
@@ -129,219 +110,296 @@ export default function PorosiPage() {
     setOpenOrderId((prev) => (prev === orderId ? null : orderId));
   };
 
-const handlePrintOrder = async (e, order) => {
-  e.stopPropagation();
+  const printOrder = useCallback(
+    async (order) => {
+      try {
+        if (!order) {
+          alert("Porosia mungon.");
+          return false;
+        }
 
-  try {
-    if (!order) {
-      alert("Porosia mungon.");
-      return;
-    }
+        if (!window.qz) {
+          alert("QZ Tray nuk u gjet.");
+          return false;
+        }
 
-    if (!window.qz) {
-      alert("QZ Tray nuk u gjet.");
-      return;
-    }
+        if (!businessId) {
+          alert("Mungon businessId.");
+          return false;
+        }
 
-    if (!businessId) {
-      alert("Mungon businessId.");
-      return;
-    }
+        if (!window.qz.websocket.isActive()) {
+          await window.qz.websocket.connect();
+        }
+        const printers = await window.qz.printers.find();
 
-    if (!window.qz.websocket.isActive()) {
-      await window.qz.websocket.connect();
-    }
+const savedPrinter =
+  localStorage.getItem("invoicePrinter") ||
+  localStorage.getItem("printerName");
 
-    console.log("BUSINESS:", order.business);
-    console.log("SETTINGS:", order?.business?.settings);
+const selectedPrinter =
+  savedPrinter ||
+  localStorage.getItem("invoicePrinter") ||
+  localStorage.getItem("printerName") ||
+  printers.find((p) => p.includes("RONGTA")) ||
+  printers.find((p) => p.includes("RPP02")) ||
+  printers[0];
 
-    const printers = await window.qz.printers.find();
-    const selectedPrinter =
-      printers.find((p) => p === "RONGTA RPP02 Series Printer(1)") ||
-      printers.find((p) => p.includes("RONGTA")) ||
-      printers.find((p) => p.includes("RPP02"));
+if (!selectedPrinter) {
+  alert("Nuk u gjet asnjë printer.");
+  return false;
+}
 
-    if (!selectedPrinter) {
-      alert("Printeri Rongta nuk u gjet në listë.");
-      return;
-    }
+const config = window.qz.configs.create(selectedPrinter);
 
-    const config = window.qz.configs.create(selectedPrinter);
+        const businessName =
+          localStorage.getItem("hotelName") ||
+          order?.business?.name ||
+          "Biznesi";
 
-    const businessName =
-      order?.business?.name ||
-      localStorage.getItem("hotelName") ||
-      localStorage.getItem("businessName") ||
-      "Biznesi";
+        const nipt =
+          order?.business?.nipt ||
+          localStorage.getItem("nipt") ||
+          "";
 
-    const nipt =
-      order?.business?.nipt ||
-      localStorage.getItem("nipt") ||
-      "";
+        const address =
+          order?.business?.address ||
+          localStorage.getItem("address") ||
+          "";
 
-    const address =
-      order?.business?.address ||
-      localStorage.getItem("address") ||
-      "";
+        const printedBy =
+          localStorage.getItem("name") ||
+          order?.acceptedBy ||
+          order?.createdBy ||
+          "-";
 
-    const printedBy =
-      localStorage.getItem("name") ||
-      order?.acceptedBy ||
-      order?.createdBy ||
-      "-";
+        const sourceLabel =
+          `${formatSourceLabel(order?.sourceType)} ${order?.sourceNumber || "-"}`.trim();
 
-    const sourceLabel =
-      `${formatSourceLabel(order?.sourceType)} ${order?.sourceNumber || "-"}`.trim();
+        const d = new Date(order?.createdAt || Date.now());
+        const dd = String(d.getDate()).padStart(2, "0");
+        const mm = String(d.getMonth() + 1).padStart(2, "0");
+        const yyyy = d.getFullYear();
+        const hh = String(d.getHours()).padStart(2, "0");
+        const min = String(d.getMinutes()).padStart(2, "0");
+        const ss = String(d.getSeconds()).padStart(2, "0");
+        const createdAt = `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`;
 
-    const d = new Date(order?.createdAt || Date.now());
-    const dd = String(d.getDate()).padStart(2, "0");
-    const mm = String(d.getMonth() + 1).padStart(2, "0");
-    const yyyy = d.getFullYear();
-    const hh = String(d.getHours()).padStart(2, "0");
-    const min = String(d.getMinutes()).padStart(2, "0");
-    const ss = String(d.getSeconds()).padStart(2, "0");
-    const createdAt = `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`;
+        const settings = order?.business?.settings || {};
 
-    const settings = order?.business?.settings || {};
+        const eurRate = Number(settings?.eurRate) || 0;
+        const usdRate = Number(settings?.usdRate) || 0;
+        const gbpRate = Number(settings?.gbpRate) || 0;
+        const chfRate = Number(settings?.chfRate) || 0;
 
-    const eurRate = Number(settings?.eurRate) || 0;
-    const usdRate = Number(settings?.usdRate) || 0;
-    const gbpRate = Number(settings?.gbpRate) || 0;
-    const chfRate = Number(settings?.chfRate) || 0;
+        const currency = String(order?.currency || "ALL").toUpperCase();
+        const rawTotal = Number(order?.total || 0);
+        const savedTotalALL = Number(order?.totalALL || 0);
+        const savedRate = Number(order?.exchangeRateUsed || 0);
 
-    const currency = String(order?.currency || "ALL").toUpperCase();
-    const rawTotal = Number(order?.total || 0);
-    const savedTotalALL = Number(order?.totalALL || 0);
-    const savedRate = Number(order?.exchangeRateUsed || 0);
+        let finalTotalALL = 0;
 
-    let finalTotalALL = 0;
+        if (savedTotalALL > 0) {
+          finalTotalALL = savedTotalALL;
+        } else if (currency === "ALL") {
+          finalTotalALL = rawTotal;
+        } else if (savedRate > 0) {
+          finalTotalALL = rawTotal * savedRate;
+        } else if (currency === "EUR" && eurRate > 0) {
+          finalTotalALL = rawTotal * eurRate;
+        } else if (currency === "USD" && usdRate > 0) {
+          finalTotalALL = rawTotal * usdRate;
+        } else if (currency === "GBP" && gbpRate > 0) {
+          finalTotalALL = rawTotal * gbpRate;
+        } else if (currency === "CHF" && chfRate > 0) {
+          finalTotalALL = rawTotal * chfRate;
+        } else {
+          finalTotalALL = rawTotal;
+        }
 
-    if (savedTotalALL > 0) {
-      finalTotalALL = savedTotalALL;
-    } else if (currency === "ALL") {
-      finalTotalALL = rawTotal;
-    } else if (savedRate > 0) {
-      finalTotalALL = rawTotal * savedRate;
-    } else if (currency === "EUR" && eurRate > 0) {
-      finalTotalALL = rawTotal * eurRate;
-    } else if (currency === "USD" && usdRate > 0) {
-      finalTotalALL = rawTotal * usdRate;
-    } else if (currency === "GBP" && gbpRate > 0) {
-      finalTotalALL = rawTotal * gbpRate;
-    } else if (currency === "CHF" && chfRate > 0) {
-      finalTotalALL = rawTotal * chfRate;
-    } else {
-      finalTotalALL = rawTotal;
-    }
+        const totalEUR = eurRate > 0 ? (finalTotalALL / eurRate).toFixed(2) : "-";
+        const totalUSD = usdRate > 0 ? (finalTotalALL / usdRate).toFixed(2) : "-";
+        const totalGBP = gbpRate > 0 ? (finalTotalALL / gbpRate).toFixed(2) : "-";
+        const totalCHF = chfRate > 0 ? (finalTotalALL / chfRate).toFixed(2) : "-";
 
-    const totalEUR = eurRate > 0 ? (finalTotalALL / eurRate).toFixed(2) : "-";
-    const totalUSD = usdRate > 0 ? (finalTotalALL / usdRate).toFixed(2) : "-";
-    const totalGBP = gbpRate > 0 ? (finalTotalALL / gbpRate).toFixed(2) : "-";
-    const totalCHF = chfRate > 0 ? (finalTotalALL / chfRate).toFixed(2) : "-";
+        const LINE_WIDTH = 30;
+        const line = "------------------------------\n";
 
-    const LINE_WIDTH = 30;
-    const line = "------------------------------\n";
+        const padLeft = (text, length) => {
+          const str = String(text ?? "");
+          if (str.length >= length) return str.slice(0, length);
+          return " ".repeat(length - str.length) + str;
+        };
 
-    const padRight = (text, length) => {
-      const str = String(text ?? "");
-      if (str.length >= length) return str.slice(0, length);
-      return str + " ".repeat(length - str.length);
-    };
+        const makeLeftRightLine = (left, right) => {
+          const l = String(left ?? "");
+          const r = String(right ?? "");
+          const spaces = LINE_WIDTH - l.length - r.length;
 
-    const padLeft = (text, length) => {
-      const str = String(text ?? "");
-      if (str.length >= length) return str.slice(0, length);
-      return " ".repeat(length - str.length) + str;
-    };
+          if (spaces <= 1) {
+            return `${l}\n${padLeft(r, LINE_WIDTH)}\n`;
+          }
 
-    const makeLeftRightLine = (left, right) => {
-      const l = String(left ?? "");
-      const r = String(right ?? "");
-      const spaces = LINE_WIDTH - l.length - r.length;
+          return `${l}${" ".repeat(spaces)}${r}\n`;
+        };
 
-      if (spaces <= 1) {
-        return `${l}\n${padLeft(r, LINE_WIDTH)}\n`;
-      }
+        const shortName = (text, max = 18) => {
+          const t = String(text || "").trim();
+          return t.length > max ? `${t.slice(0, max - 1)}…` : t;
+        };
 
-      return `${l}${" ".repeat(spaces)}${r}\n`;
-    };
+        const itemValueInALL = (it) => {
+          const qty = Number(it?.qty) || 0;
+          const price = Number(it?.price) || 0;
+          const itemTotal = qty * price;
 
-    const shortName = (text, max = 18) => {
-      const t = String(text || "").trim();
-      return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-    };
+          if (currency === "ALL") return itemTotal;
 
-    const itemValueInALL = (it) => {
-      const qty = Number(it?.qty) || 0;
-      const price = Number(it?.price) || 0;
-      const itemTotal = qty * price;
+          if (savedRate > 0) return itemTotal * savedRate;
+          if (currency === "EUR" && eurRate > 0) return itemTotal * eurRate;
+          if (currency === "USD" && usdRate > 0) return itemTotal * usdRate;
+          if (currency === "GBP" && gbpRate > 0) return itemTotal * gbpRate;
+          if (currency === "CHF" && chfRate > 0) return itemTotal * chfRate;
 
-      if (currency === "ALL") return itemTotal;
+          return itemTotal;
+        };
 
-      if (savedRate > 0) return itemTotal * savedRate;
-      if (currency === "EUR" && eurRate > 0) return itemTotal * eurRate;
-      if (currency === "USD" && usdRate > 0) return itemTotal * usdRate;
-      if (currency === "GBP" && gbpRate > 0) return itemTotal * gbpRate;
-      if (currency === "CHF" && chfRate > 0) return itemTotal * chfRate;
+        const itemsLines = (order?.items || []).flatMap((it) => {
+          const qty = Number(it?.qty) || 0;
+          const name = `${qty}x ${shortName(it?.name || "Artikull", 18)}`;
+          const valueALL = `${itemValueInALL(it).toFixed(0)} ALL`;
 
-      return itemTotal;
-    };
+          if (name.length + valueALL.length <= LINE_WIDTH) {
+            return [makeLeftRightLine(name, valueALL)];
+          }
 
-    const itemsLines = (order?.items || []).flatMap((it) => {
-      const qty = Number(it?.qty) || 0;
-      const name = `${qty}x ${shortName(it?.name || "Artikull", 18)}`;
-      const valueALL = `${itemValueInALL(it).toFixed(0)} ALL`;
+          return [`${name}\n`, `${padLeft(valueALL, LINE_WIDTH)}\n`];
+        });
 
-      if ((name.length + valueALL.length) <= LINE_WIDTH) {
-        return [makeLeftRightLine(name, valueALL)];
-      }
+        const kitchenItems = (order?.items || []).filter(
+  (it) => String(it?.destination || "").toLowerCase() === "kuzhine"
+);
 
-      return [
-        `${name}\n`,
-        `${padLeft(valueALL, LINE_WIDTH)}\n`,
-      ];
-    });
+const noteText = String(order?.note || order?.orderNote || "").trim();
 
-    const data = [
-      "\x1B\x40",
-      "\x1B\x61\x01",
-      `${businessName}\n`,
-      ...(nipt ? [`NIPT: ${nipt}\n`] : []),
-      ...(address ? [`${address}\n`] : []),
-      "FATURE\n",
-      "\n",
+const kitchenLines = kitchenItems.flatMap((it) => {
+  const qty = Number(it?.qty) || 0;
+  const name = String(it?.name || "Artikull").trim();
 
-      "\x1B\x61\x00",
-      line,
-      `ID: ${order?._id || "-"}\n`,
-      `Burimi: ${sourceLabel}\n`,
-      `Status: ${formatStatusText(order?.status)}\n`,
-      `Printuar nga: ${printedBy}\n`,
-      `Data: ${createdAt}\n`,
-      line,
-
-      ...itemsLines,
-
-      line,
-      `${padLeft(`TOTAL: ${finalTotalALL.toFixed(0)} ALL`, LINE_WIDTH)}\n`,
-      `EUR: ${totalEUR}\n`,
-      `USD: ${totalUSD}\n`,
-      `GBP: ${totalGBP}\n`,
-      `CHF: ${totalCHF}\n`,
-      line,
-
-      "\x1B\x61\x01",
-      "Ju Faleminderit!\n",
-      "www.myOrder.al\n",
-      "\n\n",
-    ];
-
-    await window.qz.print(config, data);
-  } catch (err) {
-    console.error("PRINT ERROR:", err);
-    alert("Gabim gjatë printimit");
+  if (name.length <= 22) {
+    return [`${qty}x ${name}\n`];
   }
-};
+
+  return [`${qty}x ${name.slice(0, 22)}\n`, `   ${name.slice(22, 44)}\n`];
+});
+
+if (kitchenItems.length > 0) {
+  const kitchenPrinter =
+    localStorage.getItem("kitchenPrinter") ||
+    localStorage.getItem("kitchenPrinterName") ||
+    selectedPrinter;
+
+  const kitchenConfig =
+    window.qz.configs.create(kitchenPrinter);
+
+  const kitchenData = [
+    "\x1B\x40",
+    "\x1B\x4D\x01",
+    "\x1D\x21\x11",
+
+    "\x1B\x61\x01",
+    "🍽 KUZHINA 🍽\n",
+    "\n",
+
+    "\x1B\x61\x00",
+    line,
+    `TAVOLINA: ${order?.sourceNumber || "-"}\n`,
+    `KAMARIER: ${printedBy}\n`,
+    `ORA: ${createdAt}\n`,
+
+    ...(noteText
+      ? [
+          line,
+          "SHENIM:\n",
+          `${noteText}\n`,
+        ]
+      : []),
+
+    line,
+    ...kitchenLines,
+    line,
+
+    "\x1B\x61\x01",
+    "*** VETEM KUZHINE ***\n",
+    "\n\n\n",
+  ];
+
+  await window.qz.print(
+    kitchenConfig,
+    kitchenData
+  );
+}
+        const data = [
+          "\x1B\x40",
+          "\x1B\x61\x01",
+          `${businessName}\n`,
+          ...(nipt ? [`NIPT: ${nipt}\n`] : []),
+          ...(address ? [`${address}\n`] : []),
+          "FATURE\n",
+          "\n",
+
+          "\x1B\x61\x00",
+          line,
+          `ID: ${order?._id || "-"}\n`,
+          `Burimi: ${sourceLabel}\n`,
+          `Status: ${formatStatusText(order?.status)}\n`,
+          `Printuar nga: ${printedBy}\n`,
+          `Data: ${createdAt}\n`,
+          line,
+
+          ...itemsLines,
+
+          "\x1B\x61\x01",
+          "Ju Faleminderit!\n",
+          "www.myOrder.al\n",
+          "\n\n",
+        ];
+
+        await window.qz.print(config, data);
+        return true;
+      } catch (err) {
+        console.error("PRINT ERROR:", err);
+        alert("Gabim gjatë printimit");
+        return false;
+      }
+    },
+    [businessId]
+  );
+
+
+
+
+  const handlePrintOrder = async (e, order) => {
+    e.stopPropagation();
+    await printOrder(order);
+  };
+
+  const orders = useMemo(() => {
+    return allOrders.filter((o) => {
+      const matchesSource =
+        (o?.sourceType || "").toLowerCase() === sourceFilter;
+
+      const matchesWaiter = String(o?.createdBy || "")
+        .toLowerCase()
+        .includes(waiterFilter.toLowerCase().trim());
+
+      const matchesTable = String(o?.sourceNumber || "")
+        .toLowerCase()
+        .includes(tableFilter.toLowerCase().trim());
+
+      return matchesSource && matchesWaiter && matchesTable;
+    });
+  }, [allOrders, sourceFilter, waiterFilter, tableFilter]);
 
   const clearFilters = () => {
     setWaiterFilter("");
@@ -350,15 +408,24 @@ const handlePrintOrder = async (e, order) => {
 
   return (
     <div className="orders-page">
-      <div className="orders-header">
-        <div>
-          <h1 className="orders-title">Porositë</h1>
-          <p className="orders-subtitle">
-            Menaxho faturat sipas seksionit dhe filtro sipas kamarierit ose
-            numrit të tavolinës.
-          </p>
-        </div>
-      </div>
+      <div className="orders-premium-header">
+  <div className="orders-header-left">
+    <span className="orders-mini-label">
+      Menaxhim Porosish
+    </span>
+
+    <h1 className="orders-big-title">
+      Porositë
+    </h1>
+
+    <p className="orders-description">
+      Menaxho faturat sipas seksionit dhe
+      filtro sipas kamarierit ose numrit
+      të tavolinës.
+    </p>
+  </div>
+</div>
+      
 
       <div className="tabs">
         <button

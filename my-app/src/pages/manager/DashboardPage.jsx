@@ -1,8 +1,14 @@
 import "./DashboardPage.css";
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, forwardRef } from "react";
 import DatePicker from "react-datepicker";
+import "react-datepicker/dist/react-datepicker.css";
 import { useNavigate } from "react-router-dom";
-
+import {
+  Wallet,
+  ReceiptText,
+  PackageCheck,
+  ChartPie,
+} from "lucide-react";
 
 import {
   BarChart,
@@ -21,12 +27,10 @@ import {
   getTopProducts,
   getPeriodStats,
   getWaiterStats,
-  getOrderAccessCode,
 } from "../../api/statsApi.js";
 
 const DASHBOARD_FROM_KEY = "dashboard_from_date";
 const DASHBOARD_TO_KEY = "dashboard_to_date";
-
 
 const getToday = () => {
   const d = new Date();
@@ -43,15 +47,15 @@ const formatDateParam = (date) => {
 };
 
 const PALETTE = [
-  "#22c55e",
-  "#3b82f6",
+  "#2563eb",
+  "#7c3aed",
   "#f59e0b",
   "#ef4444",
-  "#a855f7",
   "#06b6d4",
-  "#84cc16",
-  "#f97316",
   "#14b8a6",
+  "#0ea5e9",
+  "#6366f1",
+  "#f97316",
   "#e11d48",
 ];
 
@@ -64,20 +68,31 @@ const hashColor = (key) => {
 
 const money = (n) => `${(Number(n) || 0).toLocaleString("sq-AL")} ALL`;
 
+const RangeInput = forwardRef(({ value, onClick }, ref) => (
+  <button
+    type="button"
+    className="dash-date-range-btn"
+    onClick={onClick}
+    ref={ref}
+  >
+    <span>{value || "Zgjidh periudhën"}</span>
+  </button>
+));
+
 export default function DashboardPage() {
   const navigate = useNavigate();
 
-const userName =
-  sessionStorage.getItem("userName") ||
-  sessionStorage.getItem("waiterName") ||
-  "User";
+  const userName =
+    sessionStorage.getItem("userName") ||
+    sessionStorage.getItem("waiterName") ||
+    "User";
 
   const hour = new Date().getHours();
   let greeting = "Welcome";
 
-  if (hour < 12) greeting = "Miremëngjesi";
+  if (hour < 12) greeting = "Mirëmëngjesi";
   else if (hour < 18) greeting = "Mirëdita";
-  else greeting = "Mirembrema";
+  else greeting = "Mirëmbrëma";
 
   const [fromDate, setFromDate] = useState(() => {
     const saved = localStorage.getItem(DASHBOARD_FROM_KEY);
@@ -102,53 +117,6 @@ const userName =
   const [reportRows, setReportRows] = useState([]);
   const [loadingReports, setLoadingReports] = useState(false);
 
-  const [orderCode, setOrderCode] = useState("");
-  const [orderCodeActive, setOrderCodeActive] = useState(true);
-  const [loadingOrderCode, setLoadingOrderCode] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const loadOrderCode = useCallback(async () => {
-    try {
-      setLoadingOrderCode(true);
-
-      const data = await getOrderAccessCode();
-
-      setOrderCode(
-        data?.code ||
-          data?.orderCode ||
-          data?.pin ||
-          data?.accessCode ||
-          ""
-      );
-
-      if (typeof data?.active === "boolean") {
-        setOrderCodeActive(data.active);
-      } else if (typeof data?.enabled === "boolean") {
-        setOrderCodeActive(data.enabled);
-      } else {
-        setOrderCodeActive(true);
-      }
-    } catch (err) {
-      console.error("❌ Gabim te getOrderAccessCode:", err);
-      setOrderCode("");
-      setOrderCodeActive(false);
-    } finally {
-      setLoadingOrderCode(false);
-    }
-  }, []);
-
-  const handleCopyCode = async () => {
-    if (!orderCode) return;
-
-    try {
-      await navigator.clipboard.writeText(orderCode);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1400);
-    } catch (err) {
-      console.error("Copy failed:", err);
-    }
-  };
-
   const loadPeriodStats = useCallback(async (range) => {
     try {
       setLoadingStats(true);
@@ -169,7 +137,7 @@ const userName =
         }))
       );
     } catch (err) {
-      console.error("❌ Gabim te getPeriodStats:", err);
+      console.error("Gabim te getPeriodStats:", err);
       setPeriodRevenue(0);
       setPeriodOrders(0);
       setDailySales([]);
@@ -182,6 +150,7 @@ const userName =
   const loadReports = useCallback(async (range) => {
     try {
       setLoadingReports(true);
+
       const from = formatDateParam(range.from);
       const to = formatDateParam(range.to);
 
@@ -234,7 +203,7 @@ const userName =
 
       setReportRows(normalized);
     } catch (err) {
-      console.error("❌ Gabim te getWaiterStats:", err);
+      console.error("Gabim te getWaiterStats:", err);
       setReportRows([]);
     } finally {
       setLoadingReports(false);
@@ -243,6 +212,7 @@ const userName =
 
   const handleConfirmDate = async () => {
     if (!fromDate || !toDate) return alert("Zgjidh të dy datat!");
+
     if (fromDate > toDate) {
       return alert("Data 'Nga' nuk mund të jetë më e madhe se 'Deri'!");
     }
@@ -262,8 +232,6 @@ const userName =
     setConfirmedRange(initial);
     loadPeriodStats(initial);
     loadReports(initial);
-    loadOrderCode();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const chartData = useMemo(() => {
@@ -285,13 +253,14 @@ const userName =
 
       try {
         setLoadingTop(true);
+
         const from = formatDateParam(confirmedRange.from);
         const to = formatDateParam(confirmedRange.to);
 
         const data = await getTopProducts(from, to, 5);
         setTopProducts(Array.isArray(data) ? data : []);
       } catch (err) {
-        console.error("❌ Gabim te getTopProducts:", err);
+        console.error("Gabim te getTopProducts:", err);
         setTopProducts([]);
       } finally {
         setLoadingTop(false);
@@ -338,6 +307,16 @@ const userName =
       }));
   }, [reportRows]);
 
+  const totalReportRevenue = useMemo(
+    () => donutData.reduce((s, r) => s + (Number(r.value) || 0), 0),
+    [donutData]
+  );
+
+  const totalReportOrders = useMemo(
+    () => donutData.reduce((s, r) => s + (Number(r.orders) || 0), 0),
+    [donutData]
+  );
+
   const renderCalloutLabel = (props) => {
     const { cx, cy, midAngle, outerRadius, name, color } = props;
 
@@ -356,14 +335,18 @@ const userName =
 
     return (
       <g>
-        <path d={`M${x1},${y1} L${x2},${y2} L${x3},${y3}`} stroke={color} fill="none" />
+        <path
+          d={`M${x1},${y1} L${x2},${y2} L${x3},${y3}`}
+          stroke={color}
+          fill="none"
+        />
         <circle cx={x3} cy={y3} r={2.5} fill={color} />
         <text
           x={x3 + (isRight ? 6 : -6)}
           y={y3}
           textAnchor={isRight ? "start" : "end"}
           dominantBaseline="central"
-          style={{ fontSize: 12, fill: "#334155", fontWeight: 600 }}
+          style={{ fontSize: 12, fill: "#334155", fontWeight: 700 }}
         >
           {name}
         </text>
@@ -373,126 +356,158 @@ const userName =
 
   return (
     <div className="dash">
-      <div className="dash-topbar">
-        <div className="dash-welcome-card">
+      <div className="dash-hero">
+        <div className="dash-hero-left">
+          <span className="dash-eyebrow">Manager Dashboard</span>
 
-<div className="dash-welcome">
-  <h1>
-    {greeting}, <span className="user-name">{userName}</span>
-  </h1>
+          <h1>
+            {greeting}, <span>{userName}</span>
+          </h1>
 
-  <p className="welcome-sub">
-    Sot ke {loadingStats ? "..." : periodOrders} porosi aktive
-  </p>
-</div>
-</div>
+          <p>
+            Përmbledhje e shpejtë e shitjeve, faturave, produkteve më të shitura
+            dhe raportit sipas kamarierëve, dhomave dhe çadrave.
+          </p>
 
-        <div className="dash-datebox">
-          <div className="dash-date-title">Filtro periudhën</div>
+          <div className="dash-hero-pills">
+            <div className="dash-pill">
+              <b>{loadingStats ? "..." : periodOrders.toLocaleString("sq-AL")}</b>
+              <span>porosi</span>
+            </div>
 
-          <div className="dash-date-row">
+            <div className="dash-pill">
+              <b>{loadingStats ? "..." : money(periodRevenue)}</b>
+              <span>xhiro</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="dash-filter-card">
+          <div className="dash-filter-top">
+            <div>
+              <h3>Filtro periudhën</h3>
+              <p>Zgjidh datat për raportin</p>
+            </div>
+            <span className="dash-filter-badge">Live</span>
+          </div>
+
+          <div className="dash-date-row dash-date-row-range">
             <DatePicker
               selected={fromDate}
-              onChange={(date) => setFromDate(date)}
+              onChange={(dates) => {
+                const [start, end] = dates;
+                setFromDate(start);
+                setToDate(end);
+              }}
+              startDate={fromDate}
+              endDate={toDate}
+              selectsRange
               dateFormat="dd/MM/yyyy"
-              className="dash-date"
-              placeholderText="Nga"
-            />
-
-            <DatePicker
-              selected={toDate}
-              onChange={(date) => setToDate(date)}
-              dateFormat="dd/MM/yyyy"
-              className="dash-date"
-              placeholderText="Deri"
+              maxDate={new Date()}
+              monthsShown={1}
+              shouldCloseOnSelect={false}
+              isClearable={false}
+              calendarClassName="dash-calendar"
+              popperClassName="dash-popper"
+              customInput={<RangeInput />}
             />
 
             <button
+              type="button"
               className="dash-confirm"
               onClick={handleConfirmDate}
-              title="Konfirmo"
+              aria-label="Konfirmo periudhën"
             >
-              ✓
+              OK
             </button>
           </div>
 
-          {confirmedRange && (
-            <div className="dash-period">
-              Aktive: {confirmedRange.from.toLocaleDateString("sq-AL")} –{" "}
-              {confirmedRange.to.toLocaleDateString("sq-AL")}
-            </div>
-          )}
+          <div className="dash-active-range">
+            {fromDate && toDate
+              ? `${formatDateParam(fromDate)} / ${formatDateParam(toDate)}`
+              : "Asnjë periudhë e zgjedhur"}
+          </div>
         </div>
       </div>
 
-      <div className="dash-kpis dash-kpis-4">
+      <div className="dash-kpis">
         <button className="kpi kpi-finance" onClick={() => navigate("/manager/xhiro")}>
-          <div className="kpi-head">
-            <span className="kpi-label">Financat</span>
-            <span className="kpi-badge positive">Totali</span>
-          </div>
+          <div className="kpi-icon"><Wallet size={24} /></div>
 
-          <div className="kpi-main">
+          <div className="kpi-content">
+            <div className="kpi-head">
+              <span className="kpi-label">Financat</span>
+              <span className="kpi-badge blue">Totali</span>
+            </div>
+
             <div className="kpi-value">
               {loadingStats ? "..." : money(periodRevenue)}
             </div>
+
             <div className="kpi-sub">Raporti total për periudhën</div>
           </div>
         </button>
 
         <button className="kpi kpi-orders" onClick={() => navigate("/manager/orders")}>
-          <div className="kpi-head">
-            <span className="kpi-label">Faturat</span>
-            <span className="kpi-badge neutral">Porosi</span>
-          </div>
+          <div className="kpi-icon"><ReceiptText size={24} /></div>
 
-          <div className="kpi-main">
+          <div className="kpi-content">
+            <div className="kpi-head">
+              <span className="kpi-label">Faturat</span>
+              <span className="kpi-badge purple">Porosi</span>
+            </div>
+
             <div className="kpi-value">
               {loadingStats ? "..." : periodOrders.toLocaleString("sq-AL")}
             </div>
+
             <div className="kpi-sub">Numri total i porosive</div>
           </div>
         </button>
 
         <button className="kpi kpi-stock" onClick={() => navigate("/manager/inventari")}>
-          <div className="kpi-head">
-            <span className="kpi-label"></span>
-            <span className="kpi-badge info">Menaxho</span>
-          </div>
+          <div className="kpi-icon"><PackageCheck size={24} /></div>
 
-          <div className="kpi-main">
-            <div className="kpi-value">Inventari</div>
+          <div className="kpi-content">
+            <div className="kpi-head">
+              <span className="kpi-label">Inventari</span>
+              <span className="kpi-badge cyan">Menaxho</span>
+            </div>
+
+            <div className="kpi-value kpi-text-value">Inventari</div>
             <div className="kpi-sub">Kontrollo gjendjen e produkteve</div>
           </div>
         </button>
 
-        <div className="kpi kpi-access">
-          <div className="kpi-head">
-            <span className="kpi-label">Kodi i porosive</span>
-            <span className={`kpi-badge ${orderCodeActive ? "positive" : "danger"}`}>
-              {orderCodeActive ? "Aktiv" : "Jo aktiv"}
-            </span>
-          </div>
+        <button
+          className="kpi kpi-report"
+          onClick={() =>
+            document
+              .getElementById("dash-report-panel")
+              ?.scrollIntoView({ behavior: "smooth", block: "start" })
+          }
+        >
+          <div className="kpi-icon"><ChartPie size={24} /></div>
 
-          <div className="kpi-main">
-            <div className="access-code">
-              {loadingOrderCode ? "......" : orderCode || "------"}
+          <div className="kpi-content">
+            <div className="kpi-head">
+              <span className="kpi-label">Raporti</span>
+              <span className="kpi-badge orange">Analizë</span>
             </div>
-            <div className="kpi-sub">PIN aktiv për dhoma dhe cadra</div>
-          </div>
 
-          <div className="access-actions">
-            <button className="access-btn ghost-blue" onClick={handleCopyCode}>
-              {copied ? "U kopjua" : "Kopjo"}
-            </button>
+            <div className="kpi-value kpi-text-value">Detaje</div>
+            <div className="kpi-sub">Shiko ndarjen sipas burimeve</div>
           </div>
-        </div>
+        </button>
       </div>
 
       <div className="dash-grid">
-        <div className="panel">
+        <div className="panel panel-sales">
           <div className="panel-head">
-            <h2>Shitjet – periudha e zgjedhur</h2>
+            <div>
+              <span className="panel-kicker">Grafiku</span>
+              <h2>Shitjet për periudhën</h2>
+            </div>
           </div>
 
           <div className="panel-body chart-wrap">
@@ -508,44 +523,42 @@ const userName =
                     dataKey="label"
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: "#64748b", fontSize: 12 }}
+                    tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }}
                   />
                   <YAxis
                     tickLine={false}
                     axisLine={false}
-                    tick={{ fill: "#64748b", fontSize: 12 }}
+                    tick={{ fill: "#64748b", fontSize: 12, fontWeight: 600 }}
                   />
                   <Tooltip
                     formatter={(value) => [`${Number(value || 0).toFixed(2)} ALL`, "Shitje"]}
                     labelFormatter={(label) => `Data: ${label}`}
-                    cursor={{ fill: "rgba(59, 130, 246, 0.08)" }}
+                    cursor={{ fill: "rgba(37, 99, 235, 0.08)" }}
                     contentStyle={{
-                      borderRadius: "16px",
+                      borderRadius: "18px",
                       border: "1px solid #dbeafe",
-                      boxShadow: "0 14px 30px rgba(15,23,42,0.10)",
+                      boxShadow: "0 18px 38px rgba(15, 23, 42, 0.12)",
                       background: "#ffffff",
                     }}
                   />
-                  <Bar
-                    dataKey="revenue"
-                    radius={[10, 10, 0, 0]}
-                    fill="#3b82f6"
-                    maxBarSize={42}
-                  />
+                  <Bar dataKey="revenue" radius={[14, 14, 0, 0]} fill="#2563eb" maxBarSize={44} />
                 </BarChart>
               </ResponsiveContainer>
             )}
           </div>
         </div>
 
-        <div className="panel">
+        <div className="panel panel-top-products">
           <div className="panel-head">
-            <h2>Top shitjet</h2>
+            <div>
+              <span className="panel-kicker">Produktet</span>
+              <h2>Top shitjet</h2>
+            </div>
           </div>
 
           <div className="panel-body">
             {!confirmedRange ? (
-              <div className="empty">Zgjidh periudhën sipër dhe shtyp ✓.</div>
+              <div className="empty">Zgjidh periudhën sipër dhe shtyp OK.</div>
             ) : loadingTop ? (
               <div className="empty">Duke ngarkuar...</div>
             ) : topProducts.length === 0 ? (
@@ -556,11 +569,10 @@ const userName =
                   <div className="modern-top-row" key={p.productId || p._id || p.name || idx}>
                     <div className="top-left">
                       <div className="top-rank">{idx + 1}</div>
-                      <div>
+
+                      <div className="top-info">
                         <div className="top-name">{p.name}</div>
-                        <div className="top-meta">
-                          {p.totalQty ?? p.qty ?? 0} shitje
-                        </div>
+                        <div className="top-meta">{p.totalQty ?? p.qty ?? 0} shitje</div>
                       </div>
                     </div>
 
@@ -573,19 +585,25 @@ const userName =
                 ))}
               </div>
             )}
-
-            <div className="panel-footer"></div>
           </div>
         </div>
 
-        <div className="panel" style={{ gridColumn: "1 / -1" }}>
-          <div className="panel-head">
-            <h2>RAPORTI</h2>
+        <div className="panel panel-report" id="dash-report-panel">
+          <div className="panel-head report-title-row">
+            <div>
+              <span className="panel-kicker">Analizë</span>
+              <h2>Raporti i periudhës</h2>
+            </div>
+
+            <div className="report-total-chip">
+              <span>Total</span>
+              <b>{money(totalReportRevenue)}</b>
+            </div>
           </div>
 
           <div className="panel-body report-layout">
             {!confirmedRange ? (
-              <div className="empty">Zgjidh periudhën sipër dhe shtyp ✓.</div>
+              <div className="empty">Zgjidh periudhën sipër dhe shtyp OK.</div>
             ) : loadingReports ? (
               <div className="empty">Duke ngarkuar...</div>
             ) : donutData.length === 0 ? (
@@ -602,12 +620,14 @@ const userName =
                         return (
                           <div className="report-card" key={`${r.type}-${r.name}-${i}`}>
                             <div className="dot" style={{ background: color }} />
+
                             <div className="report-card-main">
                               <div className="report-card-name">{r.name}</div>
                               <div className="report-card-sub">
                                 {Number(r.orders || 0).toLocaleString("sq-AL")} porosi
                               </div>
                             </div>
+
                             <div className="report-card-right">{money(r.revenue)}</div>
                           </div>
                         );
@@ -646,9 +666,9 @@ const userName =
                           y="48%"
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          style={{ fontSize: 22, fontWeight: 800, fill: "#0f172a" }}
+                          style={{ fontSize: 22, fontWeight: 900, fill: "#0f172a" }}
                         >
-                          {money(donutData.reduce((s, r) => s + (Number(r.value) || 0), 0))}
+                          {money(totalReportRevenue)}
                         </text>
 
                         <text
@@ -656,12 +676,9 @@ const userName =
                           y="58%"
                           textAnchor="middle"
                           dominantBaseline="middle"
-                          style={{ fontSize: 12, fontWeight: 600, fill: "#64748b" }}
+                          style={{ fontSize: 12, fontWeight: 700, fill: "#64748b" }}
                         >
-                          {donutData
-                            .reduce((s, r) => s + (Number(r.orders) || 0), 0)
-                            .toLocaleString("sq-AL")}{" "}
-                          porosi
+                          {totalReportOrders.toLocaleString("sq-AL")} porosi
                         </text>
 
                         <Tooltip
@@ -676,13 +693,13 @@ const userName =
 
                   <div className="report-mini">
                     <div className="mini-row">
-                      <span className="mini-label">Kamarjerë:</span>
+                      <span className="mini-label">Kamarjerë</span>
                       <b>{money(waiterTotalRevenue)}</b>
                       <span className="mini-muted">({waiterTotalOrders} porosi)</span>
                     </div>
 
                     <div className="mini-row">
-                      <span className="mini-label">Dhoma:</span>
+                      <span className="mini-label">Dhoma</span>
                       <b>{money(dhomaRow?.revenue || 0)}</b>
                       <span className="mini-muted">
                         ({Number(dhomaRow?.orders || 0)} porosi)
@@ -690,7 +707,7 @@ const userName =
                     </div>
 
                     <div className="mini-row">
-                      <span className="mini-label">Cadra:</span>
+                      <span className="mini-label">Cadra</span>
                       <b>{money(cadraRow?.revenue || 0)}</b>
                       <span className="mini-muted">
                         ({Number(cadraRow?.orders || 0)} porosi)

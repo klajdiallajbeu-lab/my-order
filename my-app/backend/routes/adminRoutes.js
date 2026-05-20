@@ -4,24 +4,25 @@ import {
   createBusinessAndManager,
   listBusinesses,
   deleteBusiness,
-  getAdminStats, // ✅ SHTO KËTË
+  getAdminStats,
+  getBusinessUsageStats,
+  getBusinessUsageHistory,
+  getBusinessPriceRecommendation,
 } from "../controllers/adminController.js";
+
+import { protectAdmin } from "../middleware/protectAdmin.js";
 
 const router = express.Router();
 
-// LOGIN i adminit
 router.post("/login", adminLogin);
 
-// DASHBOARD STATS ✅
-router.get("/stats", getAdminStats);
+router.get("/stats", protectAdmin, getAdminStats);
+router.get("/business-usage-stats", protectAdmin, getBusinessUsageStats);
+router.get("/business/:businessId/history", protectAdmin, getBusinessUsageHistory);
+router.get("/business/:businessId/price-recommendation", protectAdmin, getBusinessPriceRecommendation);
 
-// KRIJO biznes + menaxher
-router.post("/business/create", createBusinessAndManager);
-
-// LISTA e bizneseve
-router.get("/business/list", listBusinesses);
-
-// FSHI biznes sipas ID
-router.delete("/business/:id", deleteBusiness);
+router.post("/business/create", protectAdmin, createBusinessAndManager);
+router.get("/business/list", protectAdmin, listBusinesses);
+router.delete("/business/:id", protectAdmin, deleteBusiness);
 
 export default router;

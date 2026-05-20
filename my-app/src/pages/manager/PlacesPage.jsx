@@ -13,6 +13,9 @@ export default function PlacesPage() {
   const [codeInput, setCodeInput] = useState("");
   const [error, setError] = useState("");
 
+  const [tablesCount, setTablesCount] = useState("");
+  const [genLoading, setGenLoading] = useState(false);
+
   const businessId = useMemo(
     () => (localStorage.getItem("businessId") || "").trim(),
     []
@@ -30,7 +33,8 @@ export default function PlacesPage() {
 
   const [showDisablePanel, setShowDisablePanel] = useState(false);
 
-  const tabLabel = tab === "room" ? "Dhoma" : "Cadra";
+  const tabLabel =
+    tab === "room" ? "Dhoma" : tab === "umbrella" ? "Cadra" : "Tavolina";
 
   const fetchPlaces = useCallback(async () => {
     if (!businessId) {
@@ -101,6 +105,44 @@ export default function PlacesPage() {
     fetchOrderAccess();
   }, [fetchOrderAccess]);
 
+  const handleGenerateTables = async () => {
+    if (!businessId) return;
+
+    const total = Number(tablesCount);
+
+    if (!Number.isInteger(total) || total <= 0) {
+      setError("Vendos një numër të saktë");
+      return;
+    }
+
+    setGenLoading(true);
+    setError("");
+
+    try {
+      const res = await fetch(`/api/places/generate`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          businessId,
+          type: "table",
+          total,
+        }),
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data?.message || "Gabim");
+
+      setTablesCount("");
+      await fetchPlaces();
+    } catch (e) {
+      setError(e?.message || "Gabim");
+    } finally {
+      setGenLoading(false);
+    }
+  };
+
   const handleAdd = async () => {
     if (!businessId) {
       setError("Mungon businessId.");
@@ -156,40 +198,38 @@ export default function PlacesPage() {
     }
   };
 
-const copyOrderLink = async (token) => {
-  const baseUrl = getPublicBaseUrl();
-  const url = `${baseUrl}/order/${encodeURIComponent(token)}`;
+  const copyOrderLink = async (token) => {
+    const baseUrl = getPublicBaseUrl();
+    const url = `${baseUrl}/order/${encodeURIComponent(token)}`;
 
-  if (!token) {
-    setError("Link i pavlefshëm.");
-    return;
-  }
-
-  try {
-    // mënyra moderne
-    await navigator.clipboard.writeText(url);
-    setError(""); // pastro error
-  } catch {
-    try {
-      // fallback (funksionon gjithmonë)
-      const textarea = document.createElement("textarea");
-      textarea.value = url;
-      textarea.style.position = "fixed";
-      textarea.style.opacity = "0";
-
-      document.body.appendChild(textarea);
-      textarea.focus();
-      textarea.select();
-
-      document.execCommand("copy");
-      document.body.removeChild(textarea);
-
-      setError(""); // sukses
-    } catch {
-      setError("Nuk u kopjua linku.");
+    if (!token) {
+      setError("Link i pavlefshëm.");
+      return;
     }
-  }
-};
+
+    try {
+      await navigator.clipboard.writeText(url);
+      setError("");
+    } catch {
+      try {
+        const textarea = document.createElement("textarea");
+        textarea.value = url;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        document.execCommand("copy");
+        document.body.removeChild(textarea);
+
+        setError("");
+      } catch {
+        setError("Nuk u kopjua linku.");
+      }
+    }
+  };
 
   const saveOrderAccess = async () => {
     if (!businessId) return;
@@ -232,15 +272,22 @@ const copyOrderLink = async (token) => {
       <div className="places-wrap">
         <div className="places-hero">
           <div className="places-hero-badge">
-
             <div>
               <div className="places-hero-kicker">Menaxhim</div>
-              <h1 className="places-title">Dhoma / Cadra</h1>
+              <h1 className="places-title">Dhoma / Cadra / Tavolina</h1>
             </div>
           </div>
         </div>
 
         <div className="places-tabs">
+          <button
+            className={`places-tab ${tab === "table" ? "active" : ""}`}
+            onClick={() => setTab("table")}
+            type="button"
+          >
+            Tavolina
+          </button>
+
           <button
             className={`places-tab ${tab === "room" ? "active" : ""}`}
             onClick={() => setTab("room")}
@@ -266,18 +313,39 @@ const copyOrderLink = async (token) => {
             </div>
           </div>
 
-          <div className="places-add">
-            <input
-              className="places-input"
-              value={codeInput}
-              onChange={(e) => setCodeInput(e.target.value)}
-              placeholder="A130 / B250"
-            />
+          {tab === "table" ? (
+            <div className="places-add">
+              <input
+                className="places-input"
+                type="number"
+                placeholder="Sa tavolina? p.sh 20"
+                value={tablesCount}
+                onChange={(e) => setTablesCount(e.target.value)}
+              />
 
-            <button className="places-btn" onClick={handleAdd} type="button">
-              Shto
-            </button>
-          </div>
+              <button
+                className="places-btn"
+                onClick={handleGenerateTables}
+                disabled={genLoading}
+                type="button"
+              >
+                {genLoading ? "Duke krijuar..." : "Gjenero"}
+              </button>
+            </div>
+          ) : (
+            <div className="places-add">
+              <input
+                className="places-input"
+                value={codeInput}
+                onChange={(e) => setCodeInput(e.target.value)}
+                placeholder="A130 / B250"
+              />
+
+              <button className="places-btn" onClick={handleAdd} type="button">
+                Shto
+              </button>
+            </div>
+          )}
 
           {error && <div className="places-alert err">{error}</div>}
         </div>

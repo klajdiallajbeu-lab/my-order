@@ -1,12 +1,21 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./WaiterPage.css";
-import { getProducts } from "../../api/productApi.js";
-import { createOrder } from "../../api/ordersApi.js";
 import { socket } from "../../realtime/socket.js";
 import { api } from "../../api/http.js";
+import {
+  closeTableApi,
+  closeWaiterShiftApi,
+  getWaiterShiftPreviewApi,
+} from "../../api/ordersApi.js";
 
 const CURRENT_WAITER_NAME =
   sessionStorage.getItem("waiterName") || "Kamarjer 1";
+
+const CURRENT_WAITER_ID =
+  sessionStorage.getItem("waiterId") ||
+  localStorage.getItem("waiterId") ||
+  "";
 
 const getCurrencySymbol = (currency) => {
   switch (currency) {
@@ -25,18 +34,36 @@ const getCurrencySymbol = (currency) => {
 };
 
 export default function WaiterPage({ onLogout }) {
+  const navigate = useNavigate();
+
   const [locationType, setLocationType] = useState("tavoline");
   const [locationNumber, setLocationNumber] = useState("");
 
-  const [products, setProducts] = useState([]);
-  const [cart, setCart] = useState([]);
-  const [loadingProducts, setLoadingProducts] = useState(true);
+  const [tables, setTables] = useState([]);
+  const [loadingTables, setLoadingTables] = useState(false);
+
   const [error, setError] = useState("");
-
   const [incomingOrders, setIncomingOrders] = useState([]);
+  const [showSettings, setShowSettings] = useState(false);
 
-  const [selectedCategoryType, setSelectedCategoryType] = useState("");
-  const [selectedSubCategory, setSelectedSubCategory] = useState(null);
+  const [showOpenTablesPage, setShowOpenTablesPage] = useState(false);
+  const [openTableOrders, setOpenTableOrders] = useState([]);
+  const [loadingOpenTables, setLoadingOpenTables] = useState(false);
+
+  const [showShiftReportPage, setShowShiftReportPage] = useState(false);
+  const [shiftReport, setShiftReport] = useState(null);
+  const [loadingShiftReport, setLoadingShiftReport] = useState(false);
+
+  const [printerSettings, setPrinterSettings] = useState({
+    kitchenPrinterName: "",
+    barPrinterName: "",
+    invoicePrinterName: "",
+  });
+
+  const businessId = useMemo(
+    () => (localStorage.getItem("businessId") || "").trim(),
+    []
+  );
 
   const handleLogout = () => {
     const ok = window.confirm("Je i sigurt që dëshiron të dalësh?");
@@ -48,28 +75,45 @@ export default function WaiterPage({ onLogout }) {
     window.location.replace("/login");
   };
 
-  const businessId = useMemo(() => (localStorage.getItem("businessId") || "").trim(), []);
-
-  const fetchProducts = useCallback(async () => {
-    if (!businessId) {
-      setError("Mungon businessId. Hyni përsëri.");
-      setLoadingProducts(false);
-      setProducts([]);
-      return;
-    }
+  const fetchPrinterSettings = useCallback(async () => {
+    if (!businessId) return;
 
     try {
-      setLoadingProducts(true);
-      setError("");
+      const res = await api.get(`/business/${businessId}/settings`);
+      const settings = res?.data?.settings || {};
 
-      const data = await getProducts({ businessId });
-      setProducts(Array.isArray(data) ? data : []);
+      setPrinterSettings({
+        kitchenPrinterName: settings.kitchenPrinterName || "",
+        barPrinterName: settings.barPrinterName || "",
+        invoicePrinterName: settings.invoicePrinterName || "",
+      });
     } catch (err) {
-      console.error("Gabim te getProducts:", err);
-      setError("Nuk mund të ngarkoj produktet.");
-      setProducts([]);
+      console.error(
+        "Gabim te printer settings:",
+        err?.response?.data || err
+      );
+    }
+  }, [businessId]);
+
+  const fetchTables = useCallback(async () => {
+    if (!businessId) return;
+
+    try {
+      setLoadingTables(true);
+
+      const res = await api.get("/places", {
+        params: {
+          businessId,
+          type: "table",
+        },
+      });
+
+      setTables(Array.isArray(res.data) ? res.data : []);
+    } catch (err) {
+      console.error("Gabim te tavolinat:", err?.response?.data || err);
+      setTables([]);
     } finally {
-      setLoadingProducts(false);
+      setLoadingTables(false);
     }
   }, [businessId]);
 
@@ -85,11 +129,7 @@ export default function WaiterPage({ onLogout }) {
       const data = res?.data;
       if (!Array.isArray(data)) return;
 
-      const fromRoomsAndUmbrellas = data.filter(
-        (o) => o.sourceType === "dhoma" || o.sourceType === "cadra"
-      );
-
-      const mapped = fromRoomsAndUmbrellas.map((o) => ({
+      const mapped = data.map((o) => ({
         id: o._id,
         sourceType: o.sourceType,
         sourceNumber: o.sourceNumber,
@@ -99,6 +139,11 @@ export default function WaiterPage({ onLogout }) {
         currency: o.currency || "ALL",
         status: o.status || "pending",
         acceptedBy: o.acceptedBy || "",
+        createdBy: o.createdBy || "",
+        destination: o.destination || "",
+        batchId: o.batchId || "",
+        business: o.business || null,
+        createdAt: o.createdAt || null,
       }));
 
       setIncomingOrders(mapped);
@@ -108,9 +153,15 @@ export default function WaiterPage({ onLogout }) {
   }, [businessId]);
 
   useEffect(() => {
-    fetchProducts();
     fetchIncomingOrders();
-  }, [fetchProducts, fetchIncomingOrders]);
+    fetchPrinterSettings();
+  }, [fetchIncomingOrders, fetchPrinterSettings]);
+
+  useEffect(() => {
+    if (locationType === "tavoline") {
+      fetchTables();
+    }
+  }, [locationType, fetchTables]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -120,31 +171,46 @@ export default function WaiterPage({ onLogout }) {
     if (socket.connected) join();
     socket.on("connect", join);
 
-    const onProductsChanged = (payload) => {
-      if (payload?.businessId && String(payload.businessId) !== String(businessId)) return;
-      fetchProducts();
-    };
-
     const onOrdersCreated = (payload) => {
-      if (payload?.businessId && String(payload.businessId) !== String(businessId)) return;
+      if (
+        payload?.businessId &&
+        String(payload.businessId) !== String(businessId)
+      ) {
+        return;
+      }
       fetchIncomingOrders();
+      fetchTables();
     };
 
-    socket.on("products:changed", onProductsChanged);
+    const onOrdersChanged = (payload) => {
+      if (
+        payload?.businessId &&
+        String(payload.businessId) !== String(businessId)
+      ) {
+        return;
+      }
+      fetchIncomingOrders();
+      fetchTables();
+    };
+
     socket.on("orders:created", onOrdersCreated);
+    socket.on("orders:changed", onOrdersChanged);
 
     return () => {
       socket.off("connect", join);
-      socket.off("products:changed", onProductsChanged);
       socket.off("orders:created", onOrdersCreated);
+      socket.off("orders:changed", onOrdersChanged);
     };
-  }, [businessId, fetchProducts, fetchIncomingOrders]);
+  }, [businessId, fetchIncomingOrders, fetchTables]);
 
   useEffect(() => {
     if (!businessId) return;
-    const interval = setInterval(fetchIncomingOrders, 20000);
+    const interval = setInterval(() => {
+      fetchIncomingOrders();
+      fetchTables();
+    }, 20000);
     return () => clearInterval(interval);
-  }, [businessId, fetchIncomingOrders]);
+  }, [businessId, fetchIncomingOrders, fetchTables]);
 
   const filteredIncoming = useMemo(
     () => incomingOrders.filter((o) => o.sourceType === locationType),
@@ -167,389 +233,873 @@ export default function WaiterPage({ onLogout }) {
     [incomingOrders]
   );
 
-  const totalItems = useMemo(
-    () => cart.reduce((sum, item) => sum + item.quantity, 0),
-    [cart]
-  );
+  const occupiedTablesMap = useMemo(() => {
+    const map = new Map();
 
-  const totalPrice = useMemo(
-    () => cart.reduce((sum, item) => sum + item.quantity * item.price, 0),
-    [cart]
-  );
-
-  const addToCart = (product) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i._id === product._id);
-      if (existing) {
-        return prev.map((i) =>
-          i._id === product._id ? { ...i, quantity: i.quantity + 1 } : i
-        );
-      }
-      return [
-        ...prev,
-        {
-          _id: product._id,
-          name: product.name,
-          price: Number(product.price || 0),
-          quantity: 1,
-        },
-      ];
+    tables.forEach((t) => {
+      const code = String(t.code || "").trim();
+      map.set(code, {
+        isOccupied: !!t.isOccupied,
+        occupiedByWaiterId: String(t.occupiedByWaiterId || ""),
+        placeId: t._id,
+      });
     });
-  };
 
-  const removeFromCart = (productId) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i._id === productId);
-      if (!existing) return prev;
-      if (existing.quantity === 1) return prev.filter((i) => i._id !== productId);
-      return prev.map((i) =>
-        i._id === productId ? { ...i, quantity: i.quantity - 1 } : i
-      );
-    });
-  };
+    return map;
+  }, [tables]);
 
-  const handleSendOrder = async () => {
-    if (locationType !== "tavoline") {
-      alert("Zgjidh 'Tavolinë' për të dërguar porosi.");
-      return;
+
+  const formatLine = (left, right, width = 26) => {
+    let l = String(left || "").trim();
+    const r = String(right || "").trim();
+
+    const maxLeft = width - r.length - 1;
+
+    if (maxLeft <= 0) return `${l}\n${r}\n`;
+
+    if (l.length > maxLeft) {
+      l = l.slice(0, maxLeft);
     }
-    if (!locationNumber.trim()) return alert("Vendos numrin e tavolinës.");
-    if (cart.length === 0) return alert("Shto të paktën një produkt.");
+
+    return `${l}${" ".repeat(width - l.length - r.length)}${r}\n`;
+  };
+
+  const convertFromALL = (amount, rate, code) => {
+    const r = Number(rate);
+    if (!r || r <= 0) return "-";
+    return `${(Number(amount) / r).toFixed(2)} ${code}`;
+  };
+
+const printShiftReport = async () => {
+  return;
+};
+
+  const fetchOpenTableOrders = useCallback(async () => {
+    if (!businessId) return;
 
     try {
-      if (!businessId) return alert("Mungon businessId. Hyni përsëri.");
+      setLoadingOpenTables(true);
 
-      const payload = {
-        businessId,
-        sourceType: locationType,
-        sourceNumber: locationNumber,
-        items: cart.map((item) => ({
-          productId: item._id,
-          name: item.name,
-          price: item.price,
-          qty: item.quantity,
-        })),
-        total: totalPrice,
-        createdBy: CURRENT_WAITER_NAME,
-      };
+      const myOccupiedCodes = tables
+        .filter(
+          (t) =>
+            t.isOccupied &&
+            String(t.occupiedByWaiterId || "") === String(CURRENT_WAITER_ID)
+        )
+        .map((t) => String(t.code || "").trim());
 
-      await createOrder(payload);
+      if (myOccupiedCodes.length === 0) {
+        setOpenTableOrders([]);
+        return;
+      }
 
-      setCart([]);
-      alert("Porosia u dërgua!");
+      const res = await api.get("/orders", {
+        params: { businessId },
+        headers: { "Cache-Control": "no-cache" },
+      });
+
+      const data = Array.isArray(res?.data) ? res.data : [];
+
+const onlyMyOpenTables = data.filter((o) => {
+  const status = String(o?.status || "").toLowerCase();
+
+  return (
+    o.sourceType === "tavoline" &&
+    String(o.sourceNumber || "").trim() !== "" &&
+    status !== "done" &&
+    status !== "closed" &&
+    status !== "cancelled" &&
+    myOccupiedCodes.includes(String(o.sourceNumber || "").trim())
+  );
+});
+
+      const grouped = {};
+
+      onlyMyOpenTables.forEach((order) => {
+        const tableNo = String(order.sourceNumber).trim();
+
+        if (!grouped[tableNo]) {
+          grouped[tableNo] = {
+            tableNumber: tableNo,
+            orderIds: [],
+            items: [],
+            total: 0,
+            currency: order.currency || "ALL",
+            ownerId: String(CURRENT_WAITER_ID),
+          };
+        }
+
+        grouped[tableNo].orderIds.push(order._id);
+        grouped[tableNo].total += Number(order.total || 0);
+
+        (order.items || []).forEach((item) => {
+          const existing = grouped[tableNo].items.find(
+            (x) => x.name === item.name && Number(x.price) === Number(item.price)
+          );
+
+          if (existing) {
+            existing.qty += Number(item.qty || 0);
+          } else {
+            grouped[tableNo].items.push({
+              name: item.name,
+              qty: Number(item.qty || 0),
+              price: Number(item.price || 0),
+            });
+          }
+        });
+      });
+
+      const result = Object.values(grouped).sort(
+        (a, b) => Number(a.tableNumber) - Number(b.tableNumber)
+      );
+
+      setOpenTableOrders(result);
     } catch (err) {
-      console.error("Gabim te dërgimi i porosisë:", err?.response?.data || err);
-      alert("Nuk mund të dërgoj porosinë.");
+      console.error(
+        "Gabim duke lexuar tavolinat e hapura:",
+        err?.response?.data || err
+      );
+      alert("Nuk mund të lexoj tavolinat e hapura.");
+    } finally {
+      setLoadingOpenTables(false);
     }
+  }, [businessId, tables]);
+
+  const handleOpenTables = async () => {
+    setShowSettings(false);
+    setShowOpenTablesPage(true);
+    await fetchOpenTableOrders();
+  };
+
+const handleCloseTable = async (table) => {
+  const isMine = String(table.ownerId || "") === String(CURRENT_WAITER_ID);
+
+  if (!isMine) {
+    alert("Nuk mund të mbyllësh tavolinën e një kamarjeri tjetër.");
+    return;
+  }
+
+  const ok = window.confirm(
+    `Ta mbyll tavolinën ${table.tableNumber} dhe ta dërgoj faturën për printim?`
+  );
+
+  if (!ok) return;
+
+  try {
+    const res = await closeTableApi({
+      sourceType: "tavoline",
+      sourceNumber: table.tableNumber,
+    });
+
+    const invoice = res?.data?.invoice;
+
+    if (!invoice) {
+      throw new Error("Fatura totale nuk u kthye nga serveri.");
+    }
+
+    const payload = {
+      businessId,
+      sourceType: "tavoline",
+      sourceNumber: table.tableNumber,
+      tableNumber: table.tableNumber,
+
+      waiterName: CURRENT_WAITER_NAME,
+      createdBy: CURRENT_WAITER_NAME,
+
+      items: invoice.items || table.items || [],
+
+      total: Number(invoice.totalALL || invoice.total || table.total || 0),
+      totalALL: Number(invoice.totalALL || invoice.total || table.total || 0),
+
+      business: invoice.business || null,
+      createdAt: invoice.createdAt || new Date().toISOString(),
+    };
+    console.log("📱 DERGOJ FATURË TE MANAGER:", payload);
+
+if (!socket.connected) {
+  socket.connect();
+}
+
+socket.emit("joinBusiness", businessId);
+
+setTimeout(() => {
+  socket.emit("table:invoice", payload);
+}, 300);
+
+    const place = tables.find(
+      (t) =>
+        String(t.code || "").trim() === String(table.tableNumber).trim()
+    );
+
+    if (place?._id) {
+      try {
+        await api.patch(`/places/${place._id}/release`);
+        console.log("✅ Table released");
+      } catch (releaseErr) {
+        console.error(
+          "❌ Release FAILED:",
+          releaseErr?.response?.data || releaseErr
+        );
+      }
+    }
+
+    setOpenTableOrders((prev) =>
+      prev.filter(
+        (t) => String(t.tableNumber) !== String(table.tableNumber)
+      )
+    );
+
+    if (String(locationNumber) === String(table.tableNumber)) {
+      setLocationNumber("");
+    }
+
+    setShowOpenTablesPage(false);
+
+    await fetchIncomingOrders();
+    await fetchTables();
+    await fetchOpenTableOrders();
+
+    alert("Tavolina u mbyll dhe fatura u dërgua për printim te manageri.");
+  } catch (err) {
+    console.error("Close table error:", err?.response?.data || err);
+
+    alert(
+      err?.response?.data?.message ||
+        err?.message ||
+        "Nuk mund të mbyll tavolinën."
+    );
+  }
+};
+
+  const handleSelectTable = (tableCode) => {
+    const code = String(tableCode || "").trim();
+    if (!code) return;
+
+    const occ = occupiedTablesMap.get(code);
+
+    const isTakenByOther =
+      occ?.isOccupied &&
+      occ?.occupiedByWaiterId &&
+      String(occ.occupiedByWaiterId) !== String(CURRENT_WAITER_ID);
+
+    if (isTakenByOther) {
+      setError("Kjo tavolinë është zënë nga një kamarjer tjetër.");
+      return;
+    }
+
+    setError("");
+    setLocationNumber(code);
+    navigate(`/waiter/table/${code}`);
   };
 
   const handleAcceptIncoming = async (orderId) => {
     const ok = window.confirm("Ta marrësh këtë porosi?");
     if (!ok) return;
 
-    setIncomingOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId && order.status === "pending"
-          ? { ...order, status: "accepted", acceptedBy: CURRENT_WAITER_NAME }
-          : order
-      )
-    );
-
     try {
       await api.patch(`/orders/${orderId}/status`, {
         status: "accepted",
         acceptedBy: CURRENT_WAITER_NAME,
       });
+
+      await fetchIncomingOrders();
     } catch (err) {
-      console.error("Gabim te updateOrderStatus (accepted):", err?.response?.data || err);
-      fetchIncomingOrders();
+      console.error(err);
+      alert("Gabim gjatë accept.");
     }
   };
 
   const handleMarkDone = async (orderId) => {
-    setIncomingOrders((prev) =>
-      prev.map((order) =>
-        order.id === orderId ? { ...order, status: "done" } : order
-      )
-    );
-
     try {
       await api.patch(`/orders/${orderId}/status`, { status: "done" });
+      await fetchIncomingOrders();
     } catch (err) {
-      console.error("Gabim te updateOrderStatus (done):", err?.response?.data || err);
+      console.error(
+        "Gabim te updateOrderStatus (done):",
+        err?.response?.data || err
+      );
       fetchIncomingOrders();
     }
   };
 
-  const safeProducts = Array.isArray(products) ? products : [];
+const handleCloseShift = async () => {
+  try {
+    if (!businessId) {
+      alert("Mungon businessId.");
+      return;
+    }
 
-  const categoryMap = useMemo(() => {
-    const map = {};
-    safeProducts.forEach((p) => {
-      const cat = (p.categoryType || "").trim();
-      const sub = (p.subCategory || "").trim();
-      if (!cat) return;
-      if (!map[cat]) map[cat] = new Set();
-      if (sub) map[cat].add(sub);
+    setLoadingShiftReport(true);
+
+    const res = await getWaiterShiftPreviewApi({
+      businessId,
+      waiterName: CURRENT_WAITER_NAME,
     });
 
-    const normalized = {};
-    Object.entries(map).forEach(([cat, set]) => {
-      normalized[cat] = Array.from(set);
-    });
+    const report = res?.data?.report;
 
-    return normalized;
-  }, [safeProducts]);
+    if (!report) {
+      throw new Error("Raporti i xhiros nuk u kthye nga serveri.");
+    }
 
-  const categoryTypes = Object.keys(categoryMap);
+    setShiftReport(report);
+    setShowSettings(false);
+    setShowShiftReportPage(true);
 
-  const subCategoriesForSelected =
-    selectedCategoryType && categoryMap[selectedCategoryType]
-      ? categoryMap[selectedCategoryType]
-      : [];
+    await fetchIncomingOrders();
+    await fetchTables();
+  } catch (err) {
+    console.error("Gabim te closeWaiterShift:", err?.response?.data || err);
 
-  const visibleProducts = useMemo(() => {
-    if (!selectedCategoryType || !selectedSubCategory) return [];
-    return safeProducts.filter((p) => {
-      const cat = (p.categoryType || "").trim();
-      const sub = (p.subCategory || "").trim();
-      return cat === selectedCategoryType && sub === selectedSubCategory;
-    });
-  }, [safeProducts, selectedCategoryType, selectedSubCategory]);
+    alert(
+      err?.response?.data?.message ||
+        err?.message ||
+        "Nuk mund të hap xhiron."
+    );
+  } finally {
+    setLoadingShiftReport(false);
+  }
+};
+
+  const shiftTotalALL = Number(shiftReport?.totalALL || 0);
+
+  const shiftSettings = shiftReport?.business?.settings || {};
+
+  const shiftEUR = convertFromALL(
+    shiftTotalALL,
+    Number(shiftSettings?.eurRate) || 0,
+    "EUR"
+  );
+
+  const shiftUSD = convertFromALL(
+    shiftTotalALL,
+    Number(shiftSettings?.usdRate) || 0,
+    "USD"
+  );
+
+  const shiftGBP = convertFromALL(
+    shiftTotalALL,
+    Number(shiftSettings?.gbpRate) || 0,
+    "GBP"
+  );
+
+  const shiftCHF = convertFromALL(
+    shiftTotalALL,
+    Number(shiftSettings?.chfRate) || 0,
+    "CHF"
+  );
+
+  const shiftPrintedDate = shiftReport?.createdAt
+    ? new Date(shiftReport.createdAt).toLocaleString("sq-AL", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: false,
+      })
+    : "";
 
   return (
     <div className="waiter-page">
-      <header className="waiter-header">
-        <div className="waiter-header-top">
-          <div className="waiter-header-left">
-            <h1>Kamarjeri</h1>
-            <span className="waiter-subtitle">Bëj porosi shpejt nga telefoni</span>
-          </div>
+<header className="waiter-header">
+  <div className="waiter-header-top">
+    <div className="waiter-user-row">
+      <div className="waiter-user-icon">♙</div>
 
-          <button type="button" className="waiter-logout-btn" onClick={handleLogout}>
-            Dil
-          </button>
-        </div>
-      </header>
+      <div className="waiter-header-left">
+        <h1>Kamarjeri</h1>
+        <span className="waiter-subtitle">
+          Bëj porosi shpejt nga telefoni
+        </span>
+      </div>
+    </div>
 
-      <section className="waiter-location">
-        <div className="waiter-location-type">
-          <button
-            className={locationType === "tavoline" ? "wl-type-btn active" : "wl-type-btn"}
-            onClick={() => setLocationType("tavoline")}
-          >
-            Tavolinë
-          </button>
+    <div className="waiter-header-actions">
+      <button
+        type="button"
+        className="waiter-settings-icon"
+        onClick={() => setShowSettings((p) => !p)}
+      >
+        ⚙
+      </button>
 
-          <button
-            className={locationType === "dhoma" ? "wl-type-btn active" : "wl-type-btn"}
-            onClick={() => setLocationType("dhoma")}
-          >
-            Dhoma {pendingDhoma > 0 && <span className="wl-badge">{pendingDhoma}</span>}
-          </button>
-
-          <button
-            className={locationType === "cadra" ? "wl-type-btn active" : "wl-type-btn"}
-            onClick={() => setLocationType("cadra")}
-          >
-            Çadra {pendingCadra > 0 && <span className="wl-badge">{pendingCadra}</span>}
-          </button>
-        </div>
-
-        {locationType === "tavoline" ? (
-          <input
-            className="waiter-location-input"
-            type="number"
-            min="1"
-            placeholder="Nr i tavolinës (p.sh. 23)"
-            value={locationNumber}
-            onChange={(e) => setLocationNumber(e.target.value)}
-          />
-        ) : (
-          <p className="waiter-location-hint">
-            Për dhoma/çadra, porositë vijnë nga klientët me QR.
-          </p>
-        )}
-      </section>
-
-      {locationType === "tavoline" && (
-        <section className="waiter-products-section">
-          {loadingProducts && <p>Duke ngarkuar produktet...</p>}
-          {error && <p className="error-text">{error}</p>}
-
-          {categoryTypes.length > 0 && (
-            <div className="waiter-categories">
-              {categoryTypes.map((cat) => (
-                <button
-                  key={cat}
-                  className={
-                    selectedCategoryType === cat
-                      ? "waiter-category-btn active"
-                      : "waiter-category-btn"
-                  }
-                  onClick={() => {
-                    setSelectedCategoryType(cat);
-                    setSelectedSubCategory(null);
-                  }}
-                >
-                  {cat}
-                </button>
-              ))}
+<button
+  type="button"
+  className="waiter-logout-btn"
+  onClick={handleLogout}
+  aria-label="Dil"
+  title="Dil"
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="26"
+    height="26"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.4"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+    <path d="M13 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h8" />
+  </svg>
+</button>
+    </div>
+  </div>
+</header>
+      {showSettings && (
+        <section className="waiter-settings-panel">
+          <div className="waiter-settings-card">
+            <div className="waiter-settings-title-row">
+              <h3 className="waiter-settings-title">Settings</h3>
             </div>
-          )}
 
-          {selectedCategoryType && subCategoriesForSelected.length > 0 && (
-            <div className="waiter-subcategories">
-              {subCategoriesForSelected.map((sub) => (
-                <button
-                  key={sub}
-                  className={
-                    selectedSubCategory === sub
-                      ? "waiter-subcategory-btn active"
-                      : "waiter-subcategory-btn"
-                  }
-                  onClick={() => setSelectedSubCategory(sub)}
-                >
-                  {sub}
-                </button>
-              ))}
-            </div>
-          )}
-
-          <div className="waiter-products-grid">
-            {visibleProducts.map((p) => (
-              <div
-                key={p._id}
-                className="waiter-product-card"
-                onClick={() => addToCart(p)}
+            <div className="waiter-settings-grid">
+              <button
+                type="button"
+                className="waiter-settings-item"
+                onClick={handleOpenTables}
               >
-                <div className="waiter-product-name">{p.name}</div>
-                <div className="waiter-product-price">{p.price} ALL</div>
-              </div>
-            ))}
-
-            {!loadingProducts &&
-              !error &&
-              selectedCategoryType &&
-              selectedSubCategory &&
-              visibleProducts.length === 0 && (
-                <p style={{ marginTop: "1rem" }}>Nuk ka produkte në këtë nën-kategori.</p>
-              )}
-
-            {!selectedCategoryType && !loadingProducts && !error && (
-              <p style={{ marginTop: "1rem" }}>Zgjidh një kategori për të parë produktet.</p>
-            )}
-
-            {selectedCategoryType &&
-              subCategoriesForSelected.length > 0 &&
-              !selectedSubCategory &&
-              !loadingProducts &&
-              !error && (
-                <p style={{ marginTop: "1rem" }}>
-                  Zgjidh një nën-kategori për të parë produktet.
-                </p>
-              )}
-          </div>
-
-          <div className="waiter-cart">
-            <h3>Kartela ({totalItems} artikuj)</h3>
-            {cart.length === 0 && <p>S’ka produkte në porosi.</p>}
-
-            {cart.map((item) => (
-              <div key={item._id} className="waiter-cart-row">
-                <span>
-                  {item.quantity}x {item.name}
+                <span className="waiter-settings-item-text">
+                  Tavolina të hapura
                 </span>
-                <div className="waiter-cart-actions">
-                  <button type="button" onClick={() => removeFromCart(item._id)}>
-                    -
-                  </button>
-                  <span>{(item.quantity * item.price).toFixed(2)} ALL</span>
-                </div>
-              </div>
-            ))}
+              </button>
 
-            {cart.length > 0 && (
-              <div className="waiter-cart-footer">
-                <span>Total: {totalPrice.toFixed(2)} ALL</span>
-                <button type="button" className="waiter-send-btn" onClick={handleSendOrder}>
-                  Dërgo porosinë
-                </button>
-              </div>
-            )}
+              <button
+                type="button"
+                className="waiter-settings-item danger"
+                onClick={handleCloseShift}
+              >
+                <span className="waiter-settings-item-text">
+                  Mbyll Xhiron
+                </span>
+              </button>
+            </div>
           </div>
         </section>
       )}
 
-      {(locationType === "dhoma" || locationType === "cadra") && (
-        <section className="waiter-incoming">
-          <h2>Porosi nga {locationType === "dhoma" ? "dhomat" : "çadrat"}</h2>
+      {showShiftReportPage && (
+        <section className="waiter-open-tables-page">
+          <div className="waiter-open-tables-header">
+            <h2>Xhiro e Kamarjerit</h2>
 
-          {filteredIncoming.length === 0 && (
-            <div className="incoming-empty">Nuk ka porosi nga klientët.</div>
+            <button
+              type="button"
+              className="waiter-back-btn"
+              onClick={() => {
+                setShowShiftReportPage(false);
+                setShiftReport(null);
+              }}
+            >
+              Kthehu
+            </button>
+          </div>
+
+          {loadingShiftReport && <p>Duke ngarkuar xhiron...</p>}
+
+          {!loadingShiftReport && !shiftReport && (
+            <p>Nuk ka raport xhiroje për t'u shfaqur.</p>
           )}
 
-          {filteredIncoming.map((order) => (
-            <div key={order.id} className={`incoming-card status-${order.status}`}>
-              <div className="incoming-top">
-                <div className="incoming-left">
-                  <div className="incoming-source">
-                    {order.sourceType.toUpperCase()} {order.sourceNumber}
-                  </div>
-                  <div className="incoming-status">
-                    {order.status === "pending" && "Në pritje"}
-                    {order.status === "accepted" && "E pranuar"}
-                    {order.status === "done" && "E dërguar"}
-                  </div>
+          {!loadingShiftReport && shiftReport && (
+            <div className="open-table-card">
+              <div className="open-table-top">
+                <div className="open-table-title">
+                  *** XHIRO DITORE E KAMARIERIT ***
                 </div>
 
-                <div className="incoming-total">
-                  {Number(order.total).toFixed(2)} {getCurrencySymbol(order.currency)}
+                <div className="open-table-total">
+                  {shiftTotalALL.toFixed(2)} ALL
                 </div>
               </div>
 
-              <div className="incoming-items">
-                {order.items.map((it, idx) => (
-                  <div key={idx} className="incoming-item-row">
-                    <span>{it.qty}x {it.name}</span>
+              <div
+                style={{ marginBottom: "14px", color: "#475569", lineHeight: 1.7 }}
+              >
+                <div>
+                  <b>Biznesi:</b>{" "}
+                  {shiftReport?.business?.name ||
+                    localStorage.getItem("hotelName") ||
+                    "Biznesi"}
+                </div>
+                <div>
+                  <b>Kamarieri:</b>{" "}
+                  {shiftReport?.waiterName || CURRENT_WAITER_NAME}
+                </div>
+                <div>
+                  <b>Porosi:</b> {shiftReport?.orderCount || 0}
+                </div>
+                <div>
+                  <b>Data:</b> {shiftPrintedDate}
+                </div>
+              </div>
+
+              <div className="open-table-items">
+                {(shiftReport.items || []).map((item, i) => (
+                  <div key={i} className="open-table-item-row">
+                    <span>
+                      {Number(item.qty || 0)}x {item.name}
+                    </span>
+
+                    <span>
+                      {(
+                        Number(item.qty || 0) * Number(item.price || 0)
+                      ).toFixed(2)}{" "}
+                      ALL
+                    </span>
                   </div>
                 ))}
               </div>
 
-              <div className="incoming-actions">
-                {order.status === "pending" && (
+              <div
+                style={{
+                  borderTop: "1px solid #e2e8f0",
+                  marginTop: "14px",
+                  paddingTop: "14px",
+                  display: "grid",
+                  gap: "8px",
+                }}
+              >
+                <div className="open-table-item-row">
+                  <span><b>TOTAL</b></span>
+                  <span><b>{shiftTotalALL.toFixed(2)} ALL</b></span>
+                </div>
+
+                <div className="open-table-item-row">
+                  <span>EUR</span>
+                  <span>{shiftEUR}</span>
+                </div>
+
+                <div className="open-table-item-row">
+                  <span>USD</span>
+                  <span>{shiftUSD}</span>
+                </div>
+
+                <div className="open-table-item-row">
+                  <span>GBP</span>
+                  <span>{shiftGBP}</span>
+                </div>
+
+                <div className="open-table-item-row">
+                  <span>CHF</span>
+                  <span>{shiftCHF}</span>
+                </div>
+
+                <div className="open-table-actions">
                   <button
                     type="button"
-                    className="incoming-btn accept"
-                    onClick={() => handleAcceptIncoming(order.id)}
+                    className="waiter-print-btn"
+                  onClick={async () => {
+  try {
+    if (!businessId) {
+      alert("Mungon businessId.");
+      return;
+    }
+
+    const res = await closeWaiterShiftApi({
+      businessId,
+      waiterName: CURRENT_WAITER_NAME,
+    });
+
+    const report = res?.data?.report;
+
+    if (!report) {
+      throw new Error(
+        "Raporti final i xhiros nuk u kthye nga serveri."
+      );
+    }
+
+    const payload = {
+      businessId,
+      ...report,
+      waiterName: CURRENT_WAITER_NAME,
+      createdAt: new Date().toISOString(),
+    };
+
+    console.log("💰 DERGOJ XHIRON:", payload);
+
+    if (!socket.connected) {
+      socket.connect();
+    }
+
+    socket.emit("joinBusiness", businessId);
+
+    setTimeout(() => {
+      socket.emit("waiter:shift-report", payload);
+    }, 300);
+
+    setShiftReport(null);
+    setShowShiftReportPage(false);
+
+    await fetchIncomingOrders();
+    await fetchTables();
+
+    alert("Xhiro u mbyll dhe u dërgua për printim.");
+  } catch (err) {
+    console.error(
+      "Gabim te handlePrintShiftReport:",
+      err?.response?.data || err
+    );
+
+    alert(
+      err?.response?.data?.message ||
+        err?.message ||
+        "Nuk mund të printoj xhiron."
+    );
+  }
+}}
                   >
-                    Accepto
+                    Printo Xhiron
                   </button>
-                )}
-
-                {order.status === "accepted" && order.acceptedBy === CURRENT_WAITER_NAME && (
-                  <>
-                    <span className="incoming-info">E pranuar nga ti ({CURRENT_WAITER_NAME})</span>
-                    <button
-                      type="button"
-                      className="incoming-btn done"
-                      onClick={() => handleMarkDone(order.id)}
-                    >
-                      Dërgo u krye
-                    </button>
-                  </>
-                )}
-
-                {order.status === "accepted" && order.acceptedBy !== CURRENT_WAITER_NAME && (
-                  <span className="incoming-info">E marrë nga {order.acceptedBy}</span>
-                )}
-
-                {order.status === "done" && (
-                  <span className="incoming-info">✔ Porosia është dërguar</span>
-                )}
+                </div>
               </div>
             </div>
-          ))}
+          )}
+        </section>
+      )}
+
+      {showOpenTablesPage && (
+        <section className="waiter-open-tables-page">
+          <div className="waiter-open-tables-header">
+            <h2>Tavolina të hapura</h2>
+
+            <button
+              type="button"
+              className="waiter-back-btn"
+              onClick={() => setShowOpenTablesPage(false)}
+            >
+              Kthehu
+            </button>
+          </div>
+
+          {loadingOpenTables && <p>Duke ngarkuar tavolinat...</p>}
+
+          {!loadingOpenTables && openTableOrders.length === 0 && (
+            <p>Nuk ka tavolina të hapura.</p>
+          )}
+
+          {!loadingOpenTables &&
+            openTableOrders.map((table) => (
+              <div key={table.tableNumber} className="open-table-card">
+                <div className="open-table-top">
+                  <div className="open-table-title">
+                    Tavolina {table.tableNumber}
+                  </div>
+
+                  <div className="open-table-total">
+                    {Number(table.total).toFixed(2)} {table.currency}
+                  </div>
+                </div>
+
+                <div className="open-table-items">
+                  {table.items.map((item, i) => (
+                    <div key={i} className="open-table-item-row">
+                      <span>
+                        {item.qty}x {item.name}
+                      </span>
+
+                      <span>
+                        {(Number(item.qty) * Number(item.price)).toFixed(2)}{" "}
+                        {table.currency}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <div className="open-table-actions single">
+  <button
+    type="button"
+    className="waiter-invoice-btn close-table-main-btn"
+    onClick={() => handleCloseTable(table)}
+  >
+    Mbyll Tavolinën
+  </button>
+</div>
+              </div>
+            ))}
+        </section>
+      )}
+
+      {!showOpenTablesPage && !showShiftReportPage && (
+        <section className="waiter-location">
+          <div className="waiter-location-type">
+            <button
+              className={
+                locationType === "tavoline"
+                  ? "wl-type-btn active"
+                  : "wl-type-btn"
+              }
+              onClick={() => {
+                setLocationType("tavoline");
+                setLocationNumber("");
+                setError("");
+              }}
+            >
+              Tavolinë
+            </button>
+
+            <button
+              className={
+                locationType === "dhoma" ? "wl-type-btn active" : "wl-type-btn"
+              }
+              onClick={() => {
+                setLocationType("dhoma");
+                setLocationNumber("");
+                setError("");
+              }}
+            >
+              Dhoma {pendingDhoma > 0 && <span className="wl-badge">{pendingDhoma}</span>}
+            </button>
+
+            <button
+              className={
+                locationType === "cadra" ? "wl-type-btn active" : "wl-type-btn"
+              }
+              onClick={() => {
+                setLocationType("cadra");
+                setLocationNumber("");
+                setError("");
+              }}
+            >
+              Çadra {pendingCadra > 0 && <span className="wl-badge">{pendingCadra}</span>}
+            </button>
+          </div>
+
+          {locationType === "tavoline" ? (
+            <div className="tables-grid">
+              {loadingTables && (
+                <p className="waiter-location-hint">Duke ngarkuar tavolinat...</p>
+              )}
+
+              {!loadingTables && tables.length === 0 && (
+                <p className="waiter-location-hint">
+                  Nuk ka tavolina të krijuara.
+                </p>
+              )}
+
+              {!loadingTables &&
+                [...tables]
+                  .sort((a, b) => Number(a.code) - Number(b.code))
+                  .map((t) => {
+                    const code = String(t.code);
+                    const occ = occupiedTablesMap.get(code);
+                    const isOccupied = !!occ?.isOccupied;
+                    const isMine =
+                      isOccupied &&
+                      String(occ?.occupiedByWaiterId || "") ===
+                        String(CURRENT_WAITER_ID);
+                    const isBlocked = isOccupied && !isMine;
+
+                    return (
+                      <button
+                        key={t._id}
+                        type="button"
+                        disabled={isBlocked}
+                        className={`
+                          table-box
+                          ${String(locationNumber) === code ? "active" : ""}
+                          ${isMine ? "mine" : ""}
+                          ${isBlocked ? "blocked" : ""}
+                        `}
+                        onClick={() => {
+                          if (isBlocked) return;
+                          handleSelectTable(code);
+                        }}
+                      >
+                        {t.code}
+                      </button>
+                    );
+                  })}
+            </div>
+          ) : (
+            <section className="waiter-incoming">
+              <h2>Porosi nga {locationType === "dhoma" ? "dhomat" : "çadrat"}</h2>
+
+              {filteredIncoming.length === 0 && (
+                <div className="incoming-empty">Nuk ka porosi nga klientët.</div>
+              )}
+
+              {filteredIncoming.map((order) => (
+                <div
+                  key={order.id}
+                  className={`incoming-card status-${order.status}`}
+                >
+                  <div className="incoming-top">
+                    <div className="incoming-left">
+                      <div className="incoming-source">
+                        {order.sourceType.toUpperCase()} {order.sourceNumber}
+                      </div>
+                      <div className="incoming-status">
+                        {order.status === "pending" && "Në pritje"}
+                        {order.status === "accepted" && "E pranuar"}
+                        {order.status === "done" && "E dërguar"}
+                      </div>
+                    </div>
+
+                    <div className="incoming-total">
+                      {Number(order.total).toFixed(2)}{" "}
+                      {getCurrencySymbol(order.currency)}
+                    </div>
+                  </div>
+
+                  <div className="incoming-items">
+                    {order.items.map((it, idx) => (
+                      <div key={idx} className="incoming-item-row">
+                        <span>
+                          {it.qty}x {it.name}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+
+                  <div className="incoming-actions">
+                    {order.status === "pending" && (
+                      <button
+                        type="button"
+                        className="incoming-btn accept"
+                        onClick={() => handleAcceptIncoming(order.id)}
+                      >
+                        Accepto
+                      </button>
+                    )}
+
+                    {order.status === "accepted" &&
+                      order.acceptedBy === CURRENT_WAITER_NAME && (
+                        <>
+                          <span className="incoming-info">
+                            E pranuar nga ti ({CURRENT_WAITER_NAME})
+                          </span>
+                          <button
+                            type="button"
+                            className="incoming-btn done"
+                            onClick={() => handleMarkDone(order.id)}
+                          >
+                            Dërgo u krye
+                          </button>
+                        </>
+                      )}
+
+                    {order.status === "accepted" &&
+                      order.acceptedBy !== CURRENT_WAITER_NAME && (
+                        <span className="incoming-info">
+                          E marrë nga {order.acceptedBy}
+                        </span>
+                      )}
+
+                    {order.status === "done" && (
+                      <span className="incoming-info">✔ Porosia është dërguar</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </section>
+          )}
+
+          {error && <p className="error-text">{error}</p>}
         </section>
       )}
     </div>

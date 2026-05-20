@@ -1,17 +1,8 @@
 // src/api/businessApi.js
 import { api } from "./http.js";
 
-
-const API_BASE_URL =
-  import.meta.env.VITE_API_URL || "http://192.168.100.71:5000";
-
-const api = axios.create({
-  baseURL: `${API_BASE_URL}/api`,
-});
-
 /* =========================
    ADMIN - BUSINESSES
-   (Këto përdoren te AdminDashboard)
 ========================= */
 
 // GET /api/admin/businesses
@@ -37,5 +28,25 @@ export const updateBusinessApi = async (id, data) => {
 export const deleteBusinessApi = async (id) => {
   if (!id) throw new Error("Mungon businessId");
   const res = await api.delete(`/admin/businesses/${id}`);
+  return res.data;
+};
+
+/* =========================
+   MANAGER - BUSINESS SETTINGS
+========================= */
+
+// GET /api/business/:id/settings
+export const getBusinessSettingsApi = async (businessId) => {
+  if (!businessId) throw new Error("Mungon businessId");
+
+  const res = await api.get(`/business/${businessId}/settings`);
+  return res.data;
+};
+
+// PATCH /api/business/:id/settings
+export const updateBusinessSettingsApi = async (businessId, data) => {
+  if (!businessId) throw new Error("Mungon businessId");
+
+  const res = await api.patch(`/business/${businessId}/settings`, data);
   return res.data;
 };

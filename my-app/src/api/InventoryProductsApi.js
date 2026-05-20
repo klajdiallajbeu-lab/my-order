@@ -8,8 +8,8 @@ const normalizeList = (data) => data?.items || data || [];
 export const getProductsApi = async ({ businessId }) => {
   // Marrim veç e veç, sepse API pranon vetëm 1 categoryType
   const [food, drinks] = await Promise.all([
-    getProducts({ businessId, categoryType: "ushqime" }),
-    getProducts({ businessId, categoryType: "pije" }),
+    getProducts({ businessId, categoryType: "Ushqime" }),
+    getProducts({ businessId, categoryType: "Pije" }),
   ]);
 
   const foodList = normalizeList(food);

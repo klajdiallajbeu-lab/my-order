@@ -1,5 +1,5 @@
 /* ================= BASE ================= */
-.waiter-page{
+.waiter-page {
   min-height: 100vh;
   padding: 18px 14px 28px;
   background: #0b1220;
@@ -7,85 +7,167 @@
   font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Arial;
 }
 
-.error-text{
+.error-text {
   color: #ffb4b4;
-  background: rgba(255,63,63,0.12);
-  border: 1px solid rgba(255,63,63,0.25);
+  background: rgba(255, 63, 63, 0.12);
+  border: 1px solid rgba(255, 63, 63, 0.25);
   padding: 10px 12px;
   border-radius: 12px;
 }
 
 /* ================= HEADER ================= */
-.waiter-header{
-  background:
-    radial-gradient(1200px 600px at 20% -20%, rgba(93,134,255,0.35), transparent 55%),
-    radial-gradient(900px 500px at 110% 20%, rgba(0,212,255,0.20), transparent 50%),
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 18px;
-  padding: 18px 16px;
-  box-shadow: 0 14px 40px rgba(0,0,0,0.35);
+/* ================= HEADER MOBILE FIX ================= */
+@media (max-width: 768px) {
+  .waiter-page {
+    padding: 8px 10px 22px;
+  }
+
+  .waiter-header {
+    padding: 10px 12px;
+    border-radius: 20px;
+    margin-bottom: 10px;
+    min-height: 112px;
+  }
+
+  .waiter-header-top {
+    align-items: flex-start;
+    gap: 8px;
+  }
+
+  .waiter-header-left {
+    flex: 1;
+  }
+
+  .waiter-header-left h1 {
+    font-size: 17px;
+    margin-bottom: 2px;
+    font-weight: 800;
+  }
+
+  .waiter-subtitle {
+    font-size: 11px;
+    line-height: 1.2;
+    margin-top: 2px;
+    opacity: 0.75;
+  }
+
+  .waiter-header-actions {
+    gap: 6px;
+    margin-top: 2px;
+  }
+
+  .waiter-settings-icon,
+  .waiter-logout-btn {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 15px;
+  }
+
+  .waiter-location {
+    padding: 10px;
+    border-radius: 16px;
+    margin-bottom: 10px;
+  }
+}
+
+/* ================= SETTINGS ================= */
+.waiter-settings-panel {
   margin-bottom: 14px;
 }
 
-.waiter-header-top{
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+.waiter-settings-card {
+  background: rgba(15, 23, 42, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 18px;
+  padding: 14px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
 }
 
-.waiter-header h1{
-  margin: 0;
-  font-size: 22px;
-}
-
-.waiter-subtitle{
-  font-size: 13px;
-  margin-top: 6px;
-  color: rgba(234,240,255,0.75);
-}
-
-.waiter-logout-btn{
-  border-radius: 14px;
-  padding: 10px 14px;
+.waiter-settings-title {
+  margin: 0 0 12px;
+  font-size: 16px;
   font-weight: 800;
+  color: #eaf0ff;
+}
+
+.waiter-settings-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.waiter-settings-item {
+  min-height: 56px;
+  border-radius: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.06);
+  color: #eaf0ff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  border: 1px solid rgba(255,80,80,0.45);
-  background: linear-gradient(135deg, rgba(255,80,80,0.35), rgba(255,0,0,0.2));
-  color: #fff;
+  transition: 0.2s ease;
+  padding: 0 14px;
+}
+
+.waiter-settings-item:hover {
+  transform: translateY(-1px);
+  background: linear-gradient(
+    135deg,
+    rgba(93, 134, 255, 0.25),
+    rgba(0, 212, 255, 0.15)
+  );
+  border-color: rgba(93, 134, 255, 0.5);
+  box-shadow: 0 8px 20px rgba(37, 99, 235, 0.15);
+}
+
+.waiter-settings-item.danger {
+  background: rgba(255, 59, 59, 0.12);
+  border-color: rgba(255, 59, 59, 0.35);
+  color: #ffb4b4;
+}
+
+.waiter-settings-item.danger:hover {
+  background: rgba(255, 59, 59, 0.18);
+  box-shadow: 0 8px 20px rgba(220, 38, 38, 0.15);
 }
 
 /* ================= LOCATION ================= */
-.waiter-location{
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.10);
+.waiter-location {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 12px;
   margin-bottom: 14px;
 }
 
-.waiter-location-type{
+.waiter-location-type {
   display: grid;
-  grid-template-columns: repeat(3,1fr);
+  grid-template-columns: repeat(3, 1fr);
   gap: 10px;
 }
 
-.wl-type-btn{
+.wl-type-btn {
   position: relative;
   border-radius: 14px;
   padding: 11px;
   font-weight: 700;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   color: #eaf0ff;
+  cursor: pointer;
+  transition: 0.2s ease;
 }
 
-.wl-type-btn.active{
-  background: linear-gradient(135deg, rgba(93,134,255,0.35), rgba(0,212,255,0.18));
-  border-color: rgba(93,134,255,0.55);
+.wl-type-btn.active {
+  background: linear-gradient(135deg, rgba(93, 134, 255, 0.35), rgba(0, 212, 255, 0.18));
+  border-color: rgba(93, 134, 255, 0.55);
 }
 
-.wl-badge{
+.wl-badge {
   position: absolute;
   top: -6px;
   right: -6px;
@@ -97,196 +179,834 @@
   border-radius: 999px;
 }
 
-.waiter-location-input{
+.waiter-location-input {
   width: 100%;
   margin-top: 10px;
   padding: 12px;
   border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(10,16,30,0.65);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(10, 16, 30, 0.65);
   color: #eaf0ff;
+  outline: none;
 }
 
-.waiter-location-hint{
+.waiter-location-input::placeholder {
+  color: rgba(234, 240, 255, 0.45);
+}
+
+.waiter-location-hint {
   margin-top: 10px;
   font-size: 13px;
-  color: rgba(234,240,255,0.72);
+  color: rgba(234, 240, 255, 0.72);
 }
 
-/* ================= PRODUCTS ================= */
-.waiter-products-section{
+/* ================= TABLE GRID ================= */
+.tables-grid {
   display: grid;
-  gap: 12px;
-
-  /* ✅ hapësirë dinamike për cart fixed (telefon + shumë artikuj) */
-  padding-bottom: clamp(260px, 45vh, 520px);
-}
-
-
-.waiter-categories,
-.waiter-subcategories{
-  display: flex;
+  grid-template-columns: repeat(auto-fill, minmax(82px, 1fr));
   gap: 10px;
-  overflow-x: auto;
+  margin-top: 12px;
 }
 
-.waiter-category-btn,
-.waiter-subcategory-btn{
-  border-radius: 999px;
-  padding: 10px 14px;
-  font-weight: 800;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
+.table-box {
+  min-height: 64px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   color: #eaf0ff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
-.waiter-category-btn.active,
-.waiter-subcategory-btn.active{
-  background: linear-gradient(135deg, rgba(93,134,255,0.35), rgba(0,212,255,0.18));
-  border-color: rgba(93,134,255,0.55);
+.table-box:hover {
+  transform: translateY(-1px);
+  border-color: rgba(93, 134, 255, 0.45);
+  background: rgba(255, 255, 255, 0.09);
 }
 
-.waiter-products-grid{
-  display: grid;
-  grid-template-columns: repeat(2,1fr);
-  gap: 10px;
+/* tavolina e zgjedhur */
+.table-box.active {
+  border-color: rgba(93, 134, 255, 0.72);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.22);
 }
 
-@media (min-width: 880px){
-  .waiter-products-grid{
-    grid-template-columns: repeat(3,1fr);
+/* tavolina ime e zënë */
+.table-box.mine {
+  background: linear-gradient(
+    135deg,
+    rgba(96, 165, 250, 0.42),
+    rgba(59, 130, 246, 0.24)
+  );
+  border-color: rgba(96, 165, 250, 0.85);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+/* tavolina e zënë nga tjetër */
+.table-box.blocked {
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(239, 68, 68, 0.82);
+  color: #ffd2d2;
+  cursor: not-allowed;
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.14);
+}
+
+.table-box.blocked:hover {
+  transform: none;
+  border-color: rgba(239, 68, 68, 0.82);
+  background: rgba(239, 68, 68, 0.22);
+}
+
+@media (max-width: 768px) {
+  .tables-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .table-box {
+    min-height: 54px;
+    font-size: 14px;
+    border-radius: 12px;
   }
 }
 
-.waiter-product-card{
-  border-radius: 16px;
-  padding: 14px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.05);
+/* ================= PRODUCTS ================= */
+.waiter-products-section {
+  display: grid;
+  gap: 12px;
+  padding-bottom: clamp(260px, 45vh, 520px);
 }
 
-.waiter-product-name{
+.waiter-categories {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.waiter-categories::-webkit-scrollbar,
+.waiter-subcategories::-webkit-scrollbar {
+  height: 6px;
+}
+
+.waiter-categories::-webkit-scrollbar-thumb,
+.waiter-subcategories::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+}
+
+.waiter-category-btn {
+  flex: 1; /* 🔥 ndan rreshtin në 2 */
+  height: 60px; /* 🔥 madhësi më e madhe */
+  border-radius: 16px;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  transition: all 0.2s ease;
+}
+
+.waiter-category-btn.active,
+.waiter-subcategory-btn.active {
+  background: linear-gradient(135deg, rgba(93, 134, 255, 0.35), rgba(0, 212, 255, 0.18));
+  border-color: rgba(93, 134, 255, 0.55);
+}
+
+.waiter-products-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 10px;
+}
+
+.waiter-product-card {
+  border-radius: 16px;
+  padding: 14px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  transition: 0.2s ease;
+  cursor: pointer;
+}
+
+.waiter-product-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(93, 134, 255, 0.45);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+}
+
+.waiter-product-name {
   font-weight: 800;
   margin-bottom: 8px;
 }
 
-.waiter-product-price{
+.waiter-product-price {
+  display: inline-flex;
   font-weight: 800;
-  background: rgba(0,212,255,0.10);
-  border: 1px solid rgba(0,212,255,0.18);
+  background: rgba(0, 212, 255, 0.1);
+  border: 1px solid rgba(0, 212, 255, 0.18);
   padding: 7px 10px;
   border-radius: 12px;
 }
 
-/* ================= CART (FIXED & LIMITED) ================= */
-.waiter-cart{
+/* ================= CART ================= */
+.waiter-cart {
   position: fixed;
   left: 14px;
   right: 14px;
   bottom: 14px;
   z-index: 50;
-
-  background: rgba(10,16,30,0.92);
-  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(10, 16, 30, 0.92);
+  border: 1px solid rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(12px);
   border-radius: 18px;
   padding: 12px;
-  box-shadow: 0 18px 50px rgba(0,0,0,0.55);
-
-  /* ✅ KJO E ZGJIDH PROBLEMIN */
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
   max-height: 32vh;
   overflow-y: auto;
 }
 
-.waiter-cart::-webkit-scrollbar{
+.waiter-cart::-webkit-scrollbar {
   width: 6px;
 }
-.waiter-cart::-webkit-scrollbar-thumb{
-  background: rgba(255,255,255,0.25);
+
+.waiter-cart::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
   border-radius: 999px;
 }
 
-.waiter-cart h3{
+.waiter-cart h3 {
   margin: 0 0 10px;
 }
 
-.waiter-cart-row{
+.waiter-cart-list {
+  max-height: 220px;
+  overflow: auto;
+  padding-right: 4px;
+}
+
+.waiter-cart-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.waiter-cart-list::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+}
+
+.waiter-cart-row {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   padding: 10px;
   border-radius: 14px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   margin-bottom: 8px;
 }
 
-.waiter-cart-actions{
+.waiter-cart-actions {
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
-.waiter-cart-actions button{
+.waiter-cart-actions button {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
   color: #eaf0ff;
   font-weight: 900;
+  cursor: pointer;
 }
 
-.waiter-cart-footer{
+.waiter-cart-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 10px;
   padding-top: 10px;
-  border-top: 1px solid rgba(255,255,255,0.10);
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 12px;
 }
 
-.waiter-send-btn{
+.waiter-cart-actions-2 {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.waiter-print-btn,
+.waiter-invoice-btn {
+  min-height: 44px;
+  padding: 0 16px;
+  border: none;
+  border-radius: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.waiter-print-btn {
+  background: #eef2ff;
+  color: #3730a3;
+}
+
+.waiter-invoice-btn {
+  background: #2563eb;
+  color: #ffffff;
+}
+
+.waiter-send-btn {
   border-radius: 14px;
   padding: 12px 16px;
   font-weight: 900;
-  border: 1px solid rgba(93,134,255,0.55);
-  background: linear-gradient(135deg, rgba(93,134,255,0.45), rgba(0,212,255,0.20));
+  border: 1px solid rgba(93, 134, 255, 0.55);
+  background: linear-gradient(135deg, rgba(93, 134, 255, 0.45), rgba(0, 212, 255, 0.2));
   color: #eaf0ff;
 }
 
 /* ================= INCOMING ================= */
-.waiter-incoming{
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.10);
+.waiter-incoming {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 16px;
   padding: 12px;
 }
 
-.incoming-card{
+.incoming-card {
   margin-top: 10px;
   border-radius: 16px;
   padding: 12px;
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid transparent;
 }
 
-.incoming-card.status-pending{ border-color: rgba(255,196,0,0.35); }
-.incoming-card.status-accepted{ border-color: rgba(0,212,255,0.35); }
-.incoming-card.status-done{ border-color: rgba(0,255,132,0.28); }
+.incoming-card.status-pending {
+  border-color: rgba(255, 196, 0, 0.35);
+}
 
-.incoming-total{
+.incoming-card.status-accepted {
+  border-color: rgba(0, 212, 255, 0.35);
+}
+
+.incoming-card.status-done {
+  border-color: rgba(0, 255, 132, 0.28);
+}
+
+.incoming-total {
   font-weight: 900;
 }
-/* ✅ cart list scroll – mos mbulo produktet */
-.waiter-cart-list{
-  max-height: 220px;     /* rrite/ule sipas qejfit */
-  overflow: auto;
-  padding-right: 4px;
+
+/* ================= OPEN TABLES ================= */
+.waiter-open-tables-page {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
 }
 
-.waiter-cart-list::-webkit-scrollbar{
-  width: 6px;
+.waiter-open-tables-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
 }
-.waiter-cart-list::-webkit-scrollbar-thumb{
-  background: rgba(255,255,255,0.18);
-  border-radius: 999px;
+
+.waiter-open-tables-header h2 {
+  margin: 0;
+  font-size: 20px;
+  color: #eaf0ff;
+}
+
+.waiter-back-btn {
+  min-height: 42px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+  color: #eaf0ff;
+  cursor: pointer;
+}
+
+.open-table-card {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 14px;
+}
+
+.open-table-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.open-table-items {
+  display: grid;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.open-table-item-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.open-table-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* ================= RESPONSIVE ================= */
+@media (min-width: 880px) {
+  .waiter-products-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (max-width: 768px) {
+  .waiter-page {
+    padding: 12px 10px 22px;
+  }
+
+  .waiter-header {
+    padding: 14px 12px;
+    border-radius: 16px;
+  }
+
+  .waiter-header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: nowrap;
+  }
+
+  .waiter-header-left {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .waiter-header-left h1 {
+    font-size: 18px;
+    line-height: 1.1;
+  }
+
+  .waiter-subtitle {
+    font-size: 11px;
+    margin-top: 4px;
+    line-height: 1.3;
+  }
+
+  .waiter-header-actions {
+    width: auto;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    gap: 8px;
+  }
+
+  .waiter-settings-icon,
+  .waiter-logout-btn {
+    width: 40px;
+    height: 40px;
+    border-radius: 12px;
+    font-size: 16px;
+  }
+
+  .waiter-settings-grid {
+    display: flex;
+    gap: 8px;
+  }
+
+  .waiter-settings-item {
+    flex: 1;
+    min-height: 48px;
+    font-size: 13px;
+    padding: 0 8px;
+    border-radius: 12px;
+  }
+
+  .waiter-location {
+    padding: 10px;
+    border-radius: 14px;
+  }
+
+  .waiter-location-type {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 8px;
+  }
+
+  .wl-type-btn {
+    padding: 9px 6px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .wl-badge {
+    top: -5px;
+    right: -3px;
+    font-size: 10px;
+    padding: 1px 6px;
+  }
+
+  .waiter-location-input {
+    margin-top: 8px;
+    padding: 11px 12px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .tables-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .table-box {
+    min-height: 54px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .waiter-products-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+
+  .waiter-product-card {
+    padding: 10px;
+    border-radius: 12px;
+  }
+
+  .waiter-product-name {
+    font-size: 14px;
+  }
+
+  .waiter-product-price {
+    font-size: 13px;
+    padding: 5px 8px;
+  }
+
+  .waiter-category-btn,
+  .waiter-subcategory-btn {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+
+  .waiter-cart {
+    left: 10px;
+    right: 10px;
+    bottom: 10px;
+    border-radius: 16px;
+    max-height: 34vh;
+  }
+
+  .waiter-cart h3 {
+    font-size: 16px;
+  }
+
+  .waiter-cart-row {
+    padding: 9px;
+    gap: 8px;
+  }
+
+  .waiter-cart-footer {
+    flex-direction: column;
+    gap: 10px;
+    align-items: stretch;
+  }
+
+  .waiter-cart-actions-2 {
+    width: 100%;
+  }
+
+  .waiter-print-btn,
+  .waiter-invoice-btn {
+    flex: 1;
+    min-height: 42px;
+  }
+
+  .waiter-open-tables-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .open-table-top {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .open-table-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+}
+/* 🟦 Tavolina me porosi */
+.table-box {
+  min-height: 64px;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.06);
+  color: #eaf0ff;
+  font-size: 16px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: 0.2s ease;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.table-box:hover {
+  transform: translateY(-1px);
+  border-color: rgba(93, 134, 255, 0.45);
+  background: rgba(255, 255, 255, 0.09);
+}
+
+/* vetëm tavolina e klikuar */
+.table-box.active {
+  border-color: rgba(93, 134, 255, 0.7);
+  box-shadow: 0 0 0 1px rgba(37, 99, 235, 0.25);
+}
+
+/* tavolina ime me porosi aktive */
+.table-box.mine {
+  background: linear-gradient(
+    135deg,
+    rgba(96, 165, 250, 0.42),
+    rgba(59, 130, 246, 0.24)
+  );
+  border-color: rgba(96, 165, 250, 0.85);
+  color: #ffffff;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+/* tavolina e zënë nga kamarjer tjetër */
+.table-box.blocked {
+  background: rgba(239, 68, 68, 0.22);
+  border: 1px solid rgba(239, 68, 68, 0.82);
+  color: #ffd2d2;
+  cursor: not-allowed;
+  box-shadow: 0 10px 20px rgba(239, 68, 68, 0.14);
+}
+
+.table-box.blocked:hover {
+  transform: none;
+}
+.open-table-actions {
+  display: flex;
+  justify-content: center; /* 🔥 kjo e vendos në mes */
+  margin-top: 16px;
+}
+.waiter-subcategory-dropdown {
+  margin-bottom: 14px;
+}
+
+.waiter-subcategory-dropdown select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid #1e293b;
+  background: #0f172a;
+  color: #fff;
+  font-size: 14px;
+  outline: none;
+}
+
+.waiter-subcategory-dropdown select:focus {
+  border-color: #3b82f6;
+}
+.waiter-category-btn.active {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+  border-color: #3b82f6;
+}
+/* ===== MOBILE HEADER PREMIUM FINAL ===== */
+
+.waiter-user-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 12px !important;
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+.waiter-user-icon {
+  width: 42px !important;
+  height: 42px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #dbeafe !important;
+  flex-shrink: 0 !important;
+}
+
+@media (max-width: 768px) {
+  .waiter-page {
+    padding: 12px 14px 24px !important;
+  }
+
+  .waiter-header {
+    position: relative !important;
+    left: -14px !important;
+    width: calc(100% + 28px) !important;
+
+    min-height: 118px !important;
+    padding: 18px 20px !important;
+    margin: 0 0 14px 0 !important;
+
+    border-radius: 22px !important;
+    box-sizing: border-box !important;
+
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .waiter-header-top {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+  }
+
+  .waiter-header-left {
+    flex: 1;
+    text-align: left !important;
+  }
+
+  .waiter-header-left h1 {
+    margin: 0 !important;
+    font-size: 22px !important;
+    font-weight: 800 !important;
+    line-height: 1 !important;
+  }
+
+  .waiter-subtitle {
+    display: block !important;
+    margin-top: 6px !important;
+    font-size: 13px !important;
+    line-height: 1.3 !important;
+    opacity: 0.88;
+  }
+
+  .waiter-header-actions {
+    display: flex !important;
+    align-items: center !important;
+    flex-direction: row !important;
+    gap: 10px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .waiter-settings-icon,
+  .waiter-logout-btn {
+    width: 50px !important;
+    height: 50px !important;
+    border-radius: 16px !important;
+    font-size: 18px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .waiter-settings-icon svg,
+  .waiter-logout-btn svg {
+    width: 22px !important;
+    height: 22px !important;
+  }
+}
+.open-table-actions.single {
+  display: flex !important;
+  justify-content: center !important;
+}
+
+.close-table-main-btn {
+  width: 100% !important;
+  min-height: 56px !important;
+  font-size: 16px !important;
+  font-weight: 800 !important;
+  border-radius: 16px !important;
+}
+/* ===== OPEN TABLES - HIQ HAPESIREN BOSHE ===== */
+
+.waiter-open-tables-page {
+  gap: 8px !important;
+  margin-top: 6px !important;
+}
+
+.open-table-card {
+  padding: 12px !important;
+  margin-bottom: 6px !important;
+  min-height: auto !important;
+}
+
+.open-table-items {
+  gap: 4px !important;
+  margin-bottom: 8px !important;
+}
+
+.open-table-actions {
+  margin-top: 8px !important;
+}
+
+.waiter-back-btn {
+  margin-top: 6px !important;
+}
+
+@media (max-width: 768px) {
+  .waiter-open-tables-page {
+    min-height: unset !important;
+    height: auto !important;
+  }
+
+  /* KJO HEQ HAPESIREN E MADHE */
+  .waiter-open-tables-page > * {
+    margin-bottom: 6px !important;
+  }
+}.waiter-qty-btn {
+  border: 0;
+  background: #2563eb;
+  color: #fff;
+  border-radius: 10px;
+  padding: 6px 10px;
+  font-weight: 800;
+  font-size: 13px;
+  margin-right: 6px;
+  cursor: pointer;
+  min-width: 48px;
+}
+
+.waiter-qty-btn:active {
+  transform: scale(0.97);
+}
+.waiter-note-btn {
+  width: 100%;
+  border: 1px solid rgba(37, 99, 235, 0.45);
+  background: rgba(37, 99, 235, 0.12);
+  color: #bfdbfe;
+  border-radius: 14px;
+  padding: 12px 14px;
+  font-size: 14px;
+  font-weight: 800;
+  margin: 8px 0 14px;
+  text-align: left;
+}
+
+.waiter-note-btn.has-note {
+  background: rgba(34, 197, 94, 0.12);
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #86efac;
 }

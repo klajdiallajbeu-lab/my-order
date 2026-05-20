@@ -1,0 +1,119 @@
+.printer-page {
+  padding: 24px;
+  min-height: 100%;
+  background: #f6f9ff;
+}
+
+.printer-card {
+  max-width: 920px;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+  border: 1px solid #dbeafe;
+  border-radius: 24px;
+  padding: 24px;
+  box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
+}
+
+.printer-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+  margin-bottom: 24px;
+}
+
+.printer-head h1 {
+  margin: 0 0 8px;
+  font-size: 28px;
+  color: #0f172a;
+}
+
+.printer-head p {
+  margin: 0;
+  color: #64748b;
+  font-size: 15px;
+}
+
+.printer-load-btn,
+.printer-save-btn {
+  border: none;
+  border-radius: 14px;
+  padding: 12px 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.printer-load-btn {
+  background: #e0edff;
+  color: #1d4ed8;
+}
+
+.printer-save-btn {
+  background: #2563eb;
+  color: #fff;
+  min-width: 140px;
+}
+
+.printer-load-btn:hover,
+.printer-save-btn:hover {
+  transform: translateY(-1px);
+}
+
+.printer-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.printer-field {
+  display: grid;
+  gap: 8px;
+}
+
+.printer-field label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.printer-field select {
+  width: 100%;
+  height: 50px;
+  border-radius: 16px;
+  border: 1px solid #cbd5e1;
+  background: #fff;
+  padding: 0 14px;
+  font-size: 15px;
+  outline: none;
+}
+
+.printer-field select:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12);
+}
+
+.printer-actions {
+  margin-top: 24px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+@media (max-width: 768px) {
+  .printer-page {
+    padding: 14px;
+  }
+
+  .printer-card {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .printer-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .printer-load-btn,
+  .printer-save-btn {
+    width: 100%;
+  }
+}

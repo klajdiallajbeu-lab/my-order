@@ -1054,4 +1054,31 @@
   .confirm-submit {
     width: 100%;
   }
+}.confirm-note-box {
+  margin-top: 14px;
+}
+
+.confirm-note-box label {
+  display: block;
+  font-size: 12px;
+  font-weight: 800;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.confirm-note-box textarea {
+  width: 100%;
+  min-height: 74px;
+  resize: none;
+  border: 1px solid #dbe4f0;
+  border-radius: 16px;
+  padding: 12px 14px;
+  font-size: 14px;
+  outline: none;
+  background: #f8fafc;
+}
+
+.confirm-note-box textarea:focus {
+  border-color: #2563eb;
+  background: #ffffff;
 }

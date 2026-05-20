@@ -16,7 +16,7 @@ import {
   LogOut,
 } from "lucide-react";
 
-export default function Sidebar({ onLogout }) {
+export default function Sidebar({ onLogout, closeSidebar }) {
   const navigate = useNavigate();
 
   const [openProducts, setOpenProducts] = useState(false);
@@ -24,13 +24,29 @@ export default function Sidebar({ onLogout }) {
   const [openStaff, setOpenStaff] = useState(false);
   const [openFinance, setOpenFinance] = useState(false);
 
-const handleLogout = () => {
-  if (typeof onLogout === "function") {
-    onLogout();
-  } else {
-    navigate("/login");
-  }
-};
+  /* 🔥 Close sidebar kur klikon */
+  const handleNavigate = () => {
+    if (closeSidebar) closeSidebar();
+  };
+
+  /* 🔥 Logout + close sidebar */
+  const handleLogout = () => {
+    if (closeSidebar) closeSidebar();
+
+    if (typeof onLogout === "function") {
+      onLogout();
+    } else {
+      navigate("/login");
+    }
+  };
+
+  /* 🔥 Accordion behavior (hap vetëm një) */
+  const toggleSection = (section) => {
+    setOpenProducts(section === "products" ? !openProducts : false);
+    setOpenOperations(section === "operations" ? !openOperations : false);
+    setOpenStaff(section === "staff" ? !openStaff : false);
+    setOpenFinance(section === "finance" ? !openFinance : false);
+  };
 
   return (
     <aside className="sb">
@@ -45,29 +61,34 @@ const handleLogout = () => {
       <div className="sb-divider" />
 
       <div className="sb-menu">
+
+        {/* DASHBOARD */}
         <NavLink
           to="dashboard"
+          onClick={handleNavigate}
           className={({ isActive }) => `sb-link ${isActive ? "active" : ""}`}
         >
           <span className="sb-link-left">
             <span className="sb-icon-wrap">
-              <LayoutGrid size={16} strokeWidth={2} />
+              <LayoutGrid size={16} />
             </span>
             <span className="sb-link-text">Dashboard</span>
           </span>
         </NavLink>
 
+        {/* PRODUKTET */}
         <button
           type="button"
           className="sb-section-btn"
-          onClick={() => setOpenProducts((v) => !v)}
+          onClick={() => toggleSection("products")}
         >
           <span className="sb-link-left">
             <span className="sb-icon-wrap">
-              <Box size={16} strokeWidth={2} />
+              <Box size={16} />
             </span>
             <span className="sb-link-text">Produktet</span>
           </span>
+
           <span className="sb-action-icon">
             {openProducts ? <ChevronDown size={15} /> : <Plus size={15} />}
           </span>
@@ -76,78 +97,98 @@ const handleLogout = () => {
         {openProducts && (
           <div className="sb-submenu">
             <NavLink
-              to="subcategory?type=ushqime"
-              className={({ isActive }) => `sb-sub-link ${isActive ? "active" : ""}`}
+              to="subcategory?type=Ushqime"
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
             >
-              <span className="sb-sub-icon">
-                <UtensilsCrossed size={15} strokeWidth={2} />
-              </span>
-              <span>Ushqime</span>
+              <UtensilsCrossed size={15} />
+              <span>Restorant</span>
             </NavLink>
 
             <NavLink
-              to="subcategory?type=pije"
-              className={({ isActive }) => `sb-sub-link ${isActive ? "active" : ""}`}
+              to="subcategory?type=Pije"
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
             >
-              <span className="sb-sub-icon">
-                <GlassWater size={15} strokeWidth={2} />
-              </span>
-              <span>Pije</span>
+              <GlassWater size={15} />
+              <span>Bar</span>
             </NavLink>
           </div>
         )}
 
+        {/* OPERACIONE */}
         <button
           type="button"
           className="sb-section-btn"
-          onClick={() => setOpenOperations((v) => !v)}
+          onClick={() => toggleSection("operations")}
         >
           <span className="sb-link-left">
             <span className="sb-icon-wrap">
-              <Hotel size={16} strokeWidth={2} />
+              <Hotel size={16} />
             </span>
             <span className="sb-link-text">Operacione</span>
           </span>
+
           <span className="sb-action-icon">
             {openOperations ? <ChevronDown size={15} /> : <Plus size={15} />}
           </span>
         </button>
 
-        {openOperations && (
-          <div className="sb-submenu">
-            <NavLink
-              to="places"
-              className={({ isActive }) => `sb-sub-link ${isActive ? "active" : ""}`}
-            >
-              <span className="sb-sub-icon">
-                <Hotel size={15} strokeWidth={2} />
-              </span>
-              <span>Dhoma / Cadra</span>
-            </NavLink>
+{openOperations && (
+  <div className="sb-submenu">
+    <NavLink
+      to="places"
+      onClick={handleNavigate}
+      className={({ isActive }) =>
+        `sb-sub-link ${isActive ? "active" : ""}`
+      }
+    >
+      <Hotel size={15} />
+      <span>Dhoma / Çadra</span>
+    </NavLink>
 
-            <NavLink
-              to="qr"
-              className={({ isActive }) => `sb-sub-link ${isActive ? "active" : ""}`}
-            >
-              <span className="sb-sub-icon">
-                <QrCode size={15} strokeWidth={2} />
-              </span>
-              <span>Menu / QR</span>
-            </NavLink>
-          </div>
-        )}
+    <NavLink
+      to="qr"
+      onClick={handleNavigate}
+      className={({ isActive }) =>
+        `sb-sub-link ${isActive ? "active" : ""}`
+      }
+    >
+      <QrCode size={15} />
+      <span>Menu / QR</span>
+    </NavLink>
 
+    {/* 🔥 KJO ËSHTË E REJA */}
+    <NavLink
+      to="printers"
+      onClick={handleNavigate}
+      className={({ isActive }) =>
+        `sb-sub-link ${isActive ? "active" : ""}`
+      }
+    >
+      <QrCode size={15} />
+      <span>Printerat</span>
+    </NavLink>
+  </div>
+)}
+
+        {/* STAFI */}
         <button
           type="button"
           className="sb-section-btn"
-          onClick={() => setOpenStaff((v) => !v)}
+          onClick={() => toggleSection("staff")}
         >
           <span className="sb-link-left">
             <span className="sb-icon-wrap">
-              <Users size={16} strokeWidth={2} />
+              <Users size={16} />
             </span>
             <span className="sb-link-text">Stafi</span>
           </span>
+
           <span className="sb-action-icon">
             {openStaff ? <ChevronDown size={15} /> : <Plus size={15} />}
           </span>
@@ -157,27 +198,30 @@ const handleLogout = () => {
           <div className="sb-submenu">
             <NavLink
               to="users"
-              className={({ isActive }) => `sb-sub-link ${isActive ? "active" : ""}`}
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
             >
-              <span className="sb-sub-icon">
-                <Users size={15} strokeWidth={2} />
-              </span>
-              <span>Perdoruesit</span>
+              <Users size={15} />
+              <span>Përdoruesit</span>
             </NavLink>
           </div>
         )}
 
+        {/* FINANCAT */}
         <button
           type="button"
           className="sb-section-btn"
-          onClick={() => setOpenFinance((v) => !v)}
+          onClick={() => toggleSection("finance")}
         >
           <span className="sb-link-left">
             <span className="sb-icon-wrap">
-              <Wallet size={16} strokeWidth={2} />
+              <Wallet size={16} />
             </span>
             <span className="sb-link-text">Financat</span>
           </span>
+
           <span className="sb-action-icon">
             {openFinance ? <ChevronDown size={15} /> : <Plus size={15} />}
           </span>
@@ -187,37 +231,32 @@ const handleLogout = () => {
           <div className="sb-submenu">
             <NavLink
               to="kembimi-valutor"
-              className={({ isActive }) => `sb-sub-link ${isActive ? "active" : ""}`}
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
             >
-              <span className="sb-sub-icon">
-                <Wallet size={15} strokeWidth={2} />
-              </span>
+              <Wallet size={15} />
               <span>Këmbimi Valutor</span>
             </NavLink>
           </div>
         )}
       </div>
 
+      {/* FOOTER */}
       <div className="sb-footer">
         <NavLink
           to="profile"
+          onClick={handleNavigate}
           className={({ isActive }) => `sb-link ${isActive ? "active" : ""}`}
         >
-          <span className="sb-link-left">
-            <span className="sb-icon-wrap">
-              <User size={16} strokeWidth={2} />
-            </span>
-            <span className="sb-link-text">Profili</span>
-          </span>
+          <User size={16} />
+          <span>Profili</span>
         </NavLink>
 
-        <button type="button" className="sb-logout-btn" onClick={handleLogout}>
-          <span className="sb-link-left">
-            <span className="sb-icon-wrap">
-              <LogOut size={16} strokeWidth={2} />
-            </span>
-            <span className="sb-link-text">Dil</span>
-          </span>
+        <button className="sb-logout-btn" onClick={handleLogout}>
+          <LogOut size={16} />
+          <span>Dil</span>
         </button>
       </div>
     </aside>

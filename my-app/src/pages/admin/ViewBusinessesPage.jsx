@@ -11,14 +11,33 @@ export default function ViewBusinessesPage() {
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const authHeaders = () => ({
+    "Content-Type": "application/json",
+    Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
+  });
+
   /* ================= FETCH BUSINESSES ================= */
   const fetchBusinesses = async () => {
     try {
-      const res = await fetch("http://localhost:5000/api/admin/business/list");
+      const res = await fetch(
+        "http://localhost:5000/api/admin/business/list",
+        {
+          headers: authHeaders(),
+        }
+      );
+
       const data = await res.json();
+
+      if (!res.ok) {
+        console.error(data.message || "Gabim gjatë marrjes së bizneseve");
+        setBusinesses([]);
+        return;
+      }
+
       setBusinesses(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error("Gabim në marrjen e bizneseve", err);
+      setBusinesses([]);
     } finally {
       setLoading(false);
     }
@@ -47,7 +66,10 @@ export default function ViewBusinessesPage() {
     try {
       const res = await fetch(
         `http://localhost:5000/api/admin/business/${businessId}`,
-        { method: "DELETE" }
+        {
+          method: "DELETE",
+          headers: authHeaders(),
+        }
       );
 
       if (!res.ok) throw new Error();
@@ -67,14 +89,13 @@ export default function ViewBusinessesPage() {
   };
 
   const handleUpdateBusiness = async () => {
-    // ---- Password validation (opsional) ----
     if (newPassword || confirmPassword) {
       if (newPassword !== confirmPassword) {
-        alert("❌ Password-et nuk përputhen");
+        alert("Password-et nuk përputhen");
         return;
       }
       if (newPassword.length < 6) {
-        alert("❌ Password duhet të ketë minimum 6 karaktere");
+        alert("Password duhet të ketë minimum 6 karaktere");
         return;
       }
     }
@@ -95,7 +116,7 @@ export default function ViewBusinessesPage() {
         `http://localhost:5000/api/admin/business/${editBusiness._id}`,
         {
           method: "PUT",
-          headers: { "Content-Type": "application/json" },
+          headers: authHeaders(),
           body: JSON.stringify(payload),
         }
       );
@@ -115,7 +136,7 @@ export default function ViewBusinessesPage() {
   /* ================= UI ================= */
   return (
     <div className="business-list-container">
-      <h1 className="title">📋 Bizneset</h1>
+      <h1 className="title">Bizneset</h1>
 
       {loading && <p>Duke ngarkuar...</p>}
 
@@ -144,15 +165,23 @@ export default function ViewBusinessesPage() {
                 <td>{b.phone}</td>
                 <td>{b.email}</td>
                 <td>{b.city}</td>
-                <td>{b.startDate ? new Date(b.startDate).toLocaleDateString() : "—"}</td>
-                <td>{b.endDate ? new Date(b.endDate).toLocaleDateString() : "—"}</td>
+                <td>
+                  {b.startDate
+                    ? new Date(b.startDate).toLocaleDateString()
+                    : "—"}
+                </td>
+                <td>
+                  {b.endDate
+                    ? new Date(b.endDate).toLocaleDateString()
+                    : "—"}
+                </td>
                 <td>{b.owner?.name || "—"}</td>
 
                 <td>
                   <span className={`status-badge ${status}`}>
-                    {status === "active" && "🟢 Aktiv"}
-                    {status === "warning" && "🟡 Skadon shpejt"}
-                    {status === "expired" && "🔴 I skaduar"}
+                    {status === "active" && "Aktiv"}
+                    {status === "warning" && "Skadon shpejt"}
+                    {status === "expired" && "I skaduar"}
                   </span>
                 </td>
 
@@ -161,13 +190,13 @@ export default function ViewBusinessesPage() {
                     className="biz-edit-btn"
                     onClick={() => openEditBusiness(b)}
                   >
-                    ✏️
+                    Edit
                   </button>
                   <button
                     className="biz-delete-btn"
                     onClick={() => handleDeleteBusiness(b._id)}
                   >
-                    🗑
+                    Delete
                   </button>
                 </td>
               </tr>
@@ -176,18 +205,16 @@ export default function ViewBusinessesPage() {
         </tbody>
       </table>
 
-      {/* ================= EDIT MODAL ================= */}
       {showEdit && editBusiness && (
         <div className="modal-overlay">
           <div className="modal">
-            <h3>✏️ Ndrysho Biznesin</h3>
+            <h3>Ndrysho Biznesin</h3>
 
             <input
               value={editBusiness.name}
               onChange={(e) =>
                 setEditBusiness({ ...editBusiness, name: e.target.value })
               }
-              placeholder="Emri Biznesit"
             />
 
             <input
@@ -195,7 +222,6 @@ export default function ViewBusinessesPage() {
               onChange={(e) =>
                 setEditBusiness({ ...editBusiness, phone: e.target.value })
               }
-              placeholder="Kontakt"
             />
 
             <input
@@ -203,7 +229,6 @@ export default function ViewBusinessesPage() {
               onChange={(e) =>
                 setEditBusiness({ ...editBusiness, email: e.target.value })
               }
-              placeholder="Email"
             />
 
             <input
@@ -211,26 +236,25 @@ export default function ViewBusinessesPage() {
               onChange={(e) =>
                 setEditBusiness({ ...editBusiness, city: e.target.value })
               }
-              placeholder="Qyteti"
             />
 
             <input
               type="password"
-              placeholder="🔒 Password i ri (opsional)"
+              placeholder="Password i ri"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
             />
 
             <input
               type="password"
-              placeholder="🔒 Konfirmo password"
+              placeholder="Konfirmo password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
             />
 
             <div className="modal-actions">
-              <button onClick={handleUpdateBusiness}>💾 Ruaj</button>
-              <button onClick={() => setShowEdit(false)}>❌ Anullo</button>
+              <button onClick={handleUpdateBusiness}>Ruaj</button>
+              <button onClick={() => setShowEdit(false)}>Anullo</button>
             </div>
           </div>
         </div>

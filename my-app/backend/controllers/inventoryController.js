@@ -28,190 +28,100 @@ const stockableName = (p) =>
   toStr(p?.nameSq || p?.name || p?.nameEn || p?.nameIt);
 
 export const getInventorySummary = async (req, res) => {
-  console.log("📦 [GET] /api/inventory/summary", req.query);
-
   try {
-    const { businessId, from, to } = req.query;
+    const { businessId } = req.query;
 
     if (!businessId) {
-      return res.status(400).json({ message: "businessId është i detyrueshëm" });
-    }
-    if (!isValidId(businessId)) {
-      return res.status(400).json({ message: "businessId jo i vlefshëm" });
+      return res.status(400).json({ message: "businessId mungon" });
     }
 
     const bidObj = new mongoose.Types.ObjectId(businessId);
-    const bidStr = toStr(businessId);
 
-    /* ===============================
-       1) DATE FILTER (opsional)
-    =============================== */
-    const createdAtFilter = {};
-    const start = from ? parseYmdStartUTC(from) : null;
-    if (from && !start) {
-      return res.status(400).json({
-        message: "Format i pasaktë 'from'. Përdor YYYY-MM-DD.",
+    const products = await Product.find({
+      businessId: bidObj,
+      categoryType: {
+        $in: [
+          "Ushqime",
+          "Pije",
+          "ushqime",
+          "pije",
+          "Bar",
+          "Restorant",
+          "bar",
+          "restorant",
+        ],
+      },
+    }).lean();
+
+    const productMap = new Map();
+
+    products.forEach((p) => {
+      productMap.set(String(p._id), {
+        productId: String(p._id),
+        productName: p.nameSq || p.name || p.nameEn || p.nameIt || "Produkt",
+        categoryType: p.categoryType,
+        price: Number(p.price || 0),
+        supplied: 0,
+        sold: 0,
+        remaining: 0,
       });
-    }
-    if (start) createdAtFilter.$gte = start;
+    });
 
-    const end = to ? parseYmdEndUTC(to) : null;
-    if (to && !end) {
-      return res.status(400).json({
-        message: "Format i pasaktë 'to'. Përdor YYYY-MM-DD.",
-      });
-    }
-    if (end) createdAtFilter.$lte = end;
-
-    const hasDateFilter = Object.keys(createdAtFilter).length > 0;
-
-    /* ===============================
-       2) STOCKABLE PRODUCTS (ushqime/pije) + price
-    =============================== */
-    const stockableProducts = await Product.find(
-      { businessId: bidObj, categoryType: { $in: ["ushqime", "pije"] } },
-      { name: 1, nameSq: 1, nameEn: 1, nameIt: 1, categoryType: 1, price: 1 }
-    ).lean();
-
-    if (!stockableProducts.length) {
-      return res.json({
-        items: [],
-        totalProductsWithSales: 0,
-        totalQuantitySold: 0,
-      });
-    }
-
-    const productById = new Map(stockableProducts.map((p) => [String(p._id), p]));
-
-    // legacy: emra të lejuar (fallback kur orders/supplies janë by name)
-    const stockableNames = new Set();
-    for (const p of stockableProducts) {
-      const n = stockableName(p);
-      if (n) stockableNames.add(n);
-
-      // ruaj edhe variantet nëse ekzistojnë
-      const n1 = toStr(p?.name);
-      const n2 = toStr(p?.nameSq);
-      const n3 = toStr(p?.nameEn);
-      const n4 = toStr(p?.nameIt);
-      if (n1) stockableNames.add(n1);
-      if (n2) stockableNames.add(n2);
-      if (n3) stockableNames.add(n3);
-      if (n4) stockableNames.add(n4);
-    }
-
-    /* ===============================
-       3) SUPPLIES
-       - i RI: businessId ObjectId + productId
-       - fallback legacy: businessId string + productName (vetëm nëse s’ka data byId)
-    =============================== */
-    const supplyMatchNew = { businessId: bidObj };
-    const supplyMatchLegacy = { businessId: bidStr };
-
-    if (hasDateFilter) {
-      supplyMatchNew.createdAt = createdAtFilter;
-      supplyMatchLegacy.createdAt = createdAtFilter;
-    }
-
-    const suppliesById = await Supply.aggregate([
-      { $match: supplyMatchNew },
+    const supplies = await Supply.aggregate([
+      { $match: { businessId: bidObj } },
       {
         $group: {
           _id: "$productId",
-          totalQuantitySupplied: { $sum: "$qty" },
+          supplied: { $sum: { $toDouble: "$qty" } },
         },
       },
     ]);
 
-    const supplyMapById = new Map();
-    for (const s of suppliesById) {
-      const pid = String(s?._id || "");
-      if (!pid) continue;
-      if (!productById.has(pid)) continue;
-      supplyMapById.set(pid, s.totalQuantitySupplied || 0);
-    }
-
-    // fallback legacy vetëm kur s’ka asnjë supply byId
-    const supplyMapByName = new Map();
-    if (supplyMapById.size === 0) {
-      const suppliesByName = await Supply.aggregate([
-        { $match: supplyMatchLegacy },
-        {
-          $group: {
-            _id: "$productName",
-            totalQuantitySupplied: { $sum: "$qty" },
-          },
-        },
-      ]);
-
-      for (const s of suppliesByName) {
-        const name = toStr(s?._id);
-        if (!name) continue;
-        if (!stockableNames.has(name)) continue;
-        supplyMapByName.set(name, s.totalQuantitySupplied || 0);
+    supplies.forEach((s) => {
+      const pid = String(s._id || "");
+      if (productMap.has(pid)) {
+        productMap.get(pid).supplied = Number(s.supplied || 0);
       }
-    }
-
-    /* ===============================
-       4) SALES (Order) – momentalisht by items.name
-    =============================== */
-    const orderMatch = { businessId: bidObj };
-    if (hasDateFilter) orderMatch.createdAt = createdAtFilter;
+    });
 
     const sales = await Order.aggregate([
-      { $match: orderMatch },
+      {
+        $match: {
+          businessId: bidObj,
+        },
+      },
       { $unwind: "$items" },
       {
         $group: {
-          _id: "$items.name",
-          totalQuantitySold: { $sum: "$items.qty" },
+          _id: "$items.productId",
+          sold: { $sum: { $toDouble: "$items.qty" } },
         },
       },
     ]);
 
-    const soldMapByName = new Map();
-    for (const sale of sales) {
-      const name = toStr(sale?._id);
-      if (!name) continue;
-      if (!stockableNames.has(name)) continue;
-      soldMapByName.set(name, sale.totalQuantitySold || 0);
-    }
+    console.log("INVENTORY SALES:", sales);
 
-    /* ===============================
-       5) MERGE
-    =============================== */
-    const result = [];
+    sales.forEach((s) => {
+      const pid = String(s._id || "");
+      if (productMap.has(pid)) {
+        productMap.get(pid).sold = Number(s.sold || 0);
+      }
+    });
 
-    for (const [pid, p] of productById.entries()) {
-      const displayName = stockableName(p);
-
-      const supplied =
-        supplyMapById.get(pid) ??
-        supplyMapByName.get(displayName) ??
-        0;
-
-      const sold = soldMapByName.get(displayName) ?? 0;
-
-      result.push({
-        productId: pid,
-        productName: displayName,
-        categoryType: p.categoryType,
-        price: p.price ?? 0,
-        supplied,
-        sold,
-        remaining: supplied - sold,
-      });
-    }
+    const items = Array.from(productMap.values()).map((p) => ({
+      ...p,
+      remaining: Number(p.supplied || 0) - Number(p.sold || 0),
+    }));
 
     return res.json({
-      items: result,
-      totalProductsWithSales: result.filter((r) => r.sold > 0).length,
-      totalQuantitySold: result.reduce((sum, r) => sum + (r.sold || 0), 0),
+      items,
+      totalProductsWithSales: items.filter((x) => x.sold > 0).length,
+      totalQuantitySold: items.reduce((sum, x) => sum + Number(x.sold || 0), 0),
     });
   } catch (err) {
-    console.error("❌ Gabim te getInventorySummary:", err);
+    console.error("Gabim te getInventorySummary:", err);
     return res.status(500).json({
-      message: "Gabim në server (inventory)",
+      message: "Gabim në server inventory",
       error: err.message,
     });
   }
@@ -251,7 +161,14 @@ export const addSupply = async (req, res) => {
     const product = await Product.findOne({
       _id: pid,
       businessId: bid,
-      categoryType: { $in: ["ushqime", "pije"] },
+      categoryType: {
+  $in: [
+    "Ushqime",
+    "Pije",
+    "ushqime",
+    "pije",
+  ],
+},
     })
       .select("_id name nameSq nameEn nameIt")
       .lean();

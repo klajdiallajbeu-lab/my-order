@@ -45,14 +45,3 @@ export const getWaiterStats = async (from, to) => {
   const res = await api.get("/stats/waiters", { params });
   return res.data;
 };
-
-/* =========================
-   ORDER PIN
-========================= */
-
-// GET /api/business/order-pin?businessId=...
-export const getOrderAccessCode = async () => {
-  const params = withBusinessId();
-  const res = await api.get("/business/order-pin", { params });
-  return res.data;
-};
