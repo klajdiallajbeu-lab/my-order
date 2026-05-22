@@ -304,19 +304,24 @@ export default function LoginPage({ onLogin }) {
           </div>
 
           <div className="contact-info">
-            <a href="tel:+355678987445" className="contact-item">
+
+            <a
+  href="mailto:support@myorder.com"
+  className="contact-item"
+>
+  <span className="contact-icon">✉</span>
+
+  <div>
+    <strong>support@myorder.com</strong>
+    <small>Email</small>
+  </div>
+</a>
+
+            <a href="tel:+35567 75 09 879" className="contact-item">
               <span className="contact-icon">T</span>
               <div>
-                <strong>+355 67 898 7445</strong>
+                <strong>+355 67 75 09 879</strong>
                 <small>Telefon</small>
-              </div>
-            </a>
-
-            <a href="mailto:klajdi.allajbeu12@gmail.com" className="contact-item">
-              <span className="contact-icon">E</span>
-              <div>
-                <strong>klajdi.allajbeu12@gmail.com</strong>
-                <small>Email</small>
               </div>
             </a>
           </div>

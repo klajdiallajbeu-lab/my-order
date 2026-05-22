@@ -121,9 +121,9 @@ export default function LoginPagePhone({ onLogin }) {
             Na shkruaj direkt ose dërgo kërkesën përmes formës së regjistrimit.
           </p>
 
-          <a href="tel:+355678987445">+355 67 898 7445</a>
-          <a href="mailto:klajdi.allajbeu12@gmail.com">
-            klajdi.allajbeu12@gmail.com
+          <a href="tel:+355677509879">+355 67 75 09 879</a>
+          <a href="mailto:support@myorder.com">
+            support@myorder.com
           </a>
 
           <button type="button" onClick={() => navigate("/signup")}>
