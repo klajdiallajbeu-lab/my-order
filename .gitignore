@@ -11,3 +11,4 @@ my-app/backend/uploads/products/
 reset-admin.js
 *.save
 *.backup
+my-app/backend/backend/
