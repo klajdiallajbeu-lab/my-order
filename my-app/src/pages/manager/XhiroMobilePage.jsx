@@ -1,3 +1,4 @@
+import "../../qz-signing";
 import { useEffect, useMemo, useState } from "react";
 import "./XhiroMobilePage.css";
 import { getPeriodStats, getWaiterStats } from "../../api/statsApi.js";

@@ -7,9 +7,14 @@ import mongoose from "mongoose";
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 const readBusinessId = (req) => {
+  if (req.user?.businessId) {
+    return String(req.user.businessId);
+  }
+
   const q = req?.query ?? {};
   const b = req?.body ?? {};
   const p = req?.params ?? {};
+
   return q.businessId || b.businessId || p.businessId;
 };
 
@@ -160,6 +165,7 @@ export const createProduct = async (req, res) => {
     }
 
     const image = normalizeStr(req.body.image);
+    const thumbnail = normalizeStr(req.body.thumbnail);
 
     const productData = {
       businessId: new mongoose.Types.ObjectId(businessId),
@@ -179,6 +185,7 @@ export const createProduct = async (req, res) => {
       price: numericPrice,
 
       image,
+      thumbnail,
     };
 
     if (subCategoryId) {
@@ -325,8 +332,11 @@ export const updateProduct = async (req, res) => {
         normalizeLower(patch.destination) === "banak" ? "banak" : "kuzhine";
     }
     if (patch.image !== undefined) {
-  patch.image = normalizeStr(patch.image);
-}
+      patch.image = normalizeStr(patch.image);
+    }
+    if (patch.thumbnail !== undefined) {
+      patch.thumbnail = normalizeStr(patch.thumbnail);
+    }
 
     if (patch.name === undefined && patch.nameSq) {
       patch.name = patch.nameSq;

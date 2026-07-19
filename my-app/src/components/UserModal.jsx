@@ -1,5 +1,6 @@
 import { useState } from "react";
 import "./UserModal.css";
+import { api } from "../api/http.js";
 
 export default function UserModal({ closeModal, refresh, editUser }) {
   const [form, setForm] = useState({
@@ -18,15 +19,10 @@ export default function UserModal({ closeModal, refresh, editUser }) {
     e.preventDefault();
 
     try {
-      const method = editUser ? "PUT" : "POST";
-      const url = editUser
-        ? `http://localhost:5000/api/users/${editUser._id}`
-        : "http://localhost:5000/api/users";
-
       const businessId = localStorage.getItem("businessId");
 
       if (!editUser && !businessId) {
-        alert("Mungon businessId – rihap login-in e menaxherit.");
+        ("Mungon businessId – rihap login-in e menaxherit.");
         return;
       }
 
@@ -38,30 +34,29 @@ export default function UserModal({ closeModal, refresh, editUser }) {
 
       if (!editUser) {
         if (!payload.name || !payload.username || !payload.password) {
-          alert("Emri, username dhe fjalëkalimi janë të detyrueshëm.");
+          ("Emri, username dhe fjalëkalimi janë të detyrueshëm.");
           return;
         }
       }
 
-      const res = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        alert(data.message || "Gabim gjatë ruajtjes së userit");
-        console.error("Gabim te UserModal handleSubmit:", data);
-        return;
+      if (editUser) {
+        await api.put(`/users/${editUser._id}`, payload);
+      } else {
+        await api.post("/users", payload);
       }
 
       await refresh();
       closeModal();
     } catch (err) {
-      console.error("Gabim te UserModal handleSubmit:", err);
-      alert("Gabim serveri gjatë ruajtjes së userit");
+      console.error(
+        "Gabim te UserModal handleSubmit:",
+        err?.response?.data || err
+      );
+
+      (
+        err?.response?.data?.message ||
+          "Gabim serveri gjatë ruajtjes së userit"
+      );
     }
   };
 
@@ -99,7 +94,9 @@ export default function UserModal({ closeModal, refresh, editUser }) {
           <input
             type="password"
             name="password"
-            placeholder={editUser ? "Fjalëkalim i ri (opsional)" : "Fjalëkalimi"}
+            placeholder={
+              editUser ? "Fjalëkalim i ri (opsional)" : "Fjalëkalimi"
+            }
             value={form.password}
             onChange={handleChange}
           />

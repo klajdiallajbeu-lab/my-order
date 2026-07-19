@@ -14,6 +14,27 @@ import "./AdminDashboard.css";
 export default function AdminDashboard() {
   const navigate = useNavigate();
 
+  useEffect(() => {
+  const kontrolloAdminin = () => {
+    const adminId = localStorage.getItem("adminId");
+    const adminToken = localStorage.getItem("adminToken");
+
+    if (!adminId || !adminToken) {
+      window.location.replace("/admin");
+    }
+  };
+
+  kontrolloAdminin();
+
+  window.addEventListener("pageshow", kontrolloAdminin);
+  window.addEventListener("popstate", kontrolloAdminin);
+
+  return () => {
+    window.removeEventListener("pageshow", kontrolloAdminin);
+    window.removeEventListener("popstate", kontrolloAdminin);
+  };
+}, []);
+
   const [stats, setStats] = useState({
     totalBusinesses: 0,
     totalManagers: 0,
@@ -28,15 +49,20 @@ export default function AdminDashboard() {
   const [priceRecommendation, setPriceRecommendation] = useState(null);
   const [loadingBusinessStats, setLoadingBusinessStats] = useState(true);
   const [businessStatsError, setBusinessStatsError] = useState("");
-
   const logout = () => {
-    navigate("/admin");
-  };
+  localStorage.removeItem("adminId");
+  localStorage.removeItem("adminToken");
+
+  sessionStorage.removeItem("adminId");
+  sessionStorage.removeItem("adminToken");
+
+  window.location.replace("/admin");
+};
 
   useEffect(() => {
     const loadDashboard = async () => {
       try {
-        const statsRes = await fetch("http://localhost:5000/api/admin/stats", {
+        const statsRes = await fetch("/api/admin/stats", {
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
@@ -63,7 +89,7 @@ export default function AdminDashboard() {
         setBusinessStatsError("");
 
         const usageRes = await fetch(
-          "http://localhost:5000/api/admin/business-usage-stats",
+          "/api/admin/business-usage-stats",
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
@@ -108,7 +134,7 @@ export default function AdminDashboard() {
     const loadBusinessDetails = async () => {
       try {
         const historyRes = await fetch(
-          `http://localhost:5000/api/admin/business/${selectedBusiness.businessId}/history`,
+          `/api/admin/business/${selectedBusiness.businessId}/history`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("adminToken")}`,
@@ -125,7 +151,7 @@ export default function AdminDashboard() {
 
       try {
         const priceRes = await fetch(
-          `http://localhost:5000/api/admin/business/${selectedBusiness.businessId}/price-recommendation`,
+          `/api/admin/business/${selectedBusiness.businessId}/price-recommendation`,
           {
             headers: {
               Authorization: `Bearer ${localStorage.getItem("adminToken")}`,

@@ -8,35 +8,31 @@ export const api = axios.create({
   },
 });
 
-/* =========================
-   REQUEST INTERCEPTOR
-========================= */
 api.interceptors.request.use(
   (config) => {
-    // 👨‍🍳 WAITER ID (PANELI I KAMARJERIT)
-    const waiterId =
-  (sessionStorage.getItem("waiterId") ||
-    localStorage.getItem("waiterId") ||
-    "").trim();
+    const token = (
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token") ||
+      ""
+    ).trim();
 
-    if (waiterId) {
-      config.headers["x-waiter-id"] = waiterId;
+    const guestSessionToken = (
+      sessionStorage.getItem("guestSessionToken") || ""
+    ).trim();
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    // 👤 GUEST SESSION (QR)
-    const guestSessionToken =
-      (sessionStorage.getItem("guestSessionToken") || "").trim();
 
     if (guestSessionToken) {
       config.headers["x-guest-session"] = guestSessionToken;
     }
 
-    // 🧭 DEBUG
     console.log(
       "➡️",
       (config.method || "GET").toUpperCase(),
-      config.baseURL + config.url,
-      waiterId ? "WAITER=ON" : "WAITER=OFF",
+      `${config.baseURL || ""}${config.url || ""}`,
+      token ? "TOKEN=ON" : "TOKEN=OFF",
       guestSessionToken ? "GUEST=ON" : "GUEST=OFF"
     );
 
@@ -45,9 +41,6 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
-/* =========================
-   RESPONSE INTERCEPTOR
-========================= */
 api.interceptors.response.use(
   (response) => response,
   (error) => {

@@ -3,6 +3,7 @@ import multer from "multer";
 import path from "path";
 import fs from "fs";
 import { fileURLToPath } from "url";
+import sharp from "sharp";
 
 import {
   getProducts,
@@ -13,41 +14,19 @@ import {
   deleteSubCategoryFromProducts,
 } from "../controllers/productController.js";
 
-const router = express.Router();
+import { protectUser, requireRole } from "../middleware/protectUser.js";
 
-/* =========================
-   SAFE PATH FOR UPLOADS
-========================= */
+const router = express.Router();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// routes/../uploads/products => backend/uploads/products
 const uploadDir = path.join(__dirname, "..", "uploads", "products");
-
 fs.mkdirSync(uploadDir, { recursive: true });
 
-console.log("UPLOAD DIR:", uploadDir);
-
-/* =========================
-   MULTER CONFIG
-========================= */
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    fs.mkdirSync(uploadDir, { recursive: true });
-    cb(null, uploadDir);
-  },
-
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-
-    cb(
-      null,
-      `product-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`
-    );
-  },
-});
+// Tani foto mbahet përkohësisht në memorje (RAM), jo në disk direkt —
+// kështu mund ta procesojmë me sharp para se ta ruajmë.
+const storage = multer.memoryStorage();
 
 const fileFilter = (req, file, cb) => {
   const allowed = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -68,46 +47,107 @@ const upload = multer({
 });
 
 /* =========================
-   IMAGE UPLOAD
+   PUBLIC
 ========================= */
 
-router.post("/upload-image", (req, res) => {
-  upload.single("image")(req, res, (err) => {
-    if (err) {
-      console.error("Multer upload error:", err);
-
-      return res.status(400).json({
-        message: err.message || "Image upload failed",
-      });
-    }
-
-    if (!req.file) {
-      return res.status(400).json({
-        message: "No image uploaded",
-      });
-    }
-
-    const imageUrl = `/uploads/products/${req.file.filename}`;
-
-    return res.json({
-      success: true,
-      imageUrl,
-    });
-  });
-});
+// Menuja QR ka nevojë ta lexojë menunë
+router.get("/", getProducts);
 
 /* =========================
-   PRODUCTS
+   PROTECTED MANAGER / ADMIN
 ========================= */
 
-router.get("/", getProducts);
-router.post("/", createProduct);
+router.post(
+  "/upload-image",
+  protectUser,
+  requireRole("manager", "admin"),
+  (req, res) => {
+    upload.single("image")(req, res, async (err) => {
+      if (err) {
+        console.error("Multer upload error:", err);
 
-/* IMPORTANT: before /:id */
-router.delete("/category", deleteCategoryFromProducts);
-router.delete("/subcategory", deleteSubCategoryFromProducts);
+        return res.status(400).json({
+          message: err.message || "Image upload failed",
+        });
+      }
 
-router.put("/:id", updateProduct);
-router.delete("/:id", deleteProduct);
+      if (!req.file) {
+        return res.status(400).json({
+          message: "No image uploaded",
+        });
+      }
+
+      try {
+        const baseName = `product-${Date.now()}-${Math.round(
+          Math.random() * 1e9
+        )}`;
+
+        const fullFilename = `${baseName}.webp`;
+        const thumbFilename = `${baseName}-thumb.webp`;
+
+        const fullPath = path.join(uploadDir, fullFilename);
+        const thumbPath = path.join(uploadDir, thumbFilename);
+
+        // Foto kryesore — max 800x800, WebP, cilësi 80%
+        await sharp(req.file.buffer)
+          .rotate() // respekton EXIF orientation (foto nga telefoni s'del e rrotulluar)
+          .resize(800, 800, {
+            fit: "inside",
+            withoutEnlargement: true,
+          })
+          .webp({ quality: 80 })
+          .toFile(fullPath);
+
+          await sharp(req.file.buffer)
+  .rotate()
+  .resize(200, 200, {
+  fit: "cover",
+  position: sharp.strategy.attention,
+})
+  .webp({ quality: 75 })
+  .toFile(thumbPath);
+
+        const imageUrl = `/uploads/products/${fullFilename}`;
+        const thumbnailUrl = `/uploads/products/${thumbFilename}`;
+
+        return res.json({
+          success: true,
+          imageUrl,
+          thumbnailUrl,
+        });
+      } catch (procErr) {
+        console.error("Image processing error:", procErr);
+        return res.status(500).json({
+          message: "Image processing failed",
+        });
+      }
+    });
+  }
+);
+
+router.post("/", protectUser, requireRole("manager", "admin"), createProduct);
+
+router.delete(
+  "/category",
+  protectUser,
+  requireRole("manager", "admin"),
+  deleteCategoryFromProducts
+);
+
+router.delete(
+  "/subcategory",
+  protectUser,
+  requireRole("manager", "admin"),
+  deleteSubCategoryFromProducts
+);
+
+router.put("/:id", protectUser, requireRole("manager", "admin"), updateProduct);
+
+router.delete(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  deleteProduct
+);
 
 export default router;

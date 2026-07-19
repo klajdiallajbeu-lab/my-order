@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import qz from "../../qz-signing";
 import "./PrinterSettingsPage.css";
-import { getBusinessSettingsApi, updateBusinessSettingsApi } from "../../api/businessApi.js";
+import {
+  getBusinessSettingsApi,
+  updateBusinessSettingsApi,
+} from "../../api/businessApi.js";
+import "../../qz-signing";
 
 export default function PrinterSettingsPage() {
   const businessId = useMemo(
@@ -11,7 +16,6 @@ export default function PrinterSettingsPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [loadingPrinters, setLoadingPrinters] = useState(false);
-
   const [printers, setPrinters] = useState([]);
 
   const [kitchenPrinterName, setKitchenPrinterName] = useState("");
@@ -20,7 +24,8 @@ export default function PrinterSettingsPage() {
 
   const loadSettings = async () => {
     if (!businessId) {
-      alert("Mungon businessId.");
+      ("Mungon businessId.");
+      setLoading(false);
       return;
     }
 
@@ -35,38 +40,49 @@ export default function PrinterSettingsPage() {
       setInvoicePrinterName(settings.invoicePrinterName || "");
     } catch (err) {
       console.error("Gabim te settings:", err?.response?.data || err);
-      alert("Nuk munda të lexoj settings e printerave.");
+      ("Nuk munda të lexoj settings e printerave.");
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadSettings();
-  }, []);
+const connectQz = async () => {
+  if (!qz) {
+    throw new Error("QZ Tray nuk u ngarkua.");
+  }
+
+  if (qz.websocket.isActive()) {
+    return true;
+  }
+
+  await qz.websocket.connect();
+
+  return true;
+};
 
   const handleLoadPrinters = async () => {
     try {
       setLoadingPrinters(true);
 
-      if (!window.qz) {
-        alert("QZ Tray nuk u gjet.");
-        return;
-      }
+      await connectQz();
 
-      if (!window.qz.websocket.isActive()) {
-        await window.qz.websocket.connect();
-      }
+      const found = await qz.printers.find();
+      console.log("PRINTERS:", found);
 
-      const found = await window.qz.printers.find();
-      setPrinters(Array.isArray(found) ? found : []);
+      const printerList = Array.isArray(found)
+        ? found
+        : found
+        ? [found]
+        : [];
 
-      if (!found || found.length === 0) {
-        alert("Nuk u gjet asnjë printer.");
+      setPrinters(printerList);
+
+      if (printerList.length === 0) {
+        ("Nuk u gjet asnjë printer.");
       }
     } catch (err) {
-      console.error("Gabim te load printers:", err);
-      alert(err?.message || "Nuk munda të lexoj printerat.");
+      console.error("QZ ERROR:", err);
+      (err?.message || "Unable to establish connection with QZ");
     } finally {
       setLoadingPrinters(false);
     }
@@ -74,7 +90,7 @@ export default function PrinterSettingsPage() {
 
   const handleSave = async () => {
     if (!businessId) {
-      alert("Mungon businessId.");
+      ("Mungon businessId.");
       return;
     }
 
@@ -87,17 +103,25 @@ export default function PrinterSettingsPage() {
         invoicePrinterName,
       });
 
-      alert("Printerat u ruajtën me sukses.");
+      ("Printerat u ruajtën me sukses.");
     } catch (err) {
       console.error("Gabim te save printers:", err?.response?.data || err);
-      alert(err?.response?.data?.message || "Nuk munda t'i ruaj printerat.");
+      (err?.response?.data?.message || "Nuk munda t'i ruaj printerat.");
     } finally {
       setSaving(false);
     }
   };
 
+  useEffect(() => {
+    loadSettings();
+  }, []);
+
   if (loading) {
-    return <div className="printer-page"><div className="printer-card">Duke ngarkuar...</div></div>;
+    return (
+      <div className="printer-page">
+        <div className="printer-card">Duke ngarkuar...</div>
+      </div>
+    );
   }
 
   return (
@@ -127,9 +151,9 @@ export default function PrinterSettingsPage() {
               onChange={(e) => setKitchenPrinterName(e.target.value)}
             >
               <option value="">Zgjidh printerin</option>
-              {printers.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              {printers.map((printer) => (
+                <option key={printer} value={printer}>
+                  {printer}
                 </option>
               ))}
             </select>
@@ -142,9 +166,9 @@ export default function PrinterSettingsPage() {
               onChange={(e) => setBarPrinterName(e.target.value)}
             >
               <option value="">Zgjidh printerin</option>
-              {printers.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              {printers.map((printer) => (
+                <option key={printer} value={printer}>
+                  {printer}
                 </option>
               ))}
             </select>
@@ -157,9 +181,9 @@ export default function PrinterSettingsPage() {
               onChange={(e) => setInvoicePrinterName(e.target.value)}
             >
               <option value="">Zgjidh printerin</option>
-              {printers.map((p) => (
-                <option key={p} value={p}>
-                  {p}
+              {printers.map((printer) => (
+                <option key={printer} value={printer}>
+                  {printer}
                 </option>
               ))}
             </select>

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import "./WaiterDesktopPage.css";
 import { api } from "../../api/http.js";
 import { socket } from "../../realtime/socket.js";
-import qz from "qz-tray";
 import { useRef } from "react";
 
 const CURRENT_WAITER_NAME =
@@ -11,10 +10,6 @@ const CURRENT_WAITER_NAME =
   localStorage.getItem("waiterName") ||
   "Kamarjer";
 
-const CURRENT_WAITER_ID =
-  sessionStorage.getItem("waiterId") ||
-  localStorage.getItem("waiterId") ||
-  "";
 
 const getCurrencySymbol = (currency) => {
   switch (currency) {
@@ -35,12 +30,22 @@ const getCurrencySymbol = (currency) => {
 export default function WaiterDesktopPage({ onLogout }) {
   const navigate = useNavigate();
 
+  const [currentWaiterId, setCurrentWaiterId] = useState("");
+
+useEffect(() => {
+  const id =
+    sessionStorage.getItem("waiterId") ||
+    localStorage.getItem("waiterId") ||
+    "";
+
+  setCurrentWaiterId(id);
+}, []);
+
   const businessId = useMemo(
     () => (localStorage.getItem("businessId") || "").trim(),
     []
   );
 
-  const [showSettings, setShowSettings] = useState(false);
 
   const [locationType, setLocationType] = useState("tavoline");
   const [tables, setTables] = useState([]);
@@ -56,6 +61,8 @@ export default function WaiterDesktopPage({ onLogout }) {
   const [products, setProducts] = useState([]);
   const [loadingProducts, setLoadingProducts] = useState(false);
 
+  const [allProducts, setAllProducts] = useState([]);
+
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState([]);
   const [orderNote, setOrderNote] = useState("");
@@ -64,9 +71,24 @@ export default function WaiterDesktopPage({ onLogout }) {
   const [pendingCadra, setPendingCadra] = useState(0);
   const [incomingOrders, setIncomingOrders] = useState([]);
 
-  const [selectedIncomingOrder, setSelectedIncomingOrder] = useState(null);
+const [selectedIncomingOrder, setSelectedIncomingOrder] = useState(null);
   const [handledOrderIds, setHandledOrderIds] = useState([]);
   const isPrintingRef = useRef(false);
+
+  const [isOnline, setIsOnline] = useState(socket.connected);
+
+  useEffect(() => {
+    const setOn = () => setIsOnline(true);
+    const setOff = () => setIsOnline(false);
+
+    socket.on("connect", setOn);
+    socket.on("disconnect", setOff);
+
+    return () => {
+      socket.off("connect", setOn);
+      socket.off("disconnect", setOff);
+    };
+  }, []);
 
   const activeSourceLabel = useMemo(() => {
     if (selectedIncomingOrder?.sourceType === "dhoma") {
@@ -99,27 +121,30 @@ export default function WaiterDesktopPage({ onLogout }) {
     window.location.replace("/login");
   };
 
-  const fetchTables = useCallback(async () => {
-    if (!businessId) return;
+const fetchTables = useCallback(async () => {
+  if (!businessId || !currentWaiterId) return;
 
-    try {
-      setLoadingTables(true);
+  try {
+    setLoadingTables(true);
 
-      const res = await api.get("/places", {
-        params: {
-          businessId,
-          type: "table",
-        },
-      });
+    const res = await api.get("/places", {
+      params: {
+        businessId,
+        type: "table",
+      },
+      headers: {
+        "Cache-Control": "no-cache",
+      },
+    });
 
-      setTables(Array.isArray(res.data) ? res.data : []);
-    } catch (err) {
-      console.error("Gabim te tavolinat:", err?.response?.data || err);
-      setTables([]);
-    } finally {
-      setLoadingTables(false);
-    }
-  }, [businessId]);
+    setTables(Array.isArray(res.data) ? res.data : []);
+  } catch (err) {
+    console.error("Gabim te tavolinat:", err?.response?.data || err);
+    setTables([]);
+  } finally {
+    setLoadingTables(false);
+  }
+}, [businessId, currentWaiterId]);
 
 const fetchIncomingOrders = useCallback(async () => {
   if (!businessId) return;
@@ -222,6 +247,17 @@ const fetchIncomingOrders = useCallback(async () => {
     }
   }, [businessId, selectedSubCategory]);
 
+  const fetchAllProducts = useCallback(async () => {
+    if (!businessId) return;
+
+    try {
+      const res = await api.get("/products", { params: { businessId } });
+      setAllProducts(Array.isArray(res?.data) ? res.data : []);
+    } catch (err) {
+      console.error("Gabim te all products:", err?.response?.data || err);
+    }
+  }, [businessId]);
+
   useEffect(() => {
     fetchTables();
     fetchIncomingOrders();
@@ -234,6 +270,10 @@ const fetchIncomingOrders = useCallback(async () => {
   useEffect(() => {
     fetchProducts();
   }, [fetchProducts]);
+
+  useEffect(() => {
+    fetchAllProducts();
+  }, [fetchAllProducts]);
 
   useEffect(() => {
     if (!businessId) return;
@@ -310,7 +350,8 @@ const filteredIncomingOrders = useMemo(() => {
 
     if (handledOrderIds.map(String).includes(orderId)) return false;
 
-    if (["done", "closed", "cancelled"].includes(status)) return false;
+    if (["accepted", "done", "closed", "cancelled"].includes(status))
+  return false;
 
     return true;
   });
@@ -318,14 +359,17 @@ const filteredIncomingOrders = useMemo(() => {
 
   const filteredProducts = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     if (!q) return products;
 
-    return products.filter((p) =>
+    // Kur ka kërkim, kërko në TË GJITHË produktet e biznesit,
+    // pavarësisht kategorisë/nën-kategorisë aktive
+    return allProducts.filter((p) =>
       String(p?.nameSq || p?.name || p?.title || "")
         .toLowerCase()
         .includes(q)
     );
-  }, [products, search]);
+  }, [products, allProducts, search]);
 
   const cartTotal = useMemo(() => {
     return cart.reduce((sum, item) => {
@@ -342,7 +386,7 @@ const filteredIncomingOrders = useMemo(() => {
     const isTakenByOther =
       occ?.isOccupied &&
       occ?.occupiedByWaiterId &&
-      String(occ.occupiedByWaiterId) !== String(CURRENT_WAITER_ID);
+      String(occ.occupiedByWaiterId) !== String(currentWaiterId);
 
     if (isTakenByOther) {
       setError("Kjo tavolinë është zënë nga një kamarjer tjetër.");
@@ -354,41 +398,43 @@ const filteredIncomingOrders = useMemo(() => {
     setSelectedTable(code);
   };
 
-  const handleAcceptIncoming = async (order) => {
-    const ok = window.confirm("Ta marrësh këtë porosi dhe ta hapësh te fatura?");
-    if (!ok) return;
+const handleAcceptIncoming = async (order) => {
 
-    const orderId = order._id || order.id;
+  console.log("ACCEPT DESKTOP NEW VERSION");
+  
+  const ok = window.confirm("Ta marrësh këtë porosi dhe ta printosh?");
+  if (!ok) return;
 
-    try {
-await api.patch(`/orders/${orderId}/status`, {
-  status: "accepted",
-  acceptedBy: CURRENT_WAITER_ID,
-  acceptedByName: CURRENT_WAITER_NAME,
-});
+  const orderId = order._id || order.id;
 
-      setSelectedIncomingOrder(order);
-      setSelectedTable(String(order.sourceNumber || ""));
+  try {
+    const res = await api.patch(`/orders/${orderId}/status`, {
+      status: "accepted",
+      acceptedBy: currentWaiterId,
+      acceptedByName: CURRENT_WAITER_NAME,
+    });
 
-      setCart(
-        (order.items || []).map((item, index) => ({
-          productId:
-            item.productId ||
-            item._id ||
-            `${orderId}-${item.name || "item"}-${index}`,
-          name: item.name,
-          price: Number(item.price || 0),
-          qty: Number(item.qty || 0),
-          currency: order.currency || "ALL",
-        }))
-      );
+    const acceptedOrder = res?.data || order;
 
-      await fetchIncomingOrders();
-    } catch (err) {
-      console.error("Gabim gjatë accept:", err?.response?.data || err);
-      alert("Gabim gjatë accept.");
-    }
-  };
+
+    setSelectedIncomingOrder(null);
+    setSelectedTable("");
+    setCart([]);
+    setOrderNote("");
+
+    await fetchIncomingOrders();
+
+setTimeout(() => {
+  setSelectedIncomingOrder(null);
+  setSelectedTable("");
+  setCart([]);
+  setOrderNote("");
+}, 1000);
+  } catch (err) {
+    console.error("Gabim gjatë accept/print:", err?.response?.data || err);
+    ("Gabim gjatë accept/print.");
+  }
+};
 
   const handleMarkDone = async (orderId) => {
     try {
@@ -411,19 +457,19 @@ await api.patch(`/orders/${orderId}/status`, {
       await fetchIncomingOrders();
     } catch (err) {
       console.error("Gabim te done:", err?.response?.data || err);
-      alert("Nuk mund ta bëj done porosinë.");
+      ("Nuk mund ta bëj done porosinë.");
     }
   };
 
   const addToCart = (product) => {
     if (!selectedTable) {
-      alert("Zgjidh fillimisht tavolinën.");
+      ("Zgjidh fillimisht tavolinën.");
       return;
     }
 
     const productId = String(product?._id || product?.id || "");
     if (!productId) {
-      alert("Ky produkt nuk ka ID.");
+      ("Ky produkt nuk ka ID.");
       return;
     }
 
@@ -438,17 +484,26 @@ await api.patch(`/orders/${orderId}/status`, {
         );
       }
 
-      return [
-        ...prev,
-        {
-          productId,
-          name: product?.nameSq || product?.name || product?.title || "Produkt",
-          price: Number(product?.price || 0),
-          qty: 1,
-          currency: product?.currency || "ALL",
-categoryType: product?.categoryType || "",
-        },
-      ];
+return [
+  ...prev,
+  {
+    productId,
+    name: product?.nameSq || product?.name || product?.title || "Produkt",
+    price: Number(product?.price || 0),
+    qty: 1,
+    currency: product?.currency || "ALL",
+
+    categoryType:
+      product?.categoryType ||
+      selectedCategoryType ||
+      "",
+
+    destination:
+      product?.destination ||
+      selectedSubCategory?.destination ||
+      "banak",
+  },
+];
     });
   };
 
@@ -474,247 +529,84 @@ const clearCart = () => {
 
     const sourceNumber =
       selectedIncomingOrder?.sourceNumber || selectedTable;
-      return {
+return {
   businessId,
   sourceType,
   sourceNumber,
-  createdBy: CURRENT_WAITER_NAME,
-  waiterId: CURRENT_WAITER_ID,
+createdBy: CURRENT_WAITER_NAME,
+waiterId: currentWaiterId,
+waiterName: CURRENT_WAITER_NAME,
+acceptedBy: currentWaiterId,
+acceptedByName: CURRENT_WAITER_NAME,
   printMode: mode,
+  createdFrom: "waiter-desktop",
   note: orderNote.trim(),
   orderNote: orderNote.trim(),
-  items: cart.map((item) => ({
-    productId: item.productId,
-    name: item.name,
-    price: Number(item.price),
-    qty: Number(item.qty),
-  })),
+items: cart.map((item) => ({
+  productId: item.productId,
+  name: item.name,
+  price: Number(item.price),
+  qty: Number(item.qty),
+
+  categoryType: item.categoryType,
+  destination: item.destination,
+})),
 };
   };
 
-  const printDirect = async () => {
+const printDirect = async () => {
   if (isPrintingRef.current) return;
 
-  isPrintingRef.current = true;
   if (!selectedTable) {
-    alert("Zgjidh fillimisht tavolinën/dhomën/çadrën.");
+    ("Zgjidh fillimisht tavolinën/dhomën/çadrën.");
     return;
   }
 
   if (cart.length === 0) {
-    alert("Shto të paktën një produkt.");
+    ("Shto të paktën një produkt.");
     return;
   }
 
+  isPrintingRef.current = true;
+
   try {
     const sourceType = selectedIncomingOrder?.sourceType || "tavoline";
-
-    const sourceLabel =
-      sourceType === "dhoma"
-        ? "Dhoma"
-        : sourceType === "cadra"
-        ? "Çadra"
-        : "Tavolina";
-
     const sourceNumber = selectedIncomingOrder?.sourceNumber || selectedTable;
     const noteText = orderNote.trim();
 
-    const businessRes = await api.get(`/business/${businessId}/settings`);
-    const businessData = businessRes?.data || {};
-    const settings = businessData?.settings || {};
+    const payload = {
+      ...buildOrderPayload("printo"),
+      sourceType,
+      sourceNumber,
+      createdFrom: "waiter-desktop",
+      note: noteText,
+      orderNote: noteText,
+    };
 
-    const businessName =
-  businessData?.name ||
-  businessData?.business?.name ||
-  businessData?.profile?.hotelName ||
-  businessData?.hotelName ||
-  localStorage.getItem("hotelName") ||
-  localStorage.getItem("businessName") ||
-  "Biznesi";
-  console.log("BUSINESS DATA:", businessData);
-  console.log("BUSINESS NAME:", businessName);
-
-    const printedDate = new Date().toLocaleString("sq-AL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
+    await api.post("/orders", payload, {
     });
-
-    const convertFromALL = (amount, rate, code) => {
-      const r = Number(rate);
-      if (!r || r <= 0) return "-";
-      return `${(Number(amount) / r).toFixed(2)} ${code}`;
-    };
-
-    const formatLine = (left, right, width = 26) => {
-      let l = String(left || "").trim();
-      const r = String(right || "").trim();
-      const maxLeft = width - r.length - 1;
-
-      if (maxLeft <= 0) return `${l}\n${r}\n`;
-      if (l.length > maxLeft) l = l.slice(0, maxLeft);
-
-      return `${l}${" ".repeat(width - l.length - r.length)}${r}\n`;
-    };
-
-    const line = "--------------------------\n";
-
-    const kitchenItems = cart.filter(
-  (item) =>
-    String(item.categoryType || "")
-      .toLowerCase()
-      .includes("ushq")
-);
-
-const barItems = cart.filter(
-  (item) =>
-    String(item.categoryType || "")
-      .toLowerCase()
-      .includes("pij")
-);
-
-const buildItemsLines = (items) =>
-  items.map((item) => {
-    const qty = Number(item.qty || 0);
-    const total = qty * Number(item.price || 0);
-
-    return formatLine(
-      `${qty}x ${item.name}`,
-      `${total.toFixed(0)} ALL`
-    );
-  });
-
-const buildReceipt = (title, items) => {
-  const isBar = title === "POROSI BAR";
-
-  const receiptTotal = items.reduce(
-    (sum, item) =>
-      sum + Number(item.qty || 0) * Number(item.price || 0),
-    0
-  );
-
-  const eurText = convertFromALL(receiptTotal, settings?.eurRate, "EUR");
-  const usdText = convertFromALL(receiptTotal, settings?.usdRate, "USD");
-  const gbpText = convertFromALL(receiptTotal, settings?.gbpRate, "GBP");
-  const chfText = convertFromALL(receiptTotal, settings?.chfRate, "CHF");
-
-  return [
-    "\x1B\x40",
-    "\x1B\x4D\x00",
-    "\x1D\x21\x00",
-
-    "\x1B\x61\x01",
-    `${businessName}\n`,
-    `\n*** ${title} ***\n\n`,
-
-    "\x1B\x61\x00",
-    line,
-    `${sourceLabel}: ${sourceNumber}\n`,
-    `Kamarier: ${CURRENT_WAITER_NAME}\n`,
-    `Data: ${printedDate}\n`,
-    line,
-
-    ...buildItemsLines(items),
-
-    ...(noteText ? [line, `NOTE: ${noteText}\n`] : []),
-
-    ...(isBar
-      ? [
-          line,
-          formatLine("TOTAL:", `${receiptTotal.toFixed(0)} ALL`),
-          line,
-          formatLine("EUR:", eurText),
-          formatLine("USD:", usdText),
-          formatLine("GBP:", gbpText),
-          formatLine("CHF:", chfText),
-        ]
-      : []),
-
-    "\x1B\x61\x01",
-    "\n\n\n",
-  ];
-};
-const payload = {
-  ...buildOrderPayload("printo"),
-  note: noteText,
-  orderNote: noteText,
-};
-
- const orderRes = await api.post("/orders", payload, {
-  headers: {
-    "x-waiter-id": CURRENT_WAITER_ID,
-  },
-});
 
     if (sourceType === "tavoline") {
-  const resPlaces = await api.get("/places", {
-    params: {
-      businessId,
-      type: "table",
-    },
-  });
+      const resPlaces = await api.get("/places", {
+        params: {
+          businessId,
+          type: "table",
+        },
+      });
 
-  const place = (resPlaces.data || []).find(
-    (p) =>
-      String(p.code || "").trim() ===
-      String(sourceNumber || "").trim()
-  );
+      const place = (resPlaces.data || []).find(
+        (p) =>
+          String(p.code || "").trim() === String(sourceNumber || "").trim()
+      );
 
-  if (place?._id) {
-    await api.patch(`/places/${place._id}/occupy`, {
-      type: "table",
-      waiterId: CURRENT_WAITER_ID,
-      occupiedByWaiterId: CURRENT_WAITER_ID,
-    });
-  }
-}
-
-    if (!qz.websocket.isActive()) {
-  await qz.websocket.connect();
-}
-
-const printers = await qz.printers.find();
-console.log("PRINTERAT:", printers);
-
-let printerName =
-  settings?.invoicePrinterName ||
-  localStorage.getItem("invoicePrinter") ||
-  localStorage.getItem("printerName") ||
-  printers.find((p) => p.toLowerCase().includes("rongta")) ||
-  printers.find((p) => p.toLowerCase().includes("rpp02")) ||
-  printers[0];
-
-console.log("PRINTER I ZGJEDHUR:", printerName);
-
-if (!printerName) {
-  alert("Nuk u gjet asnjë printer.");
-  return;
-}
-
-const config = qz.configs.create(printerName);
-
-const allItemsForBar = [
-  ...barItems,
-  ...kitchenItems,
-];
-
-if (allItemsForBar.length > 0) {
-  await qz.print(
-    config,
-    buildReceipt("POROSI BAR", allItemsForBar)
-  );
-}
-
-if (kitchenItems.length > 0) {
-  await qz.print(
-    config,
-    buildReceipt("POROSI KUZHINE", kitchenItems)
-  );
-}
+      if (place?._id) {
+        await api.patch(`/places/${place._id}/occupy`, {
+          type: "table",
+          waiterId: currentWaiterId,
+          occupiedByWaiterId: currentWaiterId,
+        });
+      }
+    }
 
     setCart([]);
     setOrderNote("");
@@ -724,29 +616,28 @@ if (kitchenItems.length > 0) {
     await fetchTables();
     await fetchIncomingOrders();
 
-    alert("Porosia u printua me sukses.");
-} catch (err) {
-  console.error("Gabim gjatë printimit:", err);
-  alert(
-    err?.response?.data?.message ||
-      err?.message ||
-      "Nuk mund të printoj porosinë."
-  );
-} finally {
-  setTimeout(() => {
-    isPrintingRef.current = false;
-  }, 1500);
-}
+  } catch (err) {
+    console.error("Gabim gjatë dërgimit për printim:", err);
+    (
+      err?.response?.data?.message ||
+        err?.message ||
+        "Nuk mund të dërgoj porosinë për printim."
+    );
+  } finally {
+    setTimeout(() => {
+      isPrintingRef.current = false;
+    }, 1500);
+  }
 };
 
 const handleSubmitOrder = async (mode) => {
   if (!selectedTable) {
-    alert("Zgjidh fillimisht tavolinën/dhomën/çadrën.");
+    ("Zgjidh fillimisht tavolinën/dhomën/çadrën.");
     return;
   }
 
   if (cart.length === 0) {
-    alert("Shto të paktën një produkt.");
+    ("Shto të paktën një produkt.");
     return;
   }
 
@@ -773,7 +664,7 @@ const handleSubmitOrder = async (mode) => {
       await fetchTables();
       await fetchIncomingOrders();
 
-      alert("Fatura u mbyll me sukses.");
+      ("Fatura u mbyll me sukses.");
       return;
     }
 
@@ -781,9 +672,7 @@ const handleSubmitOrder = async (mode) => {
     const payload = buildOrderPayload(mode);
 
     await api.post("/orders", payload, {
-      headers: {
-        "x-waiter-id": CURRENT_WAITER_ID,
-      },
+
     });
     if (payload.sourceType === "tavoline") {
   const resPlaces = await api.get("/places", {
@@ -802,13 +691,12 @@ const handleSubmitOrder = async (mode) => {
   if (place?._id) {
     await api.patch(`/places/${place._id}/occupy`, {
       type: "table",
-      waiterId: CURRENT_WAITER_ID,
-      occupiedByWaiterId: CURRENT_WAITER_ID,
+      waiterId: currentWaiterId,
+      occupiedByWaiterId: currentWaiterId,
     });
   }
 }
 
-    alert(`Porosia për ${activeSourceLabel || selectedTable} u dërgua me sukses.`);
 
     setCart([]);
     setSelectedIncomingOrder(null);
@@ -818,7 +706,7 @@ const handleSubmitOrder = async (mode) => {
     await fetchIncomingOrders();
   } catch (err) {
     console.error("Gabim gjatë dërgimit:", err?.response?.data || err);
-    alert(err?.response?.data?.message || "Nuk mund të dërgoj porosinë.");
+    (err?.response?.data?.message || "Nuk mund të dërgoj porosinë.");
   }
 };
 
@@ -833,65 +721,45 @@ const handleSubmitOrder = async (mode) => {
   return (
     <div className="waiter-page waiter-desktop-page">
       <header className="waiter-header">
-        <div className="waiter-header-top">
-          <div className="waiter-header-left">
-            <h1>Kamarjeri</h1>
-            <span className="waiter-subtitle">
-              Bëj porosi shpejt nga desktop
-            </span>
-          </div>
+  <div className="waiter-header-top">
+<div className="waiter-header-left">
+      <h1>Kamarjeri</h1>
+      <span className="waiter-subtitle-row">
+        <span className="waiter-subtitle">{CURRENT_WAITER_NAME}</span>
+        <span className={`waiter-status-dot ${isOnline ? "on" : "off"}`} />
+        <span className="waiter-status-text">{isOnline ? "Online" : "Offline"}</span>
+      </span>
+    </div>
 
-          <div className="waiter-header-actions">
-            <button
-              type="button"
-              className="waiter-settings-icon"
-              onClick={() => setShowSettings((p) => !p)}
-            >
-              ⚙️
-            </button>
+    <div className="waiter-header-actions">
+      <button
+        type="button"
+        className="waiter-top-btn"
+        onClick={() => navigate("/waiter/open-tables")}
+      >
+        Tavolina të hapura
+      </button>
 
-            <button
-              type="button"
-              className="waiter-logout-btn"
-              onClick={handleLogout}
-              aria-label="Dil"
-              title="Dil"
-            >
-              <span className="waiter-logout-icon">↪</span>
-            </button>
-          </div>
-        </div>
-      </header>
+      <button
+        type="button"
+        className="waiter-top-btn danger"
+        onClick={() => navigate("/waiter/xhiro")}
+      >
+        Mbyll Xhiron
+      </button>
 
-      {showSettings && (
-        <section className="waiter-settings-panel">
-          <div className="waiter-settings-card">
-            <div className="waiter-settings-title-row">
-              <h3 className="waiter-settings-title">Settings</h3>
-            </div>
-
-            <div className="waiter-settings-grid">
-              <button
-                type="button"
-                className="waiter-settings-item"
-                onClick={() => navigate("/waiter/open-tables")}
-              >
-                <span className="waiter-settings-item-text">
-                  Tavolina të hapura
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="waiter-settings-item danger"
-                onClick={() => navigate("/waiter/xhiro")}
-              >
-                <span className="waiter-settings-item-text">Mbyll Xhiron</span>
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
+      <button
+        type="button"
+        className="waiter-logout-btn"
+        onClick={handleLogout}
+        aria-label="Dil"
+        title="Dil"
+      >
+        <span className="waiter-logout-icon">↪</span>
+      </button>
+    </div>
+  </div>
+</header>
 
       <div className="waiter-desktop-layout">
         <aside className="waiter-desktop-left">
@@ -967,7 +835,7 @@ const handleSubmitOrder = async (mode) => {
                         const isMine =
                           isOccupied &&
                           String(occ?.occupiedByWaiterId || "") ===
-                            String(CURRENT_WAITER_ID);
+                            String(currentWaiterId);
                         const isBlocked = isOccupied && !isMine;
                         const isActive = String(selectedTable) === code;
 
@@ -987,6 +855,14 @@ const handleSubmitOrder = async (mode) => {
                           </button>
                         );
                       })}
+                  </div>
+                )}
+
+                {!loadingTables && tables.length > 0 && (
+                  <div className="table-legend">
+                    <span><i className="legend-dot selected" /> E zgjedhur</span>
+                    <span><i className="legend-dot occupied" /> E zënë</span>
+                    <span><i className="legend-dot free" /> E lirë</span>
                   </div>
                 )}
               </div>
@@ -1044,29 +920,12 @@ const handleSubmitOrder = async (mode) => {
                               className="incoming-btn accept"
                               onClick={() => handleAcceptIncoming(order)}
                             >
-                              Accepto
+                              Prano
                             </button>
                           )}
 
                           {status === "accepted" &&
-                            String(acceptedBy) === String(CURRENT_WAITER_ID) && (
-                              <>
-                                <span className="incoming-info">
-                                  E pranuar nga ti
-                                </span>
-
-                                <button
-                                  type="button"
-                                  className="incoming-btn done"
-                                  onClick={() => handleMarkDone(orderId)}
-                                >
-                                  Dërgo u krye
-                                </button>
-                              </>
-                            )}
-
-                          {status === "accepted" &&
-                            String(acceptedBy) !== String(CURRENT_WAITER_ID)  && (
+                            String(acceptedBy) !== String(currentWaiterId)  && (
                               <span className="incoming-info">
                                 E marrë nga {acceptedBy || "kamarjer tjetër"}
                               </span>
@@ -1227,70 +1086,58 @@ const handleSubmitOrder = async (mode) => {
             <div className="desktop-cart-list flat-list">
               {cart.length === 0 ? (
                 <div className="desktop-cart-empty">
+                  <span className="cart-empty-icon">🧺</span>
                   Nuk ka produkte në porosi.
                 </div>
               ) : (
                 cart.map((item) => (
-                  <div
-                    key={item.productId}
-                    className="desktop-cart-row clean simple-row"
-                  >
-                    <div className="desktop-cart-row-name">{item.name}</div>
-                    <div
-  className="desktop-cart-row-qty simple editable"
-  onClick={() => {
-    const value = prompt(
-      `Vendos sasinë për ${item.name}`,
-      item.qty
-    );
+  <div
+    key={item.productId}
+    className="desktop-cart-row clean simple-row"
+  >
+    <div className="desktop-cart-row-name">{item.name}</div>
 
-    if (value === null) return;
+    <div className="desktop-cart-actions">
+      <div
+        className="desktop-cart-row-qty"
+        onClick={() => {
+          const value = prompt(`Vendos sasinë për ${item.name}`, item.qty);
 
-    const qty = Number(value);
+          if (value === null) return;
 
-    if (isNaN(qty) || qty <= 0) {
-      alert("Vendos një numër valid.");
-      return;
-    }
+          const qty = Number(value);
 
-    setCart((prev) =>
-      prev.map((p) =>
-        String(p.productId) ===
-        String(item.productId)
-          ? {
-              ...p,
-              qty,
-            }
-          : p
-      )
-    );
-  }}
->
-  {item.qty}x
-</div>
-                    <button
-                      type="button"
-                      className="desktop-cart-row-remove small"
-                      onClick={() => removeFromCart(item.productId)}
-                    >
-                      ×
-                    </button>
-                  </div>
-                ))
+          if (isNaN(qty) || qty <= 0) {
+            alert("Vendos një numër valid.");
+            return;
+          }
+
+          setCart((prev) =>
+            prev.map((p) =>
+              String(p.productId) === String(item.productId)
+                ? { ...p, qty }
+                : p
+            )
+          );
+        }}
+      >
+        {item.qty}×
+      </div>
+
+      <button
+        type="button"
+        className="desktop-cart-row-remove"
+        onClick={() => removeFromCart(item.productId)}
+      >
+        ×
+      </button>
+    </div>
+  </div>
+))
               )}
             </div>
 
-<div className="desktop-order-note-box">
-  <label>Notes</label>
 
-  <textarea
-    value={orderNote}
-    onChange={(e) =>
-      setOrderNote(e.target.value)
-    }
-    placeholder="P.sh. Mojito pa alkool, pa akull..."
-  />
-</div>
 
 <div className="desktop-total-box modern">
   <span>TOTALI</span>
@@ -1299,36 +1146,45 @@ const handleSubmitOrder = async (mode) => {
   </strong>
 </div>
 
-            <div className="desktop-bottom-actions vertical">
-              <button
-                type="button"
-                className="bottom-action-btn printo"
-                onClick={printDirect}
-                disabled={!selectedTable || cart.length === 0}
-              >
-                PRINTO
-              </button>
+            <div className="desktop-bottom-actions">
+  <button
+    type="button"
+    className="bottom-action-btn printo"
+    onClick={printDirect}
+    disabled={!selectedTable || cart.length === 0}
+  >
+     PRINTO
+  </button>
 
-              <button
-                type="button"
-                className="bottom-action-btn fature"
-                onClick={() => handleSubmitOrder("fature")}
-                disabled={!selectedTable || cart.length === 0}
-              >
-                FATURË
-              </button>
-            </div>
+  <button
+    type="button"
+    className="bottom-action-btn fature"
+    onClick={() => handleSubmitOrder("fature")}
+    disabled={!selectedTable || cart.length === 0}
+  >
+     FISKALIZIM
+  </button>
 
-            <div className="desktop-bottom-clear-wrap">
-              <button
-                type="button"
-                className="desktop-clear-inline-btn"
-                onClick={clearCart}
-                disabled={cart.length === 0}
-              >
-                Anulo porosinë
-              </button>
-            </div>
+  <button
+    type="button"
+    className="bottom-action-btn notes"
+    onClick={() => {
+      const value = window.prompt("Shënim për porosinë:", orderNote);
+      if (value !== null) setOrderNote(value);
+    }}
+  >
+     NOTES{orderNote ? " •" : ""}
+  </button>
+
+  <button
+    type="button"
+    className="bottom-action-btn pastro"
+    onClick={clearCart}
+    disabled={cart.length === 0}
+  >
+     PASTRO
+  </button>
+</div>
           </div>
         </aside>
       </div>

@@ -106,3 +106,14 @@
   transform: translateY(0);
   box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
 }
+.admin-turnstile-container {
+  display: flex;
+  justify-content: center;
+  min-height: 65px;
+  margin: 14px 0;
+}
+
+.login-card button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}

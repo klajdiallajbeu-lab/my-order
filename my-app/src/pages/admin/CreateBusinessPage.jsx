@@ -41,7 +41,7 @@ export default function CreateBusinessPage() {
     }
 
     try {
-      const res = await fetch("http://localhost:5000/api/admin/business/create", {
+      const res = await fetch("/api/admin/business/create", {
   method: "POST",
   headers: {
     "Content-Type": "application/json",

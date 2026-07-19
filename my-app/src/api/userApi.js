@@ -4,10 +4,17 @@ import { api } from "./http.js";
 /* =========================
    LOGIN
 ========================= */
-export const loginUserApi = async (username, password) => {
+export const loginUserApi = async (
+  username,
+  password,
+  turnstileToken
+) => {
+
+
   const res = await api.post("/users/login", {
     username: (username || "").trim(),
     password: (password || "").trim(),
+    turnstileToken: String(turnstileToken || "").trim(),
   });
 
   return res.data;

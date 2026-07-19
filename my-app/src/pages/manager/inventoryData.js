@@ -1,3 +1,4 @@
+import "../../qz-signing";
 export const sales = [
   {
     product: "Pizza Margherita",

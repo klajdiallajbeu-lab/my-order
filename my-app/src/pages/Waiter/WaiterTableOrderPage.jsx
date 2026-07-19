@@ -1,3 +1,4 @@
+import "../../qz-signing";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import "./WaiterPage.css";
@@ -6,14 +7,27 @@ import { api } from "../../api/http.js";
 import { createOrder } from "../../api/ordersApi.js";
 
 const CURRENT_WAITER_NAME =
-  sessionStorage.getItem("waiterName") || "Kamarjer 1";
+  sessionStorage.getItem("waiterName") ||
+  localStorage.getItem("waiterName") ||
+  sessionStorage.getItem("userName") ||
+  localStorage.getItem("userName") ||
+  "Kamarjer";
 
-const CURRENT_WAITER_ID =
-  sessionStorage.getItem("waiterId") ||
-  localStorage.getItem("waiterId") ||
-  "";
 
 export default function WaiterTableOrderPage() {
+
+  const [currentWaiterId, setCurrentWaiterId] = useState("");
+
+useEffect(() => {
+  const id =
+    sessionStorage.getItem("waiterId") ||
+    localStorage.getItem("waiterId") ||
+    "";
+
+  setCurrentWaiterId(id);
+}, []);
+
+
   const navigate = useNavigate();
   const { tableNumber } = useParams();
 
@@ -173,28 +187,51 @@ const totalPrice = useMemo(
   };
 
   const removeFromCart = (productId) => {
-    setCart((prev) => {
-      const existing = prev.find((i) => i._id === productId);
-      if (!existing) return prev;
+  setCart((prev) => {
+    const existing = prev.find((i) => i._id === productId);
+    if (!existing) return prev;
 
-      if (existing.quantity === 1) {
-        return prev.filter((i) => i._id !== productId);
-      }
+    const newQty = Number((existing.quantity - 1).toFixed(2));
 
-      return prev.map((i) =>
-        i._id === productId ? { ...i, quantity: i.quantity - 1 } : i
-      );
-    });
-  };
+    if (newQty <= 0) {
+      return prev.filter((i) => i._id !== productId);
+    }
 
-const buildPayload = () => ({
-  businessId,
-  sourceType: "tavoline",
-  sourceNumber: String(tableNumber || "").trim(),
-  printSource: "phone",
-  note: orderNote.trim(),
-  items: cart.map((item) => {
+    return prev.map((i) =>
+      i._id === productId
+        ? { ...i, quantity: newQty }
+        : i
+    );
+  });
+};
+
+  
+
+const buildPayload = () => {
+  const waiterNameSafe =
+    localStorage.getItem("waiterName") ||
+    sessionStorage.getItem("waiterName") ||
+    localStorage.getItem("userName") ||
+    sessionStorage.getItem("userName") ||
+    "Kamarjer";
+
+  return {
+    businessId,
+    sourceType: "tavoline",
+    sourceNumber: String(tableNumber || "").trim(),
+
+    waiterId: currentWaiterId,
+    waiterName: waiterNameSafe,
+    createdBy: waiterNameSafe,
+    acceptedBy: currentWaiterId,
+    acceptedByName: waiterNameSafe,
+
+    printSource: "phone",
+    note: orderNote.trim(),
+
+    items: cart.map((item) => {
       const original = productMapById.get(String(item._id));
+
       return {
         productId: item._id,
         name: item.name,
@@ -203,22 +240,10 @@ const buildPayload = () => ({
         destination: original?.destination || "",
       };
     }),
+
     total: totalPrice,
-    createdBy: CURRENT_WAITER_NAME,
-  });
-
-  const ensureQzConnection = async () => {
-    if (!window.qz) {
-      alert("QZ Tray nuk u gjet.");
-      return false;
-    }
-
-    if (!window.qz.websocket.isActive()) {
-      await window.qz.websocket.connect();
-    }
-
-    return true;
   };
+};
 
   const formatLine = (left, right, width = 26) => {
     let l = String(left || "").trim();
@@ -256,12 +281,13 @@ const buildPayload = () => ({
     const address =
       localStorage.getItem("address") || order?.business?.address || "";
 
-    const waiterName =
-      order?.acceptedBy ||
-      order?.createdBy ||
-      sessionStorage.getItem("waiterName") ||
-      localStorage.getItem("name") ||
-      "-";
+const waiterName =
+  order?.waiterName ||
+  order?.acceptedByName ||
+  order?.createdBy ||
+  sessionStorage.getItem("waiterName") ||
+  localStorage.getItem("waiterName") ||
+  "-";
 
     const sourceNumber = String(order?.sourceNumber || "-").trim();
 
@@ -347,7 +373,7 @@ line,
 
       "\x1B\x61\x01",
       "\nJu Faleminderit!\n",
-      "www.myOrder.al\n",
+      "www.myorderal.com\n",
       "\n\n\n",
     ];
   };
@@ -365,112 +391,66 @@ line,
     return String(rawDestination).trim().toLowerCase();
   };
 
-  const printSingleOrder = async (order) => {
-    const connected = await ensureQzConnection();
-    if (!connected) return;
+const printSingleOrder = async (order) => {
+  if (!order) return;
 
-    const items = Array.isArray(order?.items) ? order.items : [];
+  const payload = {
+    businessId,
+    ...order,
 
-    const noteText = String(order?.note || "").trim();
+    orderId: order._id || order.id || order.orderId || `desktop-order-${Date.now()}`,
+    printId: `desktop-order-${order._id || order.id || Date.now()}`,
 
-    const kitchenItems = items.filter(
-      (it) => getOrderItemDestination(it) === "kuzhine"
-    );
+    waiterName: order.waiterName || CURRENT_WAITER_NAME,
+    createdBy: order.createdBy || CURRENT_WAITER_NAME,
+    acceptedByName: order.acceptedByName || CURRENT_WAITER_NAME,
 
-    const barItems = items.filter(
-      (it) => getOrderItemDestination(it) === "banak"
-    );
-
-    const unknownItems = items.filter((it) => {
-      const d = getOrderItemDestination(it);
-      return d !== "kuzhine" && d !== "banak";
-    });
-
-    if (kitchenItems.length > 0) {
-      if (!printerSettings.kitchenPrinterName) {
-        alert("Nuk është zgjedhur printeri i kuzhinës.");
-        return;
-      }
-
-      const kitchenConfig = window.qz.configs.create(
-        printerSettings.kitchenPrinterName
-      );
-
-      const kitchenData = buildPrintDataForOrder(
-        { ...order, destination: "kuzhine" },
-        kitchenItems,
-        "POROSI KUZHINE"
-      );
-
-      await window.qz.print(kitchenConfig, kitchenData);
-    }
-
-    if (barItems.length > 0) {
-      if (!printerSettings.barPrinterName) {
-        alert("Nuk është zgjedhur printeri i barit.");
-        return;
-      }
-
-      const barConfig = window.qz.configs.create(
-        printerSettings.barPrinterName
-      );
-
-      const barData = buildPrintDataForOrder(
-        { ...order, destination: "banak" },
-        barItems,
-        "POROSI BAR"
-      );
-
-      await window.qz.print(barConfig, barData);
-    }
-
-    if (
-      unknownItems.length > 0 ||
-      (kitchenItems.length === 0 && barItems.length === 0)
-    ) {
-      if (!printerSettings.invoicePrinterName) {
-        alert("Nuk është zgjedhur printeri i faturës.");
-        return;
-      }
-
-      const fallbackConfig = window.qz.configs.create(
-        printerSettings.invoicePrinterName
-      );
-
-      const fallbackData = buildPrintDataForOrder(
-        order,
-        unknownItems.length > 0 ? unknownItems : items,
-        "FATURE"
-      );
-
-      await window.qz.print(fallbackConfig, fallbackData);
-    }
+    items: Array.isArray(order.items) ? order.items : [],
+    createdAt: order.createdAt || new Date().toISOString(),
   };
+
+  if (!socket.connected) {
+    socket.connect();
+  }
+
+  socket.emit("joinBusiness", businessId);
+
+  setTimeout(() => {
+    socket.emit("orders:created", payload);
+  }, 300);
+
+};
 
   const handleSubmit = async (mode = "print") => {
     if (!businessId) {
-      alert("Mungon businessId.");
+      ("Mungon businessId.");
       return;
     }
 
-    if (!CURRENT_WAITER_ID) {
-      alert("Mungon waiterId.");
+    if (!currentWaiterId) {
+      ("Mungon waiterId.");
       return;
     }
 
     if (!tableNumber) {
-      alert("Mungon tavolina.");
+      ("Mungon tavolina.");
       return;
     }
 
     if (cart.length === 0) {
-      alert("Shto të paktën një produkt.");
+      ("Shto të paktën një produkt.");
       return;
     }
+
+    console.log("PAYLOAD:", buildPayload());
+    console.log("waiterName:", CURRENT_WAITER_NAME);
+    console.log("LS waiterName:", localStorage.getItem("waiterName"));
+    console.log("SS waiterName:", sessionStorage.getItem("waiterName"));
 
     try {
       const res = await createOrder(buildPayload());
       const created = res?.data;
+      console.log("ORDER CREATED:", created);
 
       // 🔥 OCCUPY TABLE PAS POROSISË
 try {
@@ -494,7 +474,7 @@ const resPlaces = await api.get("/places", {
   try {
     const resOcc = await api.patch(`/places/${place._id}/occupy`, {
       type: "table",
-      waiterId: CURRENT_WAITER_ID,
+      waiterId: currentWaiterId,
     });
 
     console.log("✅ Occupy OK:", resOcc.data);
@@ -520,16 +500,14 @@ const resPlaces = await api.get("/places", {
 }
 
       setCart([]);
-      alert(
+      (
         mode === "print"
-  ? "Porosia u dërgua me sukses."
-  : "Fatura u krijua."
       );
 
       navigate("/waiter", { replace: true });
     } catch (err) {
       console.error("Gabim te porosia:", err?.response?.data || err);
-      alert(
+      (
         err?.response?.data?.message ||
           err?.message ||
           "Nuk mund të dërgoj porosinë."
@@ -550,13 +528,25 @@ const resPlaces = await api.get("/places", {
 
           <div className="waiter-header-actions">
             <button
-              type="button"
-              className="waiter-settings-icon"
-              onClick={() => navigate("/waiter")}
-              title="Kthehu"
-            >
-              ←
-            </button>
+  type="button"
+  className="waiter-settings-icon"
+  onClick={() => navigate("/waiter")}
+  title="Kthehu"
+>
+  <svg
+    xmlns="http://www.w3.org/2000/svg"
+    width="22"
+    height="22"
+    viewBox="0 0 24 24"
+    fill="none"
+    stroke="#ffffff"
+    strokeWidth="2.5"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
+    <path d="M15 18l-6-6 6-6"/>
+  </svg>
+</button>
           </div>
         </div>
       </header>
@@ -627,7 +617,7 @@ const resPlaces = await api.get("/places", {
 
           {!selectedCategoryType && !loadingProducts && !error && (
             <p style={{ marginTop: "1rem" }}>
-              Zgjidh një kategori për të parë produktet.
+              
             </p>
           )}
 
@@ -637,7 +627,7 @@ const resPlaces = await api.get("/places", {
             !loadingProducts &&
             !error && (
               <p style={{ marginTop: "1rem" }}>
-                Zgjidh një nën-kategori për të parë produktet.
+                
               </p>
             )}
         </div>
@@ -682,7 +672,7 @@ const resPlaces = await api.get("/places", {
           );
 
           if (!qty || qty <= 0) {
-            alert("Sasia nuk është e saktë.");
+            ("Sasia nuk është e saktë.");
             return;
           }
 

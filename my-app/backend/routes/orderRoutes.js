@@ -10,28 +10,20 @@ import {
 } from "../controllers/orderController.js";
 
 import { guestGuardIfClient } from "../middleware/guestGuardIfClient.js";
+import { protectWaiter } from "../middleware/protectWaiter.js";
+import { protectUser } from "../middleware/protectUser.js";
+import { optionalAuth } from "../middleware/optionalAuth.js";
 
 const router = express.Router();
 
-// GET /api/orders?businessId=...&...
-router.get("/", getOrders);
+router.post("/close-table", protectWaiter, closeTableOrders);
+router.post("/waiter-shift-preview", protectWaiter, getWaiterShiftPreview);
+router.post("/close-waiter-shift", protectWaiter, closeWaiterShift);
 
-// GET /api/orders/:id
-router.get("/:id", getOrderById);
+router.get("/", protectUser, getOrders);
+router.post("/", optionalAuth, guestGuardIfClient, createOrder);
+router.get("/:id", protectUser, getOrderById);
 
-// PATCH /api/orders/:id/status
-router.patch("/:id/status", updateOrderStatus);
-
-// POST /api/orders/close-table
-router.post("/close-table", closeTableOrders);
-
-// POST /api/orders/waiter-shift-preview
-router.post("/waiter-shift-preview", getWaiterShiftPreview);
-
-// POST /api/orders/close-waiter-shift
-router.post("/close-waiter-shift", closeWaiterShift);
-
-// POST /api/orders
-router.post("/", guestGuardIfClient, createOrder);
+router.patch("/:id/status", protectWaiter, updateOrderStatus);
 
 export default router;

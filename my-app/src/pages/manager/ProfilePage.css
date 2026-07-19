@@ -1,8 +1,17 @@
+html, body, #root {
+  height: 100%;
+}
+
 .profile-page {
-  max-width: 1100px;
+  height: 100vh;
+  max-width: 1300px;
   margin: 0 auto;
-  padding: 28px 24px 40px;
+  padding: 18px 24px;
   background: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 .profile-loading {
@@ -20,25 +29,25 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 18px;
-  margin-bottom: 24px;
+  margin-bottom: 14px;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .profile-header h1 {
-  font-size: 32px;       
-  font-weight: 700;       
-  color: #2563eb;        
+  font-size: 24px;
+  font-weight: 700;
+  color: #2563eb;
   letter-spacing: -0.5px;
   margin: 0;
 }
 
 .profile-header p {
-  font-size: 14px;
+  font-size: 13px;
   color: #64748b;
-  margin-top: 6px;
+  margin-top: 4px;
   font-weight: 500;
 }
-  
 
 .profile-top-actions {
   display: flex;
@@ -46,18 +55,25 @@
   align-items: center;
 }
 
+/* Kartat krah për krah, jo njëra poshtë tjetrës */
 .profile-sections {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
 }
 
 .profile-card {
   background: #ffffff;
   border: 1px solid #e9eef5;
-  border-radius: 22px;
-  padding: 26px;
+  border-radius: 18px;
+  padding: 18px;
   box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: auto;
 }
 
 .profile-card-head {
@@ -65,20 +81,21 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  margin-bottom: 22px;
+  margin-bottom: 14px;
+  flex-shrink: 0;
 }
 
 .profile-card-head h2 {
   margin: 0;
-  font-size: 24px;
+  font-size: 17px;
   line-height: 1.15;
   font-weight: 800;
   color: #0f172a;
 }
 
 .profile-card-head p {
-  margin: 8px 0 0;
-  font-size: 14px;
+  margin: 4px 0 0;
+  font-size: 12px;
   color: #64748b;
   font-weight: 500;
 }
@@ -86,7 +103,7 @@
 .profile-fields {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 18px 20px;
+  gap: 12px 14px;
 }
 
 .profile-fields.single-column {
@@ -96,7 +113,7 @@
 .profile-field {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 6px;
 }
 
 .profile-field.full {
@@ -104,21 +121,22 @@
 }
 
 .profile-field label {
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 700;
   color: #475569;
 }
 
 .profile-field input {
   width: 100%;
-  height: 52px;
-  border-radius: 14px;
+  height: 40px;
+  border-radius: 10px;
   border: 1px solid #dbe3ee;
   background: #ffffff;
-  padding: 0 16px;
-  font-size: 15px;
+  padding: 0 12px;
+  font-size: 13px;
   color: #0f172a;
   transition: all 0.18s ease;
+  box-sizing: border-box;
 }
 
 .profile-field input::placeholder {
@@ -140,18 +158,21 @@
 .profile-inline-actions {
   display: flex;
   justify-content: flex-end;
-  margin-top: 22px;
+  margin-top: auto;
+  padding-top: 14px;
+  flex-shrink: 0;
 }
 
 .profile-btn {
-  min-height: 46px;
-  border-radius: 12px;
-  padding: 0 18px;
-  font-size: 14px;
+  min-height: 40px;
+  border-radius: 10px;
+  padding: 0 16px;
+  font-size: 13px;
   font-weight: 700;
   border: none;
   cursor: pointer;
   transition: all 0.18s ease;
+  white-space: nowrap;
 }
 
 .profile-btn.primary {
@@ -179,13 +200,42 @@
   background: #f8fafc;
 }
 
+.profile-field.full input {
+  letter-spacing: 1px;
+  font-weight: 500;
+}
+
+/* Nën 1100px: 3 kartat bëhen 2 + 1, akoma pa scroll vertikal të fortë */
+@media (max-width: 1100px) {
+  .profile-sections {
+    grid-template-columns: 1fr 1fr;
+  }
+  .profile-card:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+}
+
+/* Nën 900px: lejohet scroll normal, sepse 3 karta s'hyjnë në ekran të vogël pa u ngjeshur tepër */
 @media (max-width: 900px) {
   .profile-page {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
     padding: 20px 16px 32px;
   }
 
+  .profile-sections {
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+  }
+
+  .profile-card {
+    overflow: visible;
+  }
+
   .profile-header h1 {
-    font-size: 34px;
+    font-size: 28px;
   }
 
   .profile-fields {
@@ -224,8 +274,4 @@
   .profile-inline-actions .profile-btn {
     width: 100%;
   }
-}
-.profile-field.full input {
-  letter-spacing: 1px;
-  font-weight: 500;
 }

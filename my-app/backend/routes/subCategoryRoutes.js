@@ -6,19 +6,50 @@ import {
   deleteSubCategory,
 } from "../controllers/subCategoryController.js";
 
+import { protectUser, requireRole } from "../middleware/protectUser.js";
+
 const router = express.Router();
 
-// LIST
+/* =========================
+   PUBLIC
+========================= */
+
+// Menuja QR ka nevojë të lexojë nënkategoritë
 router.get("/", getSubCategories);
 
-// CREATE
-router.post("/", createSubCategory);
+/* =========================
+   PROTECTED
+========================= */
 
-// UPDATE ✅ prano PUT dhe PATCH
-router.put("/:id", updateSubCategory);
-router.patch("/:id", updateSubCategory);
+// CREATE
+router.post(
+  "/",
+  protectUser,
+  requireRole("manager", "admin"),
+  createSubCategory
+);
+
+// UPDATE
+router.put(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  updateSubCategory
+);
+
+router.patch(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  updateSubCategory
+);
 
 // DELETE
-router.delete("/:id", deleteSubCategory);
+router.delete(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  deleteSubCategory
+);
 
 export default router;

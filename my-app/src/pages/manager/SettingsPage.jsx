@@ -1,7 +1,7 @@
+import.meta.env.VITE_API_URL || "";import "../../qz-signing";
 import { useEffect, useState } from "react";
 
-const API_BASE =
-  import.meta.env.VITE_API_URL || "http://192.168.100.71:5000";
+ const API_BASE = import.meta.env.VITE_API_URL || "";
 
 export default function SettingsPage() {
   const businessId = localStorage.getItem("businessId");

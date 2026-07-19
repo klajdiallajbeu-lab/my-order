@@ -1,0 +1,27 @@
+{
+  "name": "myorder-printer",
+  "version": "1.0.0",
+  "description": "myOrder Printer Agent",
+  "main": "main.js",
+  "author": "myOrder",
+  "license": "ISC",
+  "scripts": {
+    "start": "electron .",
+    "build": "electron-builder --win"
+  },
+  "build": {
+    "appId": "com.myorder.printer",
+    "productName": "myOrder Printer",
+    "win": {
+      "target": "nsis"
+    }
+  },
+  "dependencies": {
+    "electron": "^38.0.0",
+    "qz-tray": "^2.2.5",
+    "socket.io-client": "^4.8.1"
+  },
+  "devDependencies": {
+    "electron-builder": "^26.0.12"
+  }
+}

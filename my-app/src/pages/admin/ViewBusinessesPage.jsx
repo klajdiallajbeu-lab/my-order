@@ -20,7 +20,7 @@ export default function ViewBusinessesPage() {
   const fetchBusinesses = async () => {
     try {
       const res = await fetch(
-        "http://localhost:5000/api/admin/business/list",
+        "/api/admin/business/list",
         {
           headers: authHeaders(),
         }
@@ -65,7 +65,7 @@ export default function ViewBusinessesPage() {
 
     try {
       const res = await fetch(
-        `http://localhost:5000/api/admin/business/${businessId}`,
+        `/api/admin/business/${businessId}`,
         {
           method: "DELETE",
           headers: authHeaders(),
@@ -76,7 +76,7 @@ export default function ViewBusinessesPage() {
 
       setBusinesses((prev) => prev.filter((b) => b._id !== businessId));
     } catch {
-      alert("Gabim gjatë fshirjes");
+      ("Gabim gjatë fshirjes");
     }
   };
 
@@ -91,29 +91,31 @@ export default function ViewBusinessesPage() {
   const handleUpdateBusiness = async () => {
     if (newPassword || confirmPassword) {
       if (newPassword !== confirmPassword) {
-        alert("Password-et nuk përputhen");
+        ("Password-et nuk përputhen");
         return;
       }
       if (newPassword.length < 6) {
-        alert("Password duhet të ketë minimum 6 karaktere");
+        ("Password duhet të ketë minimum 6 karaktere");
         return;
       }
     }
 
     try {
       const payload = {
-        name: editBusiness.name,
-        phone: editBusiness.phone,
-        email: editBusiness.email,
-        city: editBusiness.city,
-      };
+  name: editBusiness.name,
+  phone: editBusiness.phone,
+  email: editBusiness.email,
+  city: editBusiness.city,
+  nipt: editBusiness.nipt,
+  address: editBusiness.address,
+};
 
       if (newPassword) {
         payload.password = newPassword;
       }
 
       const res = await fetch(
-        `http://localhost:5000/api/admin/business/${editBusiness._id}`,
+        `/api/admin/business/${editBusiness._id}`,
         {
           method: "PUT",
           headers: authHeaders(),
@@ -129,7 +131,7 @@ export default function ViewBusinessesPage() {
       setConfirmPassword("");
       fetchBusinesses();
     } catch {
-      alert("Gabim gjatë përditësimit");
+      ("Gabim gjatë përditësimit");
     }
   };
 
@@ -150,6 +152,7 @@ export default function ViewBusinessesPage() {
             <th>Aktiv nga</th>
             <th>Skadon më</th>
             <th>Menaxheri</th>
+            <th>Printer Key</th>
             <th>Statusi</th>
             <th>Veprime</th>
           </tr>
@@ -176,6 +179,23 @@ export default function ViewBusinessesPage() {
                     : "—"}
                 </td>
                 <td>{b.owner?.name || "—"}</td>
+
+                <td>
+  <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+    <span>{b.printerKey || "-"}</span>
+
+    {b.printerKey && (
+      <button
+        onClick={() => {
+          navigator.clipboard.writeText(b.printerKey);
+          ("Printer Key u kopjua");
+        }}
+      >
+        Kopjo
+      </button>
+    )}
+  </div>
+</td>
 
                 <td>
                   <span className={`status-badge ${status}`}>
@@ -232,11 +252,27 @@ export default function ViewBusinessesPage() {
             />
 
             <input
-              value={editBusiness.city}
-              onChange={(e) =>
-                setEditBusiness({ ...editBusiness, city: e.target.value })
-              }
-            />
+  value={editBusiness.city}
+  onChange={(e) =>
+    setEditBusiness({ ...editBusiness, city: e.target.value })
+  }
+/>
+
+<input
+  placeholder="NIPT"
+  value={editBusiness.nipt || ""}
+  onChange={(e) =>
+    setEditBusiness({ ...editBusiness, nipt: e.target.value })
+  }
+/>
+
+<input
+  placeholder="Adresa"
+  value={editBusiness.address || ""}
+  onChange={(e) =>
+    setEditBusiness({ ...editBusiness, address: e.target.value })
+  }
+/>
 
             <input
               type="password"

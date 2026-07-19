@@ -3,6 +3,7 @@ import {
   adminLogin,
   createBusinessAndManager,
   listBusinesses,
+  updateBusiness,
   deleteBusiness,
   getAdminStats,
   getBusinessUsageStats,
@@ -23,6 +24,7 @@ router.get("/business/:businessId/price-recommendation", protectAdmin, getBusine
 
 router.post("/business/create", protectAdmin, createBusinessAndManager);
 router.get("/business/list", protectAdmin, listBusinesses);
+router.put("/business/:id", protectAdmin, updateBusiness);
 router.delete("/business/:id", protectAdmin, deleteBusiness);
 
 export default router;

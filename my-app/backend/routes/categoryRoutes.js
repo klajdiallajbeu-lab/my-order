@@ -5,10 +5,33 @@ import {
   deleteCategory,
 } from "../controllers/categoryController.js";
 
+import { protectUser, requireRole } from "../middleware/protectUser.js";
+
 const router = express.Router();
 
+/* =========================
+   PUBLIC
+========================= */
+
+// Menuja QR duhet t'i lexojë kategoritë
 router.get("/", getCategories);
-router.post("/", createCategory);
-router.delete("/:id", deleteCategory);
+
+/* =========================
+   PROTECTED
+========================= */
+
+router.post(
+  "/",
+  protectUser,
+  requireRole("manager", "admin"),
+  createCategory
+);
+
+router.delete(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  deleteCategory
+);
 
 export default router;

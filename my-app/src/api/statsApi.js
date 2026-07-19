@@ -45,3 +45,10 @@ export const getWaiterStats = async (from, to) => {
   const res = await api.get("/stats/waiters", { params });
   return res.data;
 };
+
+// GET /api/stats/overview?businessId=...&from=...&to=...
+export const getOverviewStats = async (from, to) => {
+  const params = withBusinessId({ from, to });
+  const res = await api.get("/stats/overview", { params });
+  return res.data;
+};

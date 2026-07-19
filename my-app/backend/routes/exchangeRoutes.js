@@ -1,12 +1,35 @@
 import express from "express";
-import { getExchange, upsertExchange } from "../controllers/exchangeController.js";
+import {
+  getExchange,
+  upsertExchange,
+} from "../controllers/exchangeController.js";
+
+import { protectUser, requireRole } from "../middleware/protectUser.js";
 
 const router = express.Router();
 
-// GET /api/exchange?businessId=...&base=EUR&quote=ALL
-router.get("/", getExchange);
+/* =========================
+   PUBLIC
+========================= */
 
-// PUT /api/exchange  body: { businessId, base, quote, rate }
-router.put("/", upsertExchange);
+// Nuk ka route publike
+
+/* =========================
+   MANAGER / ADMIN
+========================= */
+
+router.get(
+  "/",
+  protectUser,
+  requireRole("manager", "admin"),
+  getExchange
+);
+
+router.put(
+  "/",
+  protectUser,
+  requireRole("manager", "admin"),
+  upsertExchange
+);
 
 export default router;

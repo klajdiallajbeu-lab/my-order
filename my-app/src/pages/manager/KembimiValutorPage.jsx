@@ -1,5 +1,7 @@
+import "../../qz-signing";
 import { useEffect, useState, useCallback } from "react";
 import "./KembimiValutorPage.css";
+import { api } from "../../api/http.js";
 import {
   ResponsiveContainer,
   LineChart,
@@ -29,53 +31,29 @@ function getPastDate(days) {
 
 export default function KembimiValutorPage() {
   const businessId = localStorage.getItem("businessId");
-  const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
-  const [rates, setRates] = useState({
-    eurRate: "",
-    usdRate: "",
-    chfRate: "",
-    gbpRate: "",
-  });
-
-  const [liveRates, setLiveRates] = useState({
-    EUR: null,
-    USD: null,
-    CHF: null,
-    GBP: null,
-  });
+  const [rates, setRates] = useState({ eurRate: "", usdRate: "", chfRate: "", gbpRate: "" });
+  const [liveRates, setLiveRates] = useState({ EUR: null, USD: null, CHF: null, GBP: null });
 
   const [selectedChartCurrency, setSelectedChartCurrency] = useState("EUR");
   const [chartData, setChartData] = useState([]);
-
-  
   const [chartLoading, setChartLoading] = useState(false);
 
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState(null);
 
   const handleChange = (key, value) => {
-    setRates((prev) => ({
-      ...prev,
-      [key]: value,
-    }));
+    setRates((prev) => ({ ...prev, [key]: value }));
   };
 
   const getDiff = (manual, live) => {
     const m = Number(manual);
     const l = Number(live);
-
-    if (!Number.isFinite(m) || m <= 0 || !Number.isFinite(l) || l <= 0) {
-      return null;
-    }
-
+    if (!Number.isFinite(m) || m <= 0 || !Number.isFinite(l) || l <= 0) return null;
     const diff = m - l;
-
-    return {
-      value: Math.abs(diff).toFixed(2),
-      positive: diff >= 0,
-    };
+    return { value: Math.abs(diff).toFixed(2), positive: diff >= 0 };
   };
 
   const loadSettings = useCallback(async () => {
@@ -88,17 +66,8 @@ export default function KembimiValutorPage() {
     try {
       setMsg("");
       setLoading(true);
-
-      const res = await fetch(`${API_BASE}/api/business/${businessId}/settings`);
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMsg(data?.message || "❌ Nuk u lexuan settings.");
-        setLoading(false);
-        return;
-      }
-
-      const s = data?.settings || {};
+      const res = await api.get(`/business/${businessId}/settings`);
+      const s = res.data?.settings || {};
 
       setRates({
         eurRate: s.eurRate !== undefined ? String(s.eurRate) : "",
@@ -112,32 +81,24 @@ export default function KembimiValutorPage() {
     } finally {
       setLoading(false);
     }
-  }, [API_BASE, businessId]);
+  }, [businessId]);
 
   const loadLatestLiveRates = useCallback(async () => {
     try {
-      const res = await fetch(
-        "https://api.frankfurter.dev/v2/rates?base=ALL&quotes=EUR,USD,CHF,GBP"
-      );
+      const res = await fetch("https://api.frankfurter.dev/v2/rates?base=ALL&quotes=EUR,USD,CHF,GBP");
       const data = await res.json();
 
-      const mapped = {
-        EUR: null,
-        USD: null,
-        CHF: null,
-        GBP: null,
-      };
+      const mapped = { EUR: null, USD: null, CHF: null, GBP: null };
 
       if (Array.isArray(data)) {
         for (const row of data) {
           if (!row?.quote || !row?.rate) continue;
-
-          // API kthen ALL -> EUR, ndërsa ty të duhet 1 EUR = X ALL
           mapped[row.quote] = Number((1 / row.rate).toFixed(2));
         }
       }
 
       setLiveRates(mapped);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error("Gabim te loadLatestLiveRates:", err);
     }
@@ -163,17 +124,13 @@ export default function KembimiValutorPage() {
       const normalized = data
         .filter((row) => row?.date && row?.rate)
         .map((row) => {
-  const d = new Date(row.date);
-
-  return {
-    date: row.date, // ruaj datën e plotë
-    label: d.toLocaleDateString("en-GB", {
-      month: "short",
-      year: "2-digit",
-    }),
-    live: Number((1 / row.rate).toFixed(2)),
-  };
-});
+          const d = new Date(row.date);
+          return {
+            date: row.date,
+            label: d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" }),
+            live: Number((1 / row.rate).toFixed(2)),
+          };
+        });
 
       setChartData(normalized);
     } catch (err) {
@@ -184,17 +141,14 @@ export default function KembimiValutorPage() {
     }
   }, [selectedChartCurrency]);
 
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
+  useEffect(() => { loadSettings(); }, [loadSettings]);
+  useEffect(() => { loadLatestLiveRates(); }, [loadLatestLiveRates]);
+  useEffect(() => { loadChartData(); }, [loadChartData]);
 
-  useEffect(() => {
+  const refreshAll = () => {
     loadLatestLiveRates();
-  }, [loadLatestLiveRates]);
-
-  useEffect(() => {
     loadChartData();
-  }, [loadChartData]);
+  };
 
   const save = async () => {
     if (!businessId) {
@@ -206,11 +160,9 @@ export default function KembimiValutorPage() {
 
     for (const currency of currencies) {
       const rawValue = rates[currency.key];
-
       if (rawValue === "") continue;
 
       const numericValue = Number(rawValue);
-
       if (!Number.isFinite(numericValue) || numericValue <= 0) {
         setMsg(`❌ Vendos kurs të vlefshëm për ${currency.code}.`);
         return;
@@ -227,21 +179,8 @@ export default function KembimiValutorPage() {
     try {
       setSaving(true);
       setMsg("");
-
-      const res = await fetch(`${API_BASE}/api/business/${businessId}/settings`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        setMsg(data?.message || "❌ Gabim gjatë ruajtjes.");
-        return;
-      }
-
-      const s = data?.settings || {};
+      const res = await api.patch(`/business/${businessId}/settings`, payload);
+      const s = res.data?.settings || {};
 
       setRates({
         eurRate: s.eurRate !== undefined ? String(s.eurRate) : "",
@@ -253,232 +192,184 @@ export default function KembimiValutorPage() {
       setMsg("✅ Kurset valutore u përditësuan me sukses.");
     } catch (error) {
       console.error(error);
-      setMsg("❌ Gabim serveri.");
+      setMsg(error?.response?.data?.message || "❌ Gabim serveri.");
     } finally {
       setSaving(false);
     }
   };
 
+  const formatUpdated = (d) => {
+    if (!d) return "-";
+    return `${d.toLocaleDateString("sq-AL")} ${d.toLocaleTimeString("sq-AL", { hour: "2-digit", minute: "2-digit" })}`;
+  };
+
   return (
     <div className="exchange-page">
-      <div className="exchange-header">
+      <div className="exchange-top-bar">
         <div>
           <h1>Këmbimi Valutor</h1>
           <p>Vendos manualisht kursin e këmbimit për monedhat që përdor biznesi yt.</p>
         </div>
+
+        <button className="save-btn" onClick={save} disabled={saving || loading}>
+          {saving ? "Duke ruajtur..." : "Ruaj ndryshimet"}
+        </button>
       </div>
 
-      <div className="exchange-card">
-        <div className="exchange-card-top">
-          <div>
-            <h2>Përditëso kurset</h2>
-            <span className="exchange-subtext">Baza e konvertimit: ALL</span>
-          </div>
-        </div>
-
-        {loading ? (
-          <div className="exchange-loading">Duke ngarkuar të dhënat...</div>
-        ) : (
-          <>
-            <div className="exchange-grid">
-              {currencies.map((currency) => (
-                <div className="currency-card" key={currency.code}>
-                  <div className="currency-card-header">
-                    <div className="currency-badge">{currency.symbol}</div>
-                    <div>
-                      <h3>{currency.code}</h3>
-                      <p>{currency.label}</p>
-                    </div>
-                  </div>
-
-                  <label className="currency-label">1 {currency.code} =</label>
-
-                  <div className="currency-input-row">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder={`Shkruaj kursin për ${currency.code}`}
-                      value={rates[currency.key]}
-                      onChange={(e) => handleChange(currency.key, e.target.value)}
-                    />
-                    <span>ALL</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="exchange-actions">
-              <button onClick={save} disabled={saving}>
-                {saving ? "Duke ruajtur..." : "Ruaj ndryshimet"}
-              </button>
-            </div>
-
-            {msg && (
-              <div
-                className={`exchange-message ${
-                  msg.startsWith("✅") ? "success" : "error"
-                }`}
-              >
-                {msg}
-              </div>
-            )}
-          </>
-        )}
-      </div>
-
-      {!loading && (
+      {loading ? (
+        <div className="exchange-loading">Duke ngarkuar të dhënat...</div>
+      ) : (
         <>
-          <div className="exchange-card exchange-section-gap">
+          <div className="exchange-card">
             <div className="exchange-card-top">
-              <div>
-                <h2>Live Market Overview</h2>
-                <span className="exchange-subtext">
-                  Vetëm për informacion, jo për faturim automatik
-                </span>
-              </div>
+              <h2>Përditëso kurset</h2>
+              <span className="exchange-subtext">Baza e konvertimit: ALL</span>
             </div>
 
-            <div className="live-grid">
+            <div className="exchange-grid">
               {currencies.map((currency) => {
                 const live = liveRates[currency.code];
                 const manual = rates[currency.key];
                 const diff = getDiff(manual, live);
 
                 return (
-                  <div className="live-card" key={currency.code}>
-                    <div className="live-top">
-                      <div className="live-code-wrap">
-                        <div className="live-code">{currency.code}</div>
-                        <div className="live-label">{currency.label}</div>
+                  <div className="currency-card" key={currency.code}>
+                    <div className="currency-card-header">
+                      <div className="currency-badge">{currency.symbol}</div>
+                      <div>
+                        <h3>{currency.code}</h3>
+                        <p>{currency.label}</p>
                       </div>
-                      <div className="live-symbol">{currency.symbol}</div>
                     </div>
 
-                    <div className="live-row">
-                      <span>Kursi yt</span>
-                      <strong>{manual || "-"} ALL</strong>
+                    <label className="currency-label">1 {currency.code} =</label>
+
+                    <div className="currency-input-row">
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={rates[currency.key]}
+                        onChange={(e) => handleChange(currency.key, e.target.value)}
+                      />
+                      <span>ALL</span>
                     </div>
 
-                    <div className="live-row">
-                      <span>Kursi live</span>
-                      <strong>{live ? `${live} ALL` : "-"}</strong>
+                    <div className="currency-live-row">
+                      <span>Kursi live: {live ? `${live} ALL` : "-"}</span>
+                      {diff && (
+                        <span className={`currency-diff ${diff.positive ? "up" : "down"}`}>
+                          {diff.positive ? "▲" : "▼"} {diff.value} ALL
+                        </span>
+                      )}
                     </div>
-
-                    {diff ? (
-                      <div
-                        className={`live-diff ${diff.positive ? "positive" : "negative"}`}
-                      >
-                        {diff.positive ? "▲" : "▼"} {diff.value} ALL
-                      </div>
-                    ) : (
-                      <div className="live-diff neutral">Pa krahasim</div>
-                    )}
                   </div>
                 );
               })}
             </div>
+
+            {msg && (
+              <div className={`exchange-message ${msg.startsWith("✅") ? "success" : "error"}`}>{msg}</div>
+            )}
           </div>
 
-          <div className="exchange-card exchange-section-gap">
-            <div className="exchange-card-top exchange-chart-head">
-              <div>
-                <h2>Exchange Trend</h2>
-                <span className="exchange-subtext">
-                  Trend 1-vjetor i kursit të tregut
-                </span>
+          <div className="exchange-bottom-grid">
+            <div className="exchange-card chart-card">
+              <div className="exchange-card-top exchange-chart-head">
+                <div>
+                  <h2>Exchange Trend <span className="chart-tag">({selectedChartCurrency})</span></h2>
+                  <span className="exchange-subtext">Trend 1-vjetor i kursit të tregut</span>
+                </div>
+
+                <select
+                  className="exchange-select"
+                  value={selectedChartCurrency}
+                  onChange={(e) => setSelectedChartCurrency(e.target.value)}
+                >
+                  <option value="EUR">EUR</option>
+                  <option value="USD">USD</option>
+                  <option value="CHF">CHF</option>
+                  <option value="GBP">GBP</option>
+                </select>
               </div>
 
-              <select
-                className="exchange-select"
-                value={selectedChartCurrency}
-                onChange={(e) => setSelectedChartCurrency(e.target.value)}
-              >
-                <option value="EUR">EUR</option>
-                <option value="USD">USD</option>
-                <option value="CHF">CHF</option>
-                <option value="GBP">GBP</option>
-              </select>
+              <div className="chart-wrap">
+                {chartLoading ? (
+                  <div className="chart-placeholder">Duke ngarkuar grafikun...</div>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <LineChart data={chartData} margin={{ top: 10, right: 14, left: 0, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#eef2f7" />
+                      <XAxis dataKey="label" interval="preserveStartEnd" tick={{ fill: "#9ca3af", fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <YAxis domain={["auto", "auto"]} tickCount={4} width={40} tick={{ fill: "#9ca3af", fontSize: 11 }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ borderRadius: "12px", border: "1px solid #ececec", background: "#fff", fontSize: 12 }} />
+                      <Line type="monotone" dataKey="live" stroke="#2563eb" strokeWidth={2.5} dot={false} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                )}
+              </div>
             </div>
-            <div className="chart-wrap">
-  {chartLoading ? (
-    <div className="chart-placeholder">
-      <div className="chart-placeholder-title">
-        Duke ngarkuar grafikun...
-      </div>
-    </div>
-  ) : (
-    <ResponsiveContainer width="100%" height={360}>
-      <LineChart
-        data={chartData}
-        margin={{
-          top: 20,
-          right: 24,
-          left: 10,
-          bottom: 20,
-        }}
-      >
-        <CartesianGrid
-          strokeDasharray="4 4"
-          vertical={false}
-          stroke="#dbeafe"
-        />
 
-        <XAxis
-          dataKey="label"
-          interval="preserveStartEnd"
-          tick={{
-            fill: "#64748b",
-            fontSize: 12,
-          }}
-          tickMargin={12}
-          axisLine={false}
-          tickLine={false}
-        />
+            <div className="exchange-card market-card">
+              <div className="exchange-card-top">
+                <h2>Live Market Overview</h2>
+                <span className="exchange-subtext">Vështrim i shpejtë i kurseve live</span>
+              </div>
 
-        <YAxis
-          domain={["auto", "auto"]}
-          tickCount={5}
-          width={55}
-          tick={{
-            fill: "#64748b",
-            fontSize: 12,
-          }}
-          axisLine={false}
-          tickLine={false}
-        />
+              <div className="market-table">
+                <div className="market-table-head">
+                  <span>Monedha</span>
+                  <span>Kursi yt (ALL)</span>
+                  <span>Kursi live (ALL)</span>
+                  <span>Ndryshimi</span>
+                </div>
 
-        <Tooltip
-          contentStyle={{
-            borderRadius: "16px",
-            border: "1px solid #dbeafe",
-            background: "#ffffff",
-            boxShadow:
-              "0 14px 34px rgba(37,99,235,.10)",
-          }}
-          labelStyle={{
-            color: "#64748b",
-            fontWeight: 700,
-          }}
-        />
+                {currencies.map((currency) => {
+                  const live = liveRates[currency.code];
+                  const manual = rates[currency.key];
+                  const diff = getDiff(manual, live);
 
-        <Line
-          type="monotone"
-          dataKey="live"
-          stroke="#2563eb"
-          strokeWidth={4}
-          dot={false}
-          activeDot={{
-            r: 7,
-            fill: "#2563eb",
-            stroke: "#ffffff",
-            strokeWidth: 3,
-          }}
-        />
-      </LineChart>
-    </ResponsiveContainer>
-  )}
-</div>
+                  return (
+                    <div className="market-table-row" key={currency.code}>
+                      <div className="market-cell-main">
+                        <div className="market-badge">{currency.symbol}</div>
+                        <div>
+                          <div className="market-code">{currency.code}</div>
+                          <div className="market-label">{currency.label}</div>
+                        </div>
+                      </div>
+
+                      <span>{manual || "-"}</span>
+                      <span>{live || "-"}</span>
+
+                      <span className={diff ? `market-diff ${diff.positive ? "up" : "down"}` : "market-diff neutral"}>
+                        {diff ? `${diff.positive ? "▲" : "▼"} ${diff.value}` : "-"}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          <div className="exchange-info-bar">
+            <div className="info-left">
+              <span className="info-icon">ⓘ</span>
+              <div>
+                <b>Informacion</b>
+                <p>Kursi live përditësohet automatikisht nga tregu. Kursi yt është ai që përdoret për faturim dhe konvertime në sistem.</p>
+              </div>
+            </div>
+
+            <div className="info-right">
+              <span className="info-updated">
+                Përditësuar së fundmi<br />
+                <b>{formatUpdated(lastUpdated)}</b>
+              </span>
+              <button className="refresh-btn" onClick={refreshAll} type="button">
+                ⟳ Përditëso tani
+              </button>
+            </div>
           </div>
         </>
       )}

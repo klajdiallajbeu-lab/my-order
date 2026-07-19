@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getOrderById } from "../../api/ordersApi.js";
 import "./OrderDetailsPage.css";
+import "../../qz-signing";
 
 export default function OrderDetailsPage() {
   const { id } = useParams();
@@ -68,17 +69,17 @@ const handlePrint = async () => {
   try {
     if (!order) return;
 
-    if (!window.qz) {
-      alert("QZ Tray nuk u gjet.");
+    if (!qz) {
+      ("QZ Tray nuk u gjet.");
       return;
     }
 
-    if (!window.qz.websocket.isActive()) {
-      await window.qz.websocket.connect();
+    if (!qz.websocket.isActive()) {
+      await qz.websocket.connect();
     }
 
     const printer = "RONGTA RPP02 Series Printer(1)";
-    const config = window.qz.configs.create(printer);
+    const config = qz.configs.create(printer);
 
     const businessName =
       localStorage.getItem("hotelName") ||
@@ -224,14 +225,14 @@ const handlePrint = async () => {
 
       "\x1B\x61\x01",
       "\nJu Faleminderit!\n",
-      "www.myOrder.al\n",
+      "www.myorderal.com\n",
       "\n\n\n",
     ];
 
-    await window.qz.print(config, data);
+    await qz.print(config, data);
   } catch (error) {
     console.error("Print error:", error);
-    alert("Gabim gjatë printimit.");
+    ("Gabim gjatë printimit.");
   }
 };
 
@@ -262,72 +263,121 @@ const handlePrint = async () => {
 
   if (!order) return null;
 
-  return (
-    <div className="order-details-container">
-      <button className="invoice-back-btn" onClick={() => navigate(-1)}>
-        ← Back
+const total = Number(order.totalALL) || Number(order.total) || 0;
+
+const invoiceNo = String(order.invoiceNumber || order.invoiceNo || 0).padStart(6, "0");
+
+const waiterName =
+  order?.acceptedByName ||
+  order?.waiterName ||
+  order?.createdBy ||
+  "-";
+
+return (
+  <div className="invoice-modern-page">
+    <button className="invoice-back-modern" onClick={() => navigate(-1)}>
+      ← Kthehu
+    </button>
+
+    <section className="invoice-modern-card">
+      <div className="invoice-modern-hero">
+        <div>
+          <h1>FATURA</h1>
+          <p>Detajet e faturës</p>
+        </div>
+
+        <div className="invoice-modern-icon">▣</div>
+      </div>
+
+      <button className="invoice-print-modern" onClick={handlePrint}>
+        🖨 Printo
       </button>
 
-      <div className="order-details-box">
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            alignItems: "center",
-            gap: "12px",
-            flexWrap: "wrap",
-          }}
-        >
-          <h2 className="invoice-header" style={{ marginBottom: 0 }}>
-            Fatura
-          </h2>
-
-          <button
-            className="print-btn"
-            style={{ width: "220px", marginTop: 0 }}
-            onClick={handlePrint}
-          >
-            Print
-          </button>
+      <div className="invoice-info-grid">
+        <div className="invoice-info-item">
+          <span>#</span>
+          <div>
+            <small>Nr. Faturës </small>
+            <strong>{invoiceNo}</strong>
+          </div>
         </div>
 
-        <div className="invoice-section">
-          <p>
-            <b>ID:</b> {order._id}
-          </p>
-          <p>
-            <b>Burimi:</b> {order.sourceType} {order.sourceNumber}
-          </p>
-          <p>
-            <b>Status:</b> {order.status || "pending"}{" "}
-            {order.acceptedBy ? `(nga ${order.acceptedBy})` : ""}
-          </p>
-          <p>
-            <b>Total:</b> {(Number(order.totalALL) || Number(order.total) || 0).toFixed(0)} ALL
-          </p>
+        <div className="invoice-info-item">
+          <span>▦</span>
+          <div>
+            <small>Burimi </small>
+            <strong>{order.sourceType} {order.sourceNumber}</strong>
+          </div>
+        </div>
+
+        <div className="invoice-info-item">
+          <span>◷</span>
+          <div>
+            <small>Statusi  </small>
+            <strong className="invoice-status-pill">{order.status || "pending"}</strong>
+          </div>
+        </div>
+
+        <div className="invoice-info-item">
+          <span>▰</span>
+          <div>
+            <small>Totali  </small>
+            <strong className="invoice-blue">{total.toFixed(0)} ALL</strong>
+          </div>
         </div>
       </div>
 
-      <div className="items-list">
-        <h3 style={{ marginTop: 0, marginBottom: 14, color: "#1e293b" }}>Artikujt</h3>
+      <div className="invoice-items-card">
+        <h2>Artikujt</h2>
 
-        {order.items?.length ? (
-          order.items.map((it, idx) => (
-            <div key={idx} className="item-row">
-              <span>
-                {Number(it.qty) || 0}x {it.name}
-              </span>
-              <span>{((Number(it.qty) || 0) * (Number(it.price) || 0)).toFixed(0)} ALL</span>
+        <div className="invoice-items-head">
+          <span>Përshkrimi</span>
+          <span>Sasia</span>
+          <span>Çmimi</span>
+          <span>Totali</span>
+        </div>
+
+        {(order.items || []).map((it, idx) => {
+          const qty = Number(it.qty || 0);
+          const price = Number(it.price || 0);
+
+          return (
+            <div key={idx} className="invoice-items-row">
+              <span>{it.name}</span>
+              <span>{qty}x</span>
+              <span>{price.toFixed(0)} ALL</span>
+              <strong>{(qty * price).toFixed(0)} ALL</strong>
             </div>
-          ))
-        ) : (
-          <p>Nuk ka artikuj.</p>
-        )}
+          );
+        })}
+
+        <div className="invoice-pay-total">
+          <span>TOTALI PËR TË PAGUAR</span>
+          <strong>{total.toFixed(0)} ALL</strong>
+        </div>
       </div>
 
-      <div className="total-line">
-        Total: {(Number(order.totalALL) || Number(order.total) || 0).toFixed(0)} ALL
+      <div className="invoice-footer-info">
+        <div>
+          <small>Data  </small>
+          <strong>
+            {new Date(order.createdAt || Date.now()).toLocaleString("sq-AL", {
+              hour12: false,
+            })}
+          </strong>
+        </div>
+
+        <div>
+          <small>Kamarieri   </small>
+          <strong>{waiterName}</strong>
+        </div>
       </div>
-    </div>
-  );
+
+      <div className="invoice-thanks">
+        <strong>Faleminderit!</strong>
+        <span>www.myorderal.com</span>
+      </div>
+    </section>
+  </div>
+);
 }

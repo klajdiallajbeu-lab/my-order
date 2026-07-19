@@ -1,3 +1,4 @@
+import "../../qz-signing";
 import "./ProfilePage.css";
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
@@ -31,10 +32,25 @@ export default function ProfilePage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
+  const [bizForm, setBizForm] = useState({
+    hoteli: "",
+    nipt: "",
+    address: "",
+  });
+
+  const [initialBizForm, setInitialBizForm] = useState({
+    hoteli: "",
+    nipt: "",
+    address: "",
+  });
+
+
   useEffect(() => {
     const loadUser = async () => {
       try {
         const userId = sessionStorage.getItem("userId");
+        const businessId = localStorage.getItem("businessId");
+
         if (!userId) return;
 
         const data = await getUserByIdApi(userId);
@@ -42,9 +58,6 @@ export default function ProfilePage() {
         const loadedData = {
           emri: data.name || "",
           mbiemri: data.surname || "",
-          hoteli: data.hotelName || "",
-          nipt: data.nipt || "",
-          address: data.address || "",
           email: data.email || "",
           telefoni: data.phone || "",
           username: data.username || "",
@@ -53,9 +66,30 @@ export default function ProfilePage() {
         setForm(loadedData);
         setInitialForm(loadedData);
 
-        localStorage.setItem("hotelName", loadedData.hoteli || "");
-        localStorage.setItem("nipt", loadedData.nipt || "");
-        localStorage.setItem("address", loadedData.address || "");
+        if (businessId) {
+          const res = await fetch(`/api/business/${businessId}`, {
+            headers: {
+              Authorization: `Bearer ${
+                sessionStorage.getItem("token") || localStorage.getItem("token") || ""
+              }`,
+            },
+          });
+
+          const biz = await res.json();
+
+          const loadedBiz = {
+            hoteli: biz?.name || "",
+            nipt: biz?.nipt || "",
+            address: biz?.address || "",
+          };
+
+          setBizForm(loadedBiz);
+          setInitialBizForm(loadedBiz);
+
+          localStorage.setItem("hotelName", loadedBiz.hoteli || "");
+          localStorage.setItem("nipt", loadedBiz.nipt || "");
+          localStorage.setItem("address", loadedBiz.address || "");
+        }
       } catch (err) {
         console.error("Gabim gjatë leximit të user-it:", err);
       } finally {
@@ -71,37 +105,69 @@ export default function ProfilePage() {
     setForm((prev) => ({ ...prev, [name]: value }));
   };
 
+  const handleBizChange = (e) => {
+    const { name, value } = e.target;
+    setBizForm((prev) => ({ ...prev, [name]: value }));
+  };
+
   const handleCancel = () => {
     setForm(initialForm);
+    setBizForm(initialBizForm);
   };
+
 
   const handleSave = async () => {
     try {
       setSaving(true);
 
       const userId = sessionStorage.getItem("userId");
+      const businessId = localStorage.getItem("businessId");
+
       if (!userId) return;
 
+      // 1) Të dhënat personale (User) — emër/mbiemër/username.
+      //    email/phone NUK dërgohen më këtej (janë read-only, i ndryshon admini).
       await updateProfileApi(userId, {
         name: form.emri,
         surname: form.mbiemri,
-        hotelName: form.hoteli,
-        nipt: form.nipt,
-        address: form.address,
-        email: form.email,
-        phone: form.telefoni,
         username: form.username,
       });
 
-      localStorage.setItem("hotelName", form.hoteli || "");
-      localStorage.setItem("nipt", form.nipt || "");
-      localStorage.setItem("address", form.address || "");
+      // 2) Të dhënat e biznesit (Business) — vetëm name/nipt/address.
+      if (businessId) {
+        const token =
+          sessionStorage.getItem("token") || localStorage.getItem("token") || "";
+
+        const res = await fetch(`/api/business/${businessId}/profile`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            name: bizForm.hoteli,
+            nipt: bizForm.nipt,
+            address: bizForm.address,
+          }),
+        });
+
+        if (!res.ok) {
+          const errData = await res.json().catch(() => ({}));
+          throw new Error(errData.message || "Gabim gjatë ruajtjes së biznesit");
+        }
+      }
+
+      localStorage.setItem("hotelName", bizForm.hoteli || "");
+      localStorage.setItem("nipt", bizForm.nipt || "");
+      localStorage.setItem("address", bizForm.address || "");
 
       setInitialForm(form);
-      alert("Profili u ruajt me sukses!");
+      setInitialBizForm(bizForm);
+
+      ("Profili u ruajt me sukses!");
     } catch (err) {
       console.error("Gabim gjatë ruajtjes:", err);
-      alert("Gabim gjatë ruajtjes së profilit");
+      ("Gabim gjatë ruajtjes së profilit");
     } finally {
       setSaving(false);
     }
@@ -169,15 +235,14 @@ export default function ProfilePage() {
                 placeholder="Shkruaj mbiemrin"
               />
             </div>
-
             <div className="profile-field">
               <label>Email</label>
               <input
                 type="email"
                 name="email"
                 value={form.email}
-                onChange={handleChange}
-                placeholder="Shkruaj email-in"
+                disabled
+                title="Për të ndryshuar email-in, kontakto administratorin."
               />
             </div>
 
@@ -187,10 +252,11 @@ export default function ProfilePage() {
                 type="text"
                 name="telefoni"
                 value={form.telefoni}
-                onChange={handleChange}
-                placeholder="Shkruaj numrin e telefonit"
+                disabled
+                title="Për të ndryshuar telefonin, kontakto administratorin."
               />
             </div>
+            
           </div>
         </section>
 
@@ -203,13 +269,14 @@ export default function ProfilePage() {
           </div>
 
           <div className="profile-fields single-column">
+
             <div className="profile-field full">
               <label>Emri i hotelit</label>
               <input
                 type="text"
                 name="hoteli"
-                value={form.hoteli}
-                onChange={handleChange}
+                value={bizForm.hoteli}
+                onChange={handleBizChange}
                 placeholder="Shkruaj emrin e hotelit"
               />
             </div>
@@ -219,8 +286,8 @@ export default function ProfilePage() {
               <input
                 type="text"
                 name="nipt"
-                value={form.nipt}
-                onChange={handleChange}
+                value={bizForm.nipt}
+                onChange={handleBizChange}
                 placeholder="p.sh. L12345678A"
               />
             </div>
@@ -230,11 +297,12 @@ export default function ProfilePage() {
               <input
                 type="text"
                 name="address"
-                value={form.address}
-                onChange={handleChange}
+                value={bizForm.address}
+                onChange={handleBizChange}
                 placeholder="Shkruaj adresën e biznesit"
               />
             </div>
+
           </div>
         </section>
 

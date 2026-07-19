@@ -1,3 +1,4 @@
+import "../../qz-signing";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./WaiterXhiroDesktopPage.css";
@@ -6,9 +7,12 @@ import {
   closeWaiterShiftApi,
   getWaiterShiftPreviewApi,
 } from "../../api/ordersApi.js";
+import { socket } from "../../realtime/socket.js";
 
 const CURRENT_WAITER_NAME =
-  sessionStorage.getItem("waiterName") || "Kamarjer";
+  sessionStorage.getItem("waiterName") ||
+  localStorage.getItem("waiterName") ||
+  "";
 
 export default function WaiterXhiroDesktopPage() {
   const navigate = useNavigate();
@@ -71,7 +75,7 @@ export default function WaiterXhiroDesktopPage() {
       setReport(res?.data?.report || null);
     } catch (err) {
       console.error("Gabim xhiro preview:", err?.response?.data || err);
-      alert(err?.response?.data?.message || "Nuk mund të hap xhiron.");
+      (err?.response?.data?.message || "Nuk mund të hap xhiron.");
     } finally {
       setLoading(false);
     }
@@ -82,106 +86,36 @@ export default function WaiterXhiroDesktopPage() {
     loadPreview();
   }, [fetchPrinterSettings, loadPreview]);
 
-  const ensureQzConnection = async () => {
-    if (!window.qz) return false;
+  const sendShiftToElectron = async (shiftData) => {
+  if (!shiftData) {
+    ("Nuk ka xhiro për printim.");
+    return false;
+  }
 
-    if (!window.qz.websocket.isActive()) {
-      await window.qz.websocket.connect();
-    }
-
-    return true;
+  const payload = {
+    businessId,
+    ...shiftData,
+    reportType: "waiterShift",
+    waiterName: shiftData?.waiterName || CURRENT_WAITER_NAME,
+    createdAt: shiftData?.createdAt || new Date().toISOString(),
   };
 
-  const printShiftReport = async (shiftReport) => {
-    const connected = await ensureQzConnection();
-    if (!connected) {
-      throw new Error("QZ Tray nuk është lidhur.");
-    }
+  if (!socket.connected) {
+    socket.connect();
+  }
 
-    const printer = printerSettings.invoicePrinterName;
+  socket.emit("joinBusiness", businessId);
 
-    if (!printer) {
-      throw new Error("Nuk është zgjedhur printeri i faturës.");
-    }
+  setTimeout(() => {
+    socket.emit("waiter:shift-report", payload);
+  }, 300);
 
-    const config = window.qz.configs.create(printer);
-
-    const businessName =
-      shiftReport?.business?.name ||
-      localStorage.getItem("hotelName") ||
-      "Biznesi";
-
-    const waiterName = shiftReport?.waiterName || CURRENT_WAITER_NAME;
-
-    const printedDate = new Date(
-      shiftReport?.createdAt || Date.now()
-    ).toLocaleString("sq-AL", {
-      day: "2-digit",
-      month: "2-digit",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
-
-    const totalNumber = Number(shiftReport?.totalALL || 0);
-    const total = totalNumber.toFixed(0);
-
-    const settings = shiftReport?.business?.settings || {};
-
-    const eurText = convertFromALL(totalNumber, Number(settings?.eurRate) || 0, "EUR");
-    const usdText = convertFromALL(totalNumber, Number(settings?.usdRate) || 0, "USD");
-    const gbpText = convertFromALL(totalNumber, Number(settings?.gbpRate) || 0, "GBP");
-    const chfText = convertFromALL(totalNumber, Number(settings?.chfRate) || 0, "CHF");
-
-    const line = "--------------------------\n";
-
-    const itemsLines = (shiftReport.items || []).map((it) => {
-      const qty = Number(it?.qty) || 0;
-      const itemName = String(it?.name || "Artikull").trim();
-      const right = `${(qty * Number(it?.price || 0)).toFixed(0)} ALL`;
-      return formatLine(`${qty}x ${itemName}`, right);
-    });
-
-    const data = [
-      "\x1B\x40",
-      "\x1B\x4D\x00",
-      "\x1D\x21\x00",
-
-      "\x1B\x61\x01",
-      `${businessName}\n`,
-      "\n*** XHIRO DITORE E KAMARIERIT ***\n\n",
-
-      "\x1B\x61\x00",
-      line,
-      `Kamarier: ${waiterName}\n`,
-      `Porosi: ${shiftReport?.orderCount || 0}\n`,
-      `Data: ${printedDate}\n`,
-      line,
-
-      ...itemsLines,
-
-      line,
-      formatLine("TOTAL:", `${total} ALL`),
-      line,
-      formatLine("EUR:", eurText),
-      formatLine("USD:", usdText),
-      formatLine("GBP:", gbpText),
-      formatLine("CHF:", chfText),
-
-      "\x1B\x61\x01",
-      "\nJu Faleminderit!\n",
-      "www.myOrder.al\n",
-      "\n\n\n",
-    ];
-
-    await window.qz.print(config, data);
-  };
+  return true;
+};
 
   const handleCloseShift = async () => {
     if (!businessId) {
-      alert("Mungon businessId.");
+      ("Mungon businessId.");
       return;
     }
 
@@ -202,17 +136,13 @@ export default function WaiterXhiroDesktopPage() {
         throw new Error("Raporti final nuk u kthye nga serveri.");
       }
 
-      try {
-        await printShiftReport(finalReport);
-      } catch (printErr) {
-        console.error("Printimi dështoi, por xhiro u mbyll:", printErr);
-      }
+      await sendShiftToElectron(finalReport);
 
-      alert("Xhiro u mbyll me sukses.");
+      ("Xhiro u mbyll me sukses.");
       navigate("/waiter", { replace: true });
     } catch (err) {
       console.error("Gabim mbyll xhiro:", err?.response?.data || err);
-      alert(err?.response?.data?.message || err?.message || "Nuk mund të mbyll xhiron.");
+      (err?.response?.data?.message || err?.message || "Nuk mund të mbyll xhiron.");
     } finally {
       setClosing(false);
     }
@@ -251,7 +181,7 @@ export default function WaiterXhiroDesktopPage() {
           className="xhiro-back-btn"
           onClick={() => navigate("/waiter")}
         >
-          Kthehu
+          ← Kthehu
         </button>
       </header>
 
@@ -277,7 +207,15 @@ export default function WaiterXhiroDesktopPage() {
               </div>
             </div>
 
-            <div className="xhiro-products-list">
+            <div className="xhiro-products-table">
+              <div className="xhiro-table-head">
+                <span>#</span>
+                <span>Artikulli</span>
+                <span>Sasia</span>
+                <span>Çmimi</span>
+                <span>Totali</span>
+              </div>
+
               {(report.items || []).length === 0 && (
                 <div className="xhiro-empty-line">Nuk ka artikuj.</div>
               )}
@@ -288,12 +226,11 @@ export default function WaiterXhiroDesktopPage() {
                 const total = qty * price;
 
                 return (
-                  <div className="xhiro-product-row" key={`${item.name}-${index}`}>
-                    <div>
-                      <strong>{qty}x {item.name}</strong>
-                      <span>{price.toFixed(2)} ALL / copë</span>
-                    </div>
-
+                  <div className="xhiro-table-row" key={`${item.name}-${index}`}>
+                    <span>{index + 1}</span>
+                    <span>{qty}x {item.name}</span>
+                    <span>{qty}</span>
+                    <span>{price.toFixed(2)} ALL</span>
                     <b>{total.toFixed(2)} ALL</b>
                   </div>
                 );
@@ -308,27 +245,12 @@ export default function WaiterXhiroDesktopPage() {
             </div>
 
             <div className="xhiro-info-list">
-              <div>
-                <span>Biznesi</span>
-                <b>{report?.business?.name || localStorage.getItem("hotelName") || "Biznesi"}</b>
-              </div>
-
-              <div>
-                <span>Kamarieri</span>
-                <b>{report?.waiterName || CURRENT_WAITER_NAME}</b>
-              </div>
-
-              <div>
-                <span>Data</span>
-                <b>{printedDate}</b>
-              </div>
-            </div>
-
-            <div className="xhiro-currency-box">
-              <div><span>EUR</span><b>{eur}</b></div>
-              <div><span>USD</span><b>{usd}</b></div>
-              <div><span>GBP</span><b>{gbp}</b></div>
-              <div><span>CHF</span><b>{chf}</b></div>
+              <div><span className="xhiro-info-icon"></span><span>Biznesi</span><b>{report?.business?.name || localStorage.getItem("hotelName") || "Biznesi"}</b></div>
+              <div><span className="xhiro-info-icon"></span><span>Kamarieri</span><b>{report?.waiterName || CURRENT_WAITER_NAME}</b></div>
+              <div><span className="xhiro-info-icon"></span><span>Data</span><b>{printedDate}</b></div>
+              <div><span className="xhiro-info-icon">€</span><span>EUR</span><b>{eur}</b></div>
+              <div><span className="xhiro-info-icon">$</span><span>USD</span><b>{usd}</b></div>
+              <div><span className="xhiro-info-icon">£</span><span>GBP</span><b>{gbp}</b></div>
             </div>
 
             <button
@@ -337,7 +259,7 @@ export default function WaiterXhiroDesktopPage() {
               onClick={handleCloseShift}
               disabled={closing}
             >
-              {closing ? "Duke mbyllur..." : "Printo & Mbyll Xhiron"}
+              {closing ? "Duke mbyllur..." : "Mbyll Xhiron"}
             </button>
           </aside>
         </main>

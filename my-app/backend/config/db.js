@@ -4,9 +4,6 @@ const connectDB = async () => {
   try {
     const uri = process.env.MONGO_URI;
 
-    // 🔍 Debug (hiqe pasi të rregullohet)
-    console.log("🔎 MONGO_URI =", uri);
-
     if (!uri) {
       throw new Error("MONGO_URI mungon në .env");
     }

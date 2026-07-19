@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import "../../qz-signing";
+
 import "./PorosiPage.css";
 import { getOrders } from "../../api/ordersApi.js";
-import { useNavigate } from "react-router-dom";
-import { socket } from "../../realtime/socket.js";
 
 const DASHBOARD_FROM_KEY = "dashboard_from_date";
 const DASHBOARD_TO_KEY = "dashboard_to_date";
+const PAGE_SIZE_OPTIONS = [10, 20, 50];
 
 const getSavedDate = (key) => localStorage.getItem(key) || null;
 
@@ -20,20 +22,21 @@ const normalizeOrders = (res) => {
 export default function PorosiPage() {
   const navigate = useNavigate();
 
-  const [openOrderId, setOpenOrderId] = useState(null);
   const [sourceFilter, setSourceFilter] = useState("tavoline");
   const [waiterFilter, setWaiterFilter] = useState("");
   const [tableFilter, setTableFilter] = useState("");
-
-  const businessId = useMemo(() => {
-    const id = (localStorage.getItem("businessId") || "").trim();
-    return id && id !== "undefined" && id !== "null" ? id : "";
-  }, []);
 
   const [allOrders, setAllOrders] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errMsg, setErrMsg] = useState("");
 
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
+  const businessId = useMemo(() => {
+    const id = (localStorage.getItem("businessId") || "").trim();
+    return id && id !== "undefined" && id !== "null" ? id : "";
+  }, []);
 
   const loadOrders = useCallback(async () => {
     try {
@@ -43,34 +46,21 @@ export default function PorosiPage() {
       if (!businessId) {
         setAllOrders([]);
         setErrMsg("Mungon businessId. Hyni sërish në sistem.");
-        return [];
+        return;
       }
 
       const from = getSavedDate(DASHBOARD_FROM_KEY);
       const to = getSavedDate(DASHBOARD_TO_KEY);
 
-      const res = await getOrders({
-        businessId,
-        from,
-        to,
-      });
-
+      const res = await getOrders({ businessId, from, to });
       const list = normalizeOrders(res);
 
-      list.sort(
-        (a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0)
-      );
-
+      list.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
       setAllOrders(list);
-      return list;
     } catch (err) {
       console.error("getOrders error:", err?.response?.data || err);
       setAllOrders([]);
-      setErrMsg(
-        err?.response?.data?.message ||
-          "Nuk po arrij të marr porositë nga serveri."
-      );
-      return [];
+      setErrMsg(err?.response?.data?.message || "Nuk po arrij të marr porositë nga serveri.");
     } finally {
       setLoading(false);
     }
@@ -83,271 +73,85 @@ export default function PorosiPage() {
   const formatTime = (iso) => {
     if (!iso) return "-";
     const d = new Date(iso);
-    return d.toLocaleTimeString("sq-AL", {
+    return `${d.toLocaleDateString("sq-AL")} ${d.toLocaleTimeString("sq-AL", {
       hour: "2-digit",
       minute: "2-digit",
       hour12: false,
-    });
+    })}`;
   };
 
   const formatSourceLabel = (sourceType) => {
-    const s = (sourceType || "").toLowerCase();
-    if (s === "tavoline") return "TAVOLINË";
-    if (s === "dhoma") return "DHOMË";
-    if (s === "cadra") return "ÇADËR";
-    return (sourceType || "-").toUpperCase();
+    const s = String(sourceType || "").toLowerCase();
+    if (s === "tavoline") return "Tavolina";
+    if (s === "dhoma") return "Dhoma";
+    if (s === "cadra") return "Çadra";
+    return String(sourceType || "-");
   };
 
   const formatStatusText = (status) => {
-    const s = (status || "pending").toLowerCase();
+    const s = String(status || "pending").toLowerCase();
     if (s === "accepted") return "PRANUAR";
     if (s === "done") return "DËRGUAR";
     if (s === "cancelled") return "ANULUAR";
     return "PENDING";
   };
 
-  const handleToggleOrder = (orderId) => {
-    setOpenOrderId((prev) => (prev === orderId ? null : orderId));
-  };
-
   const printOrder = useCallback(
     async (order) => {
       try {
-        if (!order) {
-          alert("Porosia mungon.");
-          return false;
+        if (!order) return false;
+        if (!window.qz && typeof qz === "undefined") return false;
+        if (!businessId) return false;
+
+        if (!qz.websocket.isActive()) {
+          await qz.websocket.connect();
         }
 
-        if (!window.qz) {
-          alert("QZ Tray nuk u gjet.");
-          return false;
-        }
+        const printers = await qz.printers.find();
 
-        if (!businessId) {
-          alert("Mungon businessId.");
-          return false;
-        }
+        const selectedPrinter =
+          localStorage.getItem("invoicePrinter") ||
+          localStorage.getItem("printerName") ||
+          printers.find((p) => p.toLowerCase().includes("rongta")) ||
+          printers.find((p) => p.toLowerCase().includes("rpp02")) ||
+          printers[0];
 
-        if (!window.qz.websocket.isActive()) {
-          await window.qz.websocket.connect();
-        }
-        const printers = await window.qz.printers.find();
+        if (!selectedPrinter) return false;
 
-const savedPrinter =
-  localStorage.getItem("invoicePrinter") ||
-  localStorage.getItem("printerName");
+        const config = qz.configs.create(selectedPrinter);
 
-const selectedPrinter =
-  savedPrinter ||
-  localStorage.getItem("invoicePrinter") ||
-  localStorage.getItem("printerName") ||
-  printers.find((p) => p.includes("RONGTA")) ||
-  printers.find((p) => p.includes("RPP02")) ||
-  printers[0];
-
-if (!selectedPrinter) {
-  alert("Nuk u gjet asnjë printer.");
-  return false;
-}
-
-const config = window.qz.configs.create(selectedPrinter);
-
-        const businessName =
-          localStorage.getItem("hotelName") ||
-          order?.business?.name ||
-          "Biznesi";
-
-        const nipt =
-          order?.business?.nipt ||
-          localStorage.getItem("nipt") ||
-          "";
-
-        const address =
-          order?.business?.address ||
-          localStorage.getItem("address") ||
-          "";
-
-        const printedBy =
-          localStorage.getItem("name") ||
-          order?.acceptedBy ||
-          order?.createdBy ||
-          "-";
-
-        const sourceLabel =
-          `${formatSourceLabel(order?.sourceType)} ${order?.sourceNumber || "-"}`.trim();
-
-        const d = new Date(order?.createdAt || Date.now());
-        const dd = String(d.getDate()).padStart(2, "0");
-        const mm = String(d.getMonth() + 1).padStart(2, "0");
-        const yyyy = d.getFullYear();
-        const hh = String(d.getHours()).padStart(2, "0");
-        const min = String(d.getMinutes()).padStart(2, "0");
-        const ss = String(d.getSeconds()).padStart(2, "0");
-        const createdAt = `${dd}.${mm}.${yyyy} ${hh}:${min}:${ss}`;
-
-        const settings = order?.business?.settings || {};
-
-        const eurRate = Number(settings?.eurRate) || 0;
-        const usdRate = Number(settings?.usdRate) || 0;
-        const gbpRate = Number(settings?.gbpRate) || 0;
-        const chfRate = Number(settings?.chfRate) || 0;
-
-        const currency = String(order?.currency || "ALL").toUpperCase();
-        const rawTotal = Number(order?.total || 0);
-        const savedTotalALL = Number(order?.totalALL || 0);
-        const savedRate = Number(order?.exchangeRateUsed || 0);
-
-        let finalTotalALL = 0;
-
-        if (savedTotalALL > 0) {
-          finalTotalALL = savedTotalALL;
-        } else if (currency === "ALL") {
-          finalTotalALL = rawTotal;
-        } else if (savedRate > 0) {
-          finalTotalALL = rawTotal * savedRate;
-        } else if (currency === "EUR" && eurRate > 0) {
-          finalTotalALL = rawTotal * eurRate;
-        } else if (currency === "USD" && usdRate > 0) {
-          finalTotalALL = rawTotal * usdRate;
-        } else if (currency === "GBP" && gbpRate > 0) {
-          finalTotalALL = rawTotal * gbpRate;
-        } else if (currency === "CHF" && chfRate > 0) {
-          finalTotalALL = rawTotal * chfRate;
-        } else {
-          finalTotalALL = rawTotal;
-        }
-
-        const totalEUR = eurRate > 0 ? (finalTotalALL / eurRate).toFixed(2) : "-";
-        const totalUSD = usdRate > 0 ? (finalTotalALL / usdRate).toFixed(2) : "-";
-        const totalGBP = gbpRate > 0 ? (finalTotalALL / gbpRate).toFixed(2) : "-";
-        const totalCHF = chfRate > 0 ? (finalTotalALL / chfRate).toFixed(2) : "-";
-
-        const LINE_WIDTH = 30;
+        const businessName = localStorage.getItem("hotelName") || order?.business?.name || "Biznesi";
+        const nipt = order?.business?.nipt || localStorage.getItem("nipt") || "";
+        const address = order?.business?.address || localStorage.getItem("address") || "";
+        const printedBy = localStorage.getItem("name") || order?.acceptedBy || order?.createdBy || "-";
+        const sourceLabel = `${formatSourceLabel(order?.sourceType)} ${order?.sourceNumber || "-"}`;
+        const createdAt = new Date(order?.createdAt || Date.now()).toLocaleString("sq-AL", { hour12: false });
+        const totalALL = Number(order?.totalALL || order?.total || 0);
         const line = "------------------------------\n";
 
-        const padLeft = (text, length) => {
-          const str = String(text ?? "");
-          if (str.length >= length) return str.slice(0, length);
-          return " ".repeat(length - str.length) + str;
+        const formatLine = (left, right, width = 30) => {
+          let l = String(left || "").trim();
+          const r = String(right || "").trim();
+          const maxLeft = width - r.length - 1;
+          if (maxLeft <= 0) return `${l}\n${r}\n`;
+          if (l.length > maxLeft) l = l.slice(0, maxLeft);
+          return `${l}${" ".repeat(width - l.length - r.length)}${r}\n`;
         };
 
-        const makeLeftRightLine = (left, right) => {
-          const l = String(left ?? "");
-          const r = String(right ?? "");
-          const spaces = LINE_WIDTH - l.length - r.length;
-
-          if (spaces <= 1) {
-            return `${l}\n${padLeft(r, LINE_WIDTH)}\n`;
-          }
-
-          return `${l}${" ".repeat(spaces)}${r}\n`;
-        };
-
-        const shortName = (text, max = 18) => {
-          const t = String(text || "").trim();
-          return t.length > max ? `${t.slice(0, max - 1)}…` : t;
-        };
-
-        const itemValueInALL = (it) => {
-          const qty = Number(it?.qty) || 0;
-          const price = Number(it?.price) || 0;
-          const itemTotal = qty * price;
-
-          if (currency === "ALL") return itemTotal;
-
-          if (savedRate > 0) return itemTotal * savedRate;
-          if (currency === "EUR" && eurRate > 0) return itemTotal * eurRate;
-          if (currency === "USD" && usdRate > 0) return itemTotal * usdRate;
-          if (currency === "GBP" && gbpRate > 0) return itemTotal * gbpRate;
-          if (currency === "CHF" && chfRate > 0) return itemTotal * chfRate;
-
-          return itemTotal;
-        };
-
-        const itemsLines = (order?.items || []).flatMap((it) => {
-          const qty = Number(it?.qty) || 0;
-          const name = `${qty}x ${shortName(it?.name || "Artikull", 18)}`;
-          const valueALL = `${itemValueInALL(it).toFixed(0)} ALL`;
-
-          if (name.length + valueALL.length <= LINE_WIDTH) {
-            return [makeLeftRightLine(name, valueALL)];
-          }
-
-          return [`${name}\n`, `${padLeft(valueALL, LINE_WIDTH)}\n`];
+        const itemsLines = (order?.items || []).map((item) => {
+          const qty = Number(item?.qty || 0);
+          const price = Number(item?.price || 0);
+          const name = item?.name || "Artikull";
+          return formatLine(`${qty}x ${name}`, `${(qty * price).toFixed(0)} ALL`);
         });
 
-        const kitchenItems = (order?.items || []).filter(
-  (it) => String(it?.destination || "").toLowerCase() === "kuzhine"
-);
-
-const noteText = String(order?.note || order?.orderNote || "").trim();
-
-const kitchenLines = kitchenItems.flatMap((it) => {
-  const qty = Number(it?.qty) || 0;
-  const name = String(it?.name || "Artikull").trim();
-
-  if (name.length <= 22) {
-    return [`${qty}x ${name}\n`];
-  }
-
-  return [`${qty}x ${name.slice(0, 22)}\n`, `   ${name.slice(22, 44)}\n`];
-});
-
-if (kitchenItems.length > 0) {
-  const kitchenPrinter =
-    localStorage.getItem("kitchenPrinter") ||
-    localStorage.getItem("kitchenPrinterName") ||
-    selectedPrinter;
-
-  const kitchenConfig =
-    window.qz.configs.create(kitchenPrinter);
-
-  const kitchenData = [
-    "\x1B\x40",
-    "\x1B\x4D\x01",
-    "\x1D\x21\x11",
-
-    "\x1B\x61\x01",
-    "🍽 KUZHINA 🍽\n",
-    "\n",
-
-    "\x1B\x61\x00",
-    line,
-    `TAVOLINA: ${order?.sourceNumber || "-"}\n`,
-    `KAMARIER: ${printedBy}\n`,
-    `ORA: ${createdAt}\n`,
-
-    ...(noteText
-      ? [
-          line,
-          "SHENIM:\n",
-          `${noteText}\n`,
-        ]
-      : []),
-
-    line,
-    ...kitchenLines,
-    line,
-
-    "\x1B\x61\x01",
-    "*** VETEM KUZHINE ***\n",
-    "\n\n\n",
-  ];
-
-  await window.qz.print(
-    kitchenConfig,
-    kitchenData
-  );
-}
         const data = [
           "\x1B\x40",
           "\x1B\x61\x01",
           `${businessName}\n`,
           ...(nipt ? [`NIPT: ${nipt}\n`] : []),
           ...(address ? [`${address}\n`] : []),
-          "FATURE\n",
-          "\n",
-
+          "\nFATURE\n\n",
           "\x1B\x61\x00",
           line,
           `ID: ${order?._id || "-"}\n`,
@@ -356,50 +160,64 @@ if (kitchenItems.length > 0) {
           `Printuar nga: ${printedBy}\n`,
           `Data: ${createdAt}\n`,
           line,
-
           ...itemsLines,
-
+          line,
+          formatLine("TOTAL:", `${totalALL.toFixed(0)} ALL`),
           "\x1B\x61\x01",
-          "Ju Faleminderit!\n",
-          "www.myOrder.al\n",
-          "\n\n",
+          "\nJu Faleminderit!\n",
+          "www.myorderal.com\n",
+          "\n\n\n",
         ];
 
-        await window.qz.print(config, data);
+        await qz.print(config, data);
         return true;
       } catch (err) {
         console.error("PRINT ERROR:", err);
-        alert("Gabim gjatë printimit");
         return false;
       }
     },
     [businessId]
   );
 
-
-
-
   const handlePrintOrder = async (e, order) => {
     e.stopPropagation();
     await printOrder(order);
   };
 
+  // Filtrim i saktë: "3" duhet të përputhet VETËM me "3", jo "13"/"23"/"30"
   const orders = useMemo(() => {
+    const cleanTable = tableFilter.trim().toLowerCase();
+    const cleanWaiter = waiterFilter.trim().toLowerCase();
+
     return allOrders.filter((o) => {
-      const matchesSource =
-        (o?.sourceType || "").toLowerCase() === sourceFilter;
+      const matchesSource = String(o?.sourceType || "").toLowerCase() === sourceFilter;
 
-      const matchesWaiter = String(o?.createdBy || "")
-        .toLowerCase()
-        .includes(waiterFilter.toLowerCase().trim());
+      const matchesWaiter =
+        !cleanWaiter || String(o?.createdBy || "").toLowerCase().includes(cleanWaiter);
 
-      const matchesTable = String(o?.sourceNumber || "")
-        .toLowerCase()
-        .includes(tableFilter.toLowerCase().trim());
+      const matchesTable =
+        !cleanTable || String(o?.sourceNumber || "").trim().toLowerCase() === cleanTable;
 
       return matchesSource && matchesWaiter && matchesTable;
     });
   }, [allOrders, sourceFilter, waiterFilter, tableFilter]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [sourceFilter, waiterFilter, tableFilter, pageSize]);
+
+  const totalPages = Math.max(1, Math.ceil(orders.length / pageSize));
+  const pagedOrders = useMemo(() => {
+    const start = (page - 1) * pageSize;
+    return orders.slice(start, start + pageSize);
+  }, [orders, page, pageSize]);
+
+  const pageNumbers = useMemo(() => {
+    const nums = [];
+    const max = Math.min(totalPages, 5);
+    for (let i = 1; i <= max; i++) nums.push(i);
+    return nums;
+  }, [totalPages]);
 
   const clearFilters = () => {
     setWaiterFilter("");
@@ -409,46 +227,23 @@ if (kitchenItems.length > 0) {
   return (
     <div className="orders-page">
       <div className="orders-premium-header">
-  <div className="orders-header-left">
-    <span className="orders-mini-label">
-      Menaxhim Porosish
-    </span>
-
-    <h1 className="orders-big-title">
-      Porositë
-    </h1>
-
-    <p className="orders-description">
-      Menaxho faturat sipas seksionit dhe
-      filtro sipas kamarierit ose numrit
-      të tavolinës.
-    </p>
-  </div>
-</div>
-      
+        <div className="orders-header-left">
+          
+          <h1 className="orders-big-title">Porositë</h1>
+          <p className="orders-description">
+            Menaxho faturat sipas seksionit dhe filtro sipas kamarierit ose numrit të tavolinës.
+          </p>
+        </div>
+      </div>
 
       <div className="tabs">
-        <button
-          className={`tab ${sourceFilter === "tavoline" ? "active" : ""}`}
-          onClick={() => setSourceFilter("tavoline")}
-          type="button"
-        >
+        <button className={`tab ${sourceFilter === "tavoline" ? "active" : ""}`} onClick={() => setSourceFilter("tavoline")} type="button">
           Tavolina
         </button>
-
-        <button
-          className={`tab ${sourceFilter === "dhoma" ? "active" : ""}`}
-          onClick={() => setSourceFilter("dhoma")}
-          type="button"
-        >
+        <button className={`tab ${sourceFilter === "dhoma" ? "active" : ""}`} onClick={() => setSourceFilter("dhoma")} type="button">
           Dhoma
         </button>
-
-        <button
-          className={`tab ${sourceFilter === "cadra" ? "active" : ""}`}
-          onClick={() => setSourceFilter("cadra")}
-          type="button"
-        >
+        <button className={`tab ${sourceFilter === "cadra" ? "active" : ""}`} onClick={() => setSourceFilter("cadra")} type="button">
           Çadra
         </button>
       </div>
@@ -465,20 +260,16 @@ if (kitchenItems.length > 0) {
           type="text"
           placeholder={
             sourceFilter === "tavoline"
-              ? "Filtro sipas tavolinës"
+              ? "Filtro sipas tavolinës (numër i saktë)"
               : sourceFilter === "dhoma"
-              ? "Filtro sipas dhomës"
-              : "Filtro sipas çadrës"
+              ? "Filtro sipas dhomës (numër i saktë)"
+              : "Filtro sipas çadrës (numër i saktë)"
           }
           value={tableFilter}
           onChange={(e) => setTableFilter(e.target.value)}
         />
 
-        <button
-          type="button"
-          className="clear-filters-btn"
-          onClick={clearFilters}
-        >
+        <button type="button" className="clear-filters-btn" onClick={clearFilters}>
           Pastro
         </button>
       </div>
@@ -490,105 +281,101 @@ if (kitchenItems.length > 0) {
       ) : orders.length === 0 ? (
         <p className="orders-empty">Nuk ka porosi për këtë filtër.</p>
       ) : (
-        <div className="orders-list">
-          {orders.map((order) => {
-            const time = formatTime(order?.createdAt);
-            const isOpen = openOrderId === order?._id;
-            const statusText = formatStatusText(order?.status);
+        <>
+          <div className="orders-table-card">
+            <div className="orders-table-head">
+              <span>{sourceFilter === "tavoline" ? "TAVOLINA" : sourceFilter === "dhoma" ? "DHOMA" : "ÇADRA"}</span>
+              <span>KAMARIERI</span>
+              <span>KOHA</span>
+              <span>STATUSI</span>
+              <span>TOTALI</span>
+              <span>VEPRIME</span>
+            </div>
 
-            return (
-              <div
-                key={order?._id}
-                className={`order-card ${isOpen ? "open" : ""}`}
-                onClick={() => handleToggleOrder(order?._id)}
-              >
-                <div className="order-top">
-                  <div className="order-left">
-                    <div className="order-line-top">
-                      <span className="order-table">
-                        {formatSourceLabel(order?.sourceType)}{" "}
-                        {order?.sourceNumber || "-"}
-                      </span>
+            {pagedOrders.map((order) => {
+              const statusText = formatStatusText(order?.status);
+              const total = Number(order?.totalALL || order?.total || 0);
 
-                      <span className="order-created">
-                        Krijuar nga <b>{order?.createdBy || "-"}</b>
-                        {time !== "-" && <> · {time}</>}
-                      </span>
+              return (
+                <div key={order?._id} className="orders-table-row" onClick={() => order?._id && navigate(`/manager/order/${order._id}`)}>
+                  <div className="orders-cell-main">
+                    <span className="orders-row-icon">
+                      {sourceFilter === "tavoline" ? "🍽️" : sourceFilter === "dhoma" ? "🛏️" : "⛱️"}
+                    </span>
+                    <div>
+                      <div className="orders-row-title">
+                        {formatSourceLabel(order?.sourceType)} {order?.sourceNumber || "-"}
+                      </div>
+                      <div className="orders-row-sub">Porosi #{String(order?._id || "").slice(-4)}</div>
                     </div>
                   </div>
 
-                  <div className="order-right">
-                    <div className="order-total">
-                      {(Number(order?.totalALL) || Number(order?.total) || 0).toFixed(0)} ALL
-                    </div>
+                  <span>{order?.createdBy || "-"}</span>
+                  <span>{formatTime(order?.createdAt)}</span>
 
-                    <div
-                      className={`order-status-pill status-${
-                        (order?.status || "pending").toLowerCase()
-                      }`}
-                    >
+                  <span>
+                    <span className={`order-status-pill status-${String(order?.status || "pending").toLowerCase()}`}>
                       {statusText}
-                    </div>
+                    </span>
+                  </span>
 
-                    <div className="order-actions">
-                      <button
-                        type="button"
-                        className="print-btn"
-                        onClick={(e) => handlePrintOrder(e, order)}
-                      >
-                        Printo
-                      </button>
+                  <span className="orders-row-total">{total.toFixed(0)} ALL</span>
 
-                      <button
-                        type="button"
-                        className="details-btn"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (order?._id) {
-                            navigate(`/manager/order/${order._id}`);
-                          }
-                        }}
-                      >
-                        Detaje
-                      </button>
-                    </div>
+                  <div className="orders-row-actions">
+                    <button type="button" className="print-btn" onClick={(e) => handlePrintOrder(e, order)}>
+                      Printo
+                    </button>
+                    <button
+                      type="button"
+                      className="details-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (order?._id) navigate(`/manager/order/${order._id}`);
+                      }}
+                    >
+                      Detaje →
+                    </button>
                   </div>
                 </div>
+              );
+            })}
+          </div>
 
-                {isOpen && (
-                  <div className="order-items">
-                    {(order?.items || []).length === 0 ? (
-                      <div className="order-item-line muted">
-                        Nuk ka produkte për këtë faturë.
-                      </div>
-                    ) : (
-                      order.items.map((it, i) => {
-                        const qty = Number(it?.qty) || 1;
-                        const name = it?.name || "-";
-                        const price = Number(it?.price) || 0;
-                        const currency = String(order?.currency || "ALL").toUpperCase();
+          <div className="orders-pagination">
+            <span className="orders-pagination-info">
+              Duke shfaqur {(page - 1) * pageSize + 1} deri në {Math.min(page * pageSize, orders.length)} nga {orders.length} porosi
+            </span>
 
-                        return (
-                          <div key={i} className="order-item-line">
-                            <span className="item-left">
-                              {qty}x {name}
-                            </span>
+            <div className="orders-pagination-controls">
+              <button type="button" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                ←
+              </button>
 
-                            <span className="item-right">
-                              {currency === "ALL"
-                                ? `${price.toFixed(0)} ALL`
-                                : `${price.toFixed(2)} ${currency}`}
-                            </span>
-                          </div>
-                        );
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+              {pageNumbers.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  className={n === page ? "active" : ""}
+                  onClick={() => setPage(n)}
+                >
+                  {n}
+                </button>
+              ))}
+
+              <button type="button" disabled={page >= totalPages} onClick={() => setPage((p) => Math.min(totalPages, p + 1))}>
+                →
+              </button>
+            </div>
+
+            <select className="orders-page-size" value={pageSize} onChange={(e) => setPageSize(Number(e.target.value))}>
+              {PAGE_SIZE_OPTIONS.map((n) => (
+                <option key={n} value={n}>
+                  {n} për faqe
+                </option>
+              ))}
+            </select>
+          </div>
+        </>
       )}
     </div>
   );

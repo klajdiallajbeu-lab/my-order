@@ -2,10 +2,13 @@ import mongoose from "mongoose";
 
 const businessSchema = new mongoose.Schema(
   {
+
     name: { type: String, required: true },
     phone: { type: String, required: true },
     email: { type: String, required: true },
     city: { type: String, required: true },
+    nipt: { type: String, default: "" },
+    address: { type: String, default: "" },
 
     startDate: { type: Date, required: true },
     endDate: { type: Date, required: true },
@@ -14,6 +17,14 @@ const businessSchema = new mongoose.Schema(
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
     },
+
+    printerKey: {
+  type: String,
+  unique: true,
+  sparse: true,
+  trim: true,
+  index: true,
+},
 
     orderPin: {
       code: { type: String, default: "" },

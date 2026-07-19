@@ -1,17 +1,23 @@
 // server.js
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
 import dotenv from "dotenv";
 import http from "http";
 import { Server } from "socket.io";
 import path from "path";
 import { fileURLToPath } from "url";
+import fs from "fs";
+import crypto from "crypto";
+import rateLimit from "express-rate-limit";
 
 import connectDB from "./config/db.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
 import productRoutes from "./routes/productRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
+import printerRoutes from "./routes/printerRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
@@ -30,13 +36,20 @@ const __dirname = path.dirname(__filename);
 dotenv.config({ path: path.join(__dirname, ".env") });
 
 const app = express();
+app.set("trust proxy", 1);
 const server = http.createServer(app);
 
 app.set("etag", false);
 
+const allowedOrigins = [
+  "https://myorderal.com",
+  "https://www.myorderal.com",
+  "http://localhost:5173",
+];
+
 const io = new Server(server, {
   cors: {
-    origin: true,
+    origin: allowedOrigins,
     credentials: true,
   },
 });
@@ -107,16 +120,112 @@ io.on("connection", (socket) => {
 /* =========================
    MIDDLEWARE
 ========================= */
+app.use(
+  helmet({
+    crossOriginResourcePolicy: false,
+
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+
+        scriptSrc: [
+          "'self'",
+          "https://challenges.cloudflare.com",
+          "https://static.cloudflareinsights.com",
+          "'unsafe-inline'",
+        ],
+
+        scriptSrcAttr: ["'none'"],
+
+        styleSrc: [
+          "'self'",
+          "'unsafe-inline'",
+        ],
+
+        imgSrc: [
+          "'self'",
+          "data:",
+          "blob:",
+          "https:",
+        ],
+
+        fontSrc: [
+          "'self'",
+          "data:",
+          "https:",
+        ],
+
+        connectSrc: [
+          "'self'",
+          "https://myorderal.com",
+          "https://www.myorderal.com",
+          "wss://myorderal.com",
+          "wss://www.myorderal.com",
+          "https://challenges.cloudflare.com",
+          "https://cloudflareinsights.com",
+          "https://static.cloudflareinsights.com",
+
+          "https://api.frankfurter.dev",
+        ],
+
+        frameSrc: [
+          "'self'",
+          "https://challenges.cloudflare.com",
+        ],
+
+        workerSrc: [
+          "'self'",
+          "blob:",
+        ],
+
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'none'"],
+
+        upgradeInsecureRequests: [],
+      },
+    },
+  })
+);
+
 
 app.use(
   cors({
-    origin: true,
+    origin(origin, callback) {
+      // Lejo request pa Origin (Postman, server-to-server)
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
 
+
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  message: { message: "Shumë tentativa. Provo përsëri më vonë." },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 180,
+  message: { message: "Shumë kërkesa. Provo përsëri pas pak." },
+});
+
+app.use("/api/waiters/login", loginLimiter);
+app.use("/api/users/login", loginLimiter);
+app.use("/api", apiLimiter);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
@@ -139,6 +248,29 @@ app.use((req, res, next) => {
   next();
 });
 
+app.get("/api/qz-certificate", (req, res) => {
+  let cert = fs.readFileSync("/root/my-order/my-app/backend/keys/digital-certificate.txt", "utf8");
+
+  cert = cert.replace(/"/g, "").trim();
+
+  res.setHeader("Content-Type", "text/plain");
+  res.send(cert);
+});
+
+app.post("/api/qz-sign", (req, res) => {
+  const { request } = req.body;
+
+  const privateKey = fs.readFileSync("/root/my-order/my-app/backend/keys/private-key.pem", "utf8");
+
+  const signer = crypto.createSign("RSA-SHA512");
+  signer.update(request);
+  signer.end();
+
+  const signature = signer.sign(privateKey, "base64");
+
+  res.json({ signature });
+});
+
 /* =========================
    ROUTES
 ========================= */
@@ -146,6 +278,7 @@ app.use((req, res, next) => {
 app.use("/api/admin", adminRoutes);
 app.use("/api/products", productRoutes);
 app.use("/api/orders", orderRoutes);
+app.use("/api/printer", printerRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/inventory", inventoryRoutes);
 app.use("/api/users", userRoutes);
@@ -157,6 +290,7 @@ app.use("/api/business", businessRoutes);
 app.use("/api/places", placesRoutes);
 app.use("/api/business-request", businessRequestRoutes);
 app.use("/api/tables", tableRoutes);
+app.use("/downloads", express.static("backend/public/downloads"));
 
 /* =========================
    ERRORS

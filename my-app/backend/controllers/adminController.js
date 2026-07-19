@@ -12,43 +12,97 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
 export const adminLogin = async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const { username, password, turnstileToken } = req.body;
+
+    if (!process.env.TURNSTILE_SECRET_KEY) {
+      console.error("TURNSTILE_SECRET_KEY mungon në .env");
+      return res.status(500).json({
+        message: "Gabim konfigurimi në server",
+      });
+    }
+
+    if (!turnstileToken) {
+      return res.status(400).json({
+        message: "Përfundo kontrollin e sigurisë.",
+      });
+    }
+
+    const verifyResponse = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+          secret: process.env.TURNSTILE_SECRET_KEY,
+          response: turnstileToken,
+          remoteip: req.ip,
+        }),
+      }
+    );
+
+    const verifyResult = await verifyResponse.json();
+
+    if (!verifyResult.success) {
+      console.error("Turnstile verify failed:", verifyResult["error-codes"]);
+
+      return res.status(400).json({
+        message: "Kontrolli i sigurisë dështoi. Provo përsëri.",
+      });
+    }
 
     const cleanUsername = (username || "").trim();
     const cleanPassword = String(password || "");
 
     if (!cleanUsername || !cleanPassword) {
-      return res
-        .status(400)
-        .json({ message: "Username dhe password janë të detyrueshme" });
+      return res.status(400).json({
+        message: "Username dhe password janë të detyrueshme",
+      });
     }
 
     const admin = await Admin.findOne({ username: cleanUsername });
 
     if (!admin) {
-      return res.status(401).json({ message: "Kredencialet janë të pasakta" });
+      return res.status(401).json({
+        message: "Kredencialet janë të pasakta",
+      });
     }
 
     const match = await bcrypt.compare(cleanPassword, admin.password);
 
     if (!match) {
-      return res.status(401).json({ message: "Kredencialet janë të pasakta" });
+      return res.status(401).json({
+        message: "Kredencialet janë të pasakta",
+      });
+    }
+
+    if (!process.env.JWT_SECRET) {
+      throw new Error("JWT_SECRET mungon në konfigurimin e serverit");
     }
 
     const token = jwt.sign(
-  { id: admin._id },
-  "SECRET_KEY",
-  { expiresIn: "7d" }
-);
+      {
+        id: admin._id,
+        role: "admin",
+      },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "7d",
+      }
+    );
 
-res.json({
-  message: "Login successful",
-  adminId: admin._id,
-  token,
-});
+    return res.json({
+      message: "Login successful",
+      adminId: admin._id,
+      token,
+    });
   } catch (err) {
     console.error("Gabim te adminLogin:", err);
-    res.status(500).json({ message: "Gabim serveri" });
+
+    return res.status(500).json({
+      message: "Gabim serveri",
+    });
   }
 };
 
@@ -117,6 +171,9 @@ export const createBusinessAndManager = async (req, res) => {
       city: cleanCity,
       startDate,
       endDate,
+
+      
+      printerKey: `MYORDER-${Date.now().toString().slice(-6)}`,
     });
 
     const hashedPassword = await bcrypt.hash(cleanManagerPassword, 10);
@@ -153,6 +210,50 @@ export const listBusinesses = async (req, res) => {
   } catch (err) {
     console.error("Gabim te listBusinesses:", err);
     res.status(500).json({ message: "Gabim gjatë marrjes së bizneseve" });
+  }
+};
+
+export const updateBusiness = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!id || !isValidObjectId(id)) {
+      return res.status(400).json({ message: "ID e biznesit është e pavlefshme." });
+    }
+
+    const { name, phone, email, city, nipt, address, password } = req.body;
+
+    const setObj = {};
+
+    if (name !== undefined) setObj.name = String(name).trim();
+    if (phone !== undefined) setObj.phone = String(phone).trim();
+    if (email !== undefined) setObj.email = String(email).trim();
+    if (city !== undefined) setObj.city = String(city).trim();
+    if (nipt !== undefined) setObj.nipt = String(nipt).trim();
+    if (address !== undefined) setObj.address = String(address).trim();
+
+    const business = await Business.findByIdAndUpdate(
+      id,
+      { $set: setObj },
+      { new: true }
+    );
+
+    if (!business) {
+      return res.status(404).json({ message: "Biznesi nuk u gjet." });
+    }
+
+    // Nëse admini vendos edhe password të ri për menaxherin pronar
+    if (password && business.owner) {
+      const hashedPassword = await bcrypt.hash(String(password), 10);
+      await User.findByIdAndUpdate(business.owner, {
+        password: hashedPassword,
+      });
+    }
+
+    return res.json(business);
+  } catch (err) {
+    console.error("Gabim te updateBusiness:", err);
+    return res.status(500).json({ message: "Gabim gjatë përditësimit të biznesit." });
   }
 };
 

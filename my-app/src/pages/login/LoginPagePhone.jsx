@@ -1,169 +1,338 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./LoginPagePhone.css";
+import { Shield, FileText, Phone } from "lucide-react";
 
 export default function LoginPagePhone({ onLogin }) {
   const navigate = useNavigate();
 
-  const [showLogin, setShowLogin] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [cookieAccepted, setCookieAccepted] = useState(
+    () => localStorage.getItem("cookie_accepted") === "true"
+  );
+
+  const [turnstileToken, setTurnstileToken] = useState("");
+const [turnstileError, setTurnstileError] = useState("");
+const [submitting, setSubmitting] = useState(false);
+
+const turnstileContainerRef = useRef(null);
+const widgetIdRef = useRef(null);
+
+const resetTurnstile = () => {
+  setTurnstileToken("");
+
+  if (window.turnstile && widgetIdRef.current !== null) {
+    try {
+      window.turnstile.reset(widgetIdRef.current);
+    } catch {
+      // widget mund të mos jetë gati për reset
+    }
+  }
+};
 
   useEffect(() => {
     const t = setTimeout(() => setLoaded(true), 120);
     return () => clearTimeout(t);
   }, []);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onLogin(username, password);
+  useEffect(() => {
+  const renderTurnstile = () => {
+    if (
+      !window.turnstile ||
+      !turnstileContainerRef.current ||
+      widgetIdRef.current !== null
+    ) {
+      return;
+    }
+
+    const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+
+    if (!siteKey) {
+      setTurnstileError("Site Key i Turnstile mungon.");
+      return;
+    }
+
+    widgetIdRef.current = window.turnstile.render(
+      turnstileContainerRef.current,
+      {
+        sitekey: siteKey,
+        theme: "light",
+
+        callback: (token) => {
+          setTurnstileToken(token);
+          setTurnstileError("");
+        },
+
+        "expired-callback": () => {
+          setTurnstileToken("");
+        },
+
+        "error-callback": () => {
+          setTurnstileToken("");
+          setTurnstileError(
+            "Kontrolli i sigurisë dështoi. Provo përsëri."
+          );
+        },
+      }
+    );
+  };
+
+  if (window.turnstile) {
+    renderTurnstile();
+    return;
+  }
+
+  const scriptUrl =
+    "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+  const existingScript = document.querySelector(
+    `script[src="${scriptUrl}"]`
+  );
+
+  if (existingScript) {
+    existingScript.addEventListener("load", renderTurnstile);
+
+    return () => {
+      existingScript.removeEventListener("load", renderTurnstile);
+    };
+  }
+
+  const script = document.createElement("script");
+  script.src = scriptUrl;
+  script.async = true;
+  script.defer = true;
+  script.addEventListener("load", renderTurnstile);
+
+  document.head.appendChild(script);
+
+  return () => {
+    script.removeEventListener("load", renderTurnstile);
+
+    if (window.turnstile && widgetIdRef.current !== null) {
+      try {
+        window.turnstile.remove(widgetIdRef.current);
+      } catch {
+        // Widget mund të jetë hequr më parë.
+      }
+    }
+  };
+}, []);
+
+const handleSubmit = async (e) => {
+  e.preventDefault();
+  setTurnstileError("");
+
+  if (!username.trim() || !password) {
+    setTurnstileError("Plotëso përdoruesin dhe fjalëkalimin.");
+    return;
+  }
+
+  if (!turnstileToken) {
+    setTurnstileError("Përfundo kontrollin e sigurisë.");
+    return;
+  }
+
+  // Mbron nga double-submit (double-tap), i cili do ta dërgonte të
+  // njëjtin token turnstile dy herë dhe Cloudflare do ta refuzonte si
+  // "duplicate" (token-at janë single-use).
+  if (submitting) return;
+
+  setSubmitting(true);
+
+  try {
+    await onLogin(username.trim(), password, turnstileToken);
+  } catch (err) {
+    const msg =
+      err?.response?.data?.message ||
+      "Hyrja dështoi. Kontrollo kredencialet dhe provo përsëri.";
+
+    setTurnstileError(msg);
+
+    // Token-i i Turnstile-it është single-use — pasi login-i dështoi,
+    // duhet marrë një token i ri para riprovimit.
+    resetTurnstile();
+  } finally {
+    setSubmitting(false);
+  }
+};
+
+  const acceptCookies = () => {
+    localStorage.setItem("cookie_accepted", "true");
+    setCookieAccepted(true);
   };
 
   return (
-    <div className="phone-login-page">
-      <div className="phone-bg-glow one" />
-      <div className="phone-bg-glow two" />
-
-      <header className={`phone-header ${loaded ? "show" : ""}`}>
-  <button className="phone-brand phone-brand-center" type="button">
-    <span className="phone-brand-mark" />
-    <span>myOrder</span>
-  </button>
-</header>
-
-      <main className={`phone-hero ${loaded ? "show" : ""}`}>
-        <div className="phone-badge">Platformë për hotel, bar dhe restorant</div>
-
-        <h1>
-          Menaxho biznesin në një <span>platformë moderne</span>
-        </h1>
-
-        <p>
-          QR menu, porosi live, produkte, staf dhe raporte të qarta në një
-          sistem të vetëm.
-        </p>
-
-        <div className="phone-actions">
-          <button
-            className="phone-primary-btn"
-            type="button"
-            onClick={() => setShowLogin(true)}
-          >
-            Login
-            <span></span>
-          </button>
-
-          <button
-            className="phone-secondary-btn"
-            type="button"
-            onClick={() => navigate("/signup")}
-          >
-            Sign Up
-          </button>
+    <div className="lpp-page">
+      <main className={`lpp-main ${loaded ? "show" : ""}`}>
+        <div className="lpp-logo-center">
+          <div className="lpp-logo-name">
+            my<span>Order</span>
+          </div>
+          <div className="lpp-logo-sub">Management Platform</div>
         </div>
 
-        <section className="phone-dashboard">
-          <div className="phone-dashboard-top">
-            <span>Dashboard</span>
-            <b>Live</b>
-          </div>
+        <div className="lpp-card">
+          <form onSubmit={handleSubmit} className="lpp-form">
+            <div className="lpp-field">
+              <label htmlFor="phone-username">Përdoruesi</label>
 
-          <div className="phone-main-card">
-            <small>Porosi sot</small>
-            <strong>148</strong>
-            <div className="phone-chart">
-              <span />
+              <div className="lpp-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+
+                <input
+                  id="phone-username"
+                  type="text"
+                  placeholder="Përdoruesi"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  autoComplete="username"
+                  disabled={submitting}
+                />
+              </div>
             </div>
-          </div>
 
-          <div className="phone-stats">
-            <div>
-              <small>Ushqime</small>
-              <strong>62</strong>
-              <span>▲ 12%</span>
+            <div className="lpp-field">
+              <label htmlFor="phone-password">Fjalëkalimi</label>
+
+              <div className="lpp-input-wrap">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <rect x="3" y="11" width="18" height="11" rx="2" />
+                  <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                </svg>
+
+                <input
+                  id="phone-password"
+                  type={showPassword ? "text" : "password"}
+                  placeholder="Fjalëkalimi"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  autoComplete="current-password"
+                  disabled={submitting}
+                />
+
+                <button
+                  type="button"
+                  className="lpp-eye"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? "Fshih fjalëkalimin" : "Shfaq fjalëkalimin"}
+                >
+                  {showPassword ? (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94" />
+                      <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19" />
+                      <line x1="1" y1="1" x2="23" y2="23" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                      <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
+                      <circle cx="12" cy="12" r="3" />
+                    </svg>
+                  )}
+                </button>
+              </div>
             </div>
 
-            <div>
-              <small>Pije</small>
-              <strong>86</strong>
-              <span>▲ 8%</span>
-            </div>
-          </div>
-        </section>
+            <label className="lpp-remember">
+              <input
+                type="checkbox"
+                checked={remember}
+                onChange={(e) => setRemember(e.target.checked)}
+              />
+              <span>Më mbaj mend</span>
+            </label>
 
-        <section className="phone-cards">
-          <div className="phone-card">
-            <span>QR</span>
-            <strong>QR Menu</strong>
-            <p>Porosi të menjëhershme nga klientët.</p>
-          </div>
+            <div
+  ref={turnstileContainerRef}
+  className="lpp-turnstile"
+/>
 
-          <div className="phone-card">
-            <span>PR</span>
-            <strong>Produkte</strong>
-            <p>Ushqime dhe pije të menaxhuara thjesht.</p>
-          </div>
+{turnstileError && (
+  <div className="lpp-turnstile-error">
+    {turnstileError}
+  </div>
+)}
 
-          <div className="phone-card">
-            <span>RP</span>
-            <strong>Raporte</strong>
-            <p>Xhiro dhe statistika në kohë reale.</p>
-          </div>
-        </section>
-
-        <section className="phone-contact">
-          <span className="phone-contact-badge">Kontakt</span>
-
-          <h2>Aktivizo biznesin tënd</h2>
-
-          <p>
-            Na shkruaj direkt ose dërgo kërkesën përmes formës së regjistrimit.
-          </p>
-
-          <a href="tel:+355677509879">+355 67 75 09 879</a>
-          <a href="mailto:support@myorder.com">
-            support@myorder.com
-          </a>
-
-          <button type="button" onClick={() => navigate("/signup")}>
-            Dërgo kërkesën
-          </button>
-        </section>
-      </main>
-
-      {showLogin && (
-        <div className="phone-modal-overlay" onClick={() => setShowLogin(false)}>
-          <div className="phone-modal" onClick={(e) => e.stopPropagation()}>
             <button
-              className="phone-close"
-              type="button"
-              onClick={() => setShowLogin(false)}
-            >
-              ×
+  type="submit"
+  className="lpp-submit"
+  disabled={!turnstileToken || submitting}
+>
+              {submitting ? "Duke u kyçur..." : "Hyr"}
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
             </button>
 
-            <span>Hyrje</span>
-            <h3>Login</h3>
-            <p>Vendos të dhënat për të hyrë në panel.</p>
+            <div className="lpp-divider">
+              <span>ose</span>
+            </div>
 
-            <form onSubmit={handleSubmit}>
-              <input
-                type="text"
-                placeholder="Përdoruesi"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
+            <button
+              type="button"
+              className="lpp-demo-btn"
+              onClick={() => navigate("/signup")}
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                <circle cx="9" cy="7" r="4" />
+                <line x1="19" y1="8" x2="19" y2="14" />
+                <line x1="22" y1="11" x2="16" y2="11" />
+              </svg>
+              Regjistro biznesin tënd
+            </button>
+          </form>
+        </div>
+        <footer className="lpp-footer">
+  <button type="button" onClick={() => navigate("/privacy")}>
+    <Shield size={16} />
+    <span>Politika e Privatësisë</span>
+  </button>
 
-              <input
-                type="password"
-                placeholder="Fjalëkalimi"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
+  <button type="button" onClick={() => navigate("/terms")}>
+    <FileText size={16} />
+    <span>Kushtet e Përdorimit</span>
+  </button>
 
-              <button type="submit">Hyr në sistem</button>
-            </form>
+  <button type="button" onClick={() => navigate("/contact")}>
+    <Phone size={16} />
+    <span>Na Kontaktoni</span>
+  </button>
+</footer>
+
+        <div className="lpp-copyright">
+          © 2026 myOrder · Të gjitha të drejtat e rezervuara
+        </div>
+      </main>
+
+      {!cookieAccepted && (
+        <div className="lpp-cookie">
+          <div className="lpp-cookie-text">
+            <strong>Cookie Policy</strong>
+            <p>
+              Ne përdorim cookies për funksionimin e platformës dhe ruajtjen e preferencave.
+            </p>
+          </div>
+
+          <div className="lpp-cookie-actions">
+            <button
+              type="button"
+              className="lpp-cookie-link"
+              onClick={() => navigate("/privacy")}
+            >
+              Mëso më shumë
+            </button>
+
+            <button type="button" onClick={acceptCookies} className="lpp-cookie-btn">
+              Pranoj
+            </button>
           </div>
         </div>
       )}

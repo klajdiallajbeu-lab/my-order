@@ -1,6 +1,8 @@
 import "./Sidebar.css";
 import { NavLink, useNavigate } from "react-router-dom";
 import { useState } from "react";
+import logo from "../assets/logo.webp";
+import logoFull from "../assets/logo.webp";
 import {
   LayoutGrid,
   Box,
@@ -14,6 +16,7 @@ import {
   Plus,
   User,
   LogOut,
+  Printer,
 } from "lucide-react";
 
 export default function Sidebar({ onLogout, closeSidebar }) {
@@ -24,23 +27,30 @@ export default function Sidebar({ onLogout, closeSidebar }) {
   const [openStaff, setOpenStaff] = useState(false);
   const [openFinance, setOpenFinance] = useState(false);
 
-  /* 🔥 Close sidebar kur klikon */
   const handleNavigate = () => {
     if (closeSidebar) closeSidebar();
   };
 
-  /* 🔥 Logout + close sidebar */
   const handleLogout = () => {
     if (closeSidebar) closeSidebar();
 
     if (typeof onLogout === "function") {
       onLogout();
-    } else {
-      navigate("/login");
+      return;
     }
+
+    navigate("/login");
   };
 
-  /* 🔥 Accordion behavior (hap vetëm një) */
+  const openPrintListener = () => {
+    window.open(
+      "/manager/print-listener",
+      "_blank",
+    );
+
+    handleNavigate();
+  };
+
   const toggleSection = (section) => {
     setOpenProducts(section === "products" ? !openProducts : false);
     setOpenOperations(section === "operations" ? !openOperations : false);
@@ -51,22 +61,18 @@ export default function Sidebar({ onLogout, closeSidebar }) {
   return (
     <aside className="sb">
       <div className="sb-top">
-        <div className="sb-logo-mark" />
-        <div className="sb-brand">
-          <div className="sb-brand-title">myOrder</div>
-          <div className="sb-brand-sub">Management Platform</div>
-        </div>
-      </div>
+  <img src={logoFull} alt="myOrder" className="sb-logo-img" />
+</div>
 
       <div className="sb-divider" />
 
       <div className="sb-menu">
-
-        {/* DASHBOARD */}
         <NavLink
           to="dashboard"
           onClick={handleNavigate}
-          className={({ isActive }) => `sb-link ${isActive ? "active" : ""}`}
+          className={({ isActive }) =>
+            `sb-link ${isActive ? "active" : ""}`
+          }
         >
           <span className="sb-link-left">
             <span className="sb-icon-wrap">
@@ -76,7 +82,6 @@ export default function Sidebar({ onLogout, closeSidebar }) {
           </span>
         </NavLink>
 
-        {/* PRODUKTET */}
         <button
           type="button"
           className="sb-section-btn"
@@ -96,8 +101,8 @@ export default function Sidebar({ onLogout, closeSidebar }) {
 
         {openProducts && (
           <div className="sb-submenu">
-            <NavLink
-              to="subcategory?type=Ushqime"
+<NavLink
+              to="products?type=ushqime"
               onClick={handleNavigate}
               className={({ isActive }) =>
                 `sb-sub-link ${isActive ? "active" : ""}`
@@ -108,7 +113,7 @@ export default function Sidebar({ onLogout, closeSidebar }) {
             </NavLink>
 
             <NavLink
-              to="subcategory?type=Pije"
+              to="products?type=pije"
               onClick={handleNavigate}
               className={({ isActive }) =>
                 `sb-sub-link ${isActive ? "active" : ""}`
@@ -120,7 +125,6 @@ export default function Sidebar({ onLogout, closeSidebar }) {
           </div>
         )}
 
-        {/* OPERACIONE */}
         <button
           type="button"
           className="sb-section-btn"
@@ -138,45 +142,32 @@ export default function Sidebar({ onLogout, closeSidebar }) {
           </span>
         </button>
 
-{openOperations && (
-  <div className="sb-submenu">
-    <NavLink
-      to="places"
-      onClick={handleNavigate}
-      className={({ isActive }) =>
-        `sb-sub-link ${isActive ? "active" : ""}`
-      }
-    >
-      <Hotel size={15} />
-      <span>Dhoma / Çadra</span>
-    </NavLink>
+        {openOperations && (
+          <div className="sb-submenu">
+<NavLink
+              to="places"
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
+            >
+              <Hotel size={15} />
+              <span>Vendet & QR</span>
+            </NavLink>
 
-    <NavLink
-      to="qr"
-      onClick={handleNavigate}
-      className={({ isActive }) =>
-        `sb-sub-link ${isActive ? "active" : ""}`
-      }
-    >
-      <QrCode size={15} />
-      <span>Menu / QR</span>
-    </NavLink>
+            <NavLink
+              to="printers"
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
+            >
+              <Printer size={15} />
+              <span>Printerat</span>
+            </NavLink>
+          </div>
+        )}
 
-    {/* 🔥 KJO ËSHTË E REJA */}
-    <NavLink
-      to="printers"
-      onClick={handleNavigate}
-      className={({ isActive }) =>
-        `sb-sub-link ${isActive ? "active" : ""}`
-      }
-    >
-      <QrCode size={15} />
-      <span>Printerat</span>
-    </NavLink>
-  </div>
-)}
-
-        {/* STAFI */}
         <button
           type="button"
           className="sb-section-btn"
@@ -209,7 +200,6 @@ export default function Sidebar({ onLogout, closeSidebar }) {
           </div>
         )}
 
-        {/* FINANCAT */}
         <button
           type="button"
           className="sb-section-btn"
@@ -243,12 +233,22 @@ export default function Sidebar({ onLogout, closeSidebar }) {
         )}
       </div>
 
-      {/* FOOTER */}
       <div className="sb-footer">
+        <button
+          type="button"
+          className="sb-link"
+          onClick={openPrintListener}
+        >
+          <Printer size={16} />
+          <span>Print Listener</span>
+        </button>
+
         <NavLink
           to="profile"
           onClick={handleNavigate}
-          className={({ isActive }) => `sb-link ${isActive ? "active" : ""}`}
+          className={({ isActive }) =>
+            `sb-link ${isActive ? "active" : ""}`
+          }
         >
           <User size={16} />
           <span>Profili</span>

@@ -1,3 +1,4 @@
+import "../../qz-signing";
 import { useEffect, useState } from "react";
 import { api } from "../../api/http.js";
 import "./WaiterPrintPage.css";
@@ -43,8 +44,8 @@ const updateQty = (productId, value) => {
   );
 
   const handleSend = async (mode) => {
-    if (!table) return alert("Zgjidh tavolinën");
-    if (!cart.length) return alert("Ska produkte");
+    if (!table) return ("Zgjidh tavolinën");
+    if (!cart.length) return ("Ska produkte");
 
     const cleanCart = cart
       .map((item) => ({
@@ -55,7 +56,7 @@ const updateQty = (productId, value) => {
       .filter((item) => item.qty > 0);
 
     if (!cleanCart.length) {
-      return alert("Vendos sasinë e produktit.");
+      return ("Vendos sasinë e produktit.");
     }
 
     try {
@@ -73,19 +74,17 @@ const updateQty = (productId, value) => {
           totalALL: total,
         },
         {
-          headers: {
-            "x-waiter-id": waiterId,
-          },
+
         }
       );
 
-      alert("U dërgua për printim ✅");
+      ("U dërgua për printim ✅");
 
       localStorage.removeItem("printCart");
       localStorage.removeItem("printTable");
     } catch (err) {
       console.error(err);
-      alert("Gabim në printim");
+      ("Gabim në printim");
     }
   };
 

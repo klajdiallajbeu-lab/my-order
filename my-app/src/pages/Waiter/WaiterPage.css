@@ -1010,3 +1010,721 @@
   border-color: rgba(34, 197, 94, 0.45);
   color: #86efac;
 }
+
+/* =========================================================
+   FIX FINAL - rikthen pamjen mobile si poster/iPhone
+   Vendose ne fund te CSS qe te mbishkruaje dublikatat
+   ========================================================= */
+
+@media (max-width: 768px) {
+  .waiter-page {
+    min-height: 100vh !important;
+    padding: 22px 18px 28px !important;
+    background: #0b1220 !important;
+    color: #eaf0ff !important;
+    box-sizing: border-box !important;
+  }
+
+  .waiter-header {
+    position: static !important;
+    left: auto !important;
+    width: 100% !important;
+    min-height: 130px !important;
+    padding: 22px 18px !important;
+    margin: 0 0 18px 0 !important;
+    border-radius: 24px !important;
+    box-sizing: border-box !important;
+    background: transparent !important;
+    display: flex !important;
+    align-items: center !important;
+  }
+
+  .waiter-header-top {
+    width: 100% !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: space-between !important;
+    flex-direction: row !important;
+    gap: 14px !important;
+    flex-wrap: nowrap !important;
+  }
+
+  .waiter-user-row {
+    display: flex !important;
+    align-items: center !important;
+    gap: 14px !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+  }
+
+  .waiter-user-icon {
+    width: 46px !important;
+    height: 46px !important;
+    flex-shrink: 0 !important;
+  }
+
+  .waiter-header-left {
+    flex: 1 !important;
+    min-width: 0 !important;
+    text-align: left !important;
+  }
+
+  .waiter-header-left h1 {
+    margin: 0 !important;
+    font-size: 26px !important;
+    line-height: 1.05 !important;
+    font-weight: 900 !important;
+    color: #ffffff !important;
+  }
+
+  .waiter-subtitle {
+    display: block !important;
+    margin-top: 7px !important;
+    font-size: 14px !important;
+    line-height: 1.35 !important;
+    color: rgba(234, 240, 255, 0.86) !important;
+    opacity: 1 !important;
+  }
+
+  .waiter-header-actions {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: flex-end !important;
+    flex-direction: row !important;
+    gap: 12px !important;
+    flex-shrink: 0 !important;
+    width: auto !important;
+    margin-top: 0 !important;
+  }
+
+  .waiter-settings-icon,
+  .waiter-logout-btn {
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 18px !important;
+    font-size: 19px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
+  .waiter-settings-icon svg,
+  .waiter-logout-btn svg {
+    width: 23px !important;
+    height: 23px !important;
+  }
+
+  .waiter-location {
+    width: 100% !important;
+    padding: 14px !important;
+    border-radius: 18px !important;
+    margin-bottom: 14px !important;
+    box-sizing: border-box !important;
+  }
+
+  .waiter-location-type {
+    display: grid !important;
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: 10px !important;
+  }
+
+  .wl-type-btn {
+    min-height: 48px !important;
+    padding: 11px 8px !important;
+    border-radius: 15px !important;
+    font-size: 15px !important;
+    font-weight: 800 !important;
+  }
+
+  .tables-grid {
+    display: grid !important;
+    grid-template-columns: repeat(4, 1fr) !important;
+    gap: 10px !important;
+    margin-top: 14px !important;
+  }
+
+  .table-box {
+    min-height: 70px !important;
+    border-radius: 18px !important;
+    font-size: 17px !important;
+    font-weight: 900 !important;
+  }
+}
+
+@media (max-width: 390px) {
+  .waiter-page {
+    padding: 18px 14px 24px !important;
+  }
+
+  .waiter-header {
+    min-height: 118px !important;
+    padding: 18px 14px !important;
+    border-radius: 22px !important;
+  }
+
+  .waiter-header-left h1 {
+    font-size: 23px !important;
+  }
+
+  .waiter-subtitle {
+    font-size: 13px !important;
+  }
+
+  .waiter-settings-icon,
+  .waiter-logout-btn {
+    width: 50px !important;
+    height: 50px !important;
+  }
+
+  .tables-grid {
+    gap: 9px !important;
+  }
+
+  .table-box {
+    min-height: 64px !important;
+    border-radius: 16px !important;
+    font-size: 16px !important;
+  }
+}
+/* ===== SETTINGS + DIL COLORS FIX ===== */
+
+.waiter-settings-icon {
+  background: #ffffff !important;
+  color: #0b1220 !important;
+  border: 1px solid rgba(255, 255, 255, 0.25) !important;
+}
+
+.waiter-settings-icon svg {
+  color: #0b1220 !important;
+  stroke: #0b1220 !important;
+}
+
+.waiter-logout-btn {
+  background: rgba(239, 68, 68, 0.14) !important;
+  color: #ef4444 !important;
+  border: 1px solid rgba(239, 68, 68, 0.35) !important;
+}
+
+.waiter-logout-btn svg {
+  color: #ef4444 !important;
+  stroke: #ef4444 !important;
+}
+
+.waiter-settings-icon:hover {
+  background: #eaf0ff !important;
+}
+
+.waiter-logout-btn:hover {
+  background: rgba(239, 68, 68, 0.22) !important;
+}
+/* ===== WAITER DESIGN 100% SI POSTIMI ===== */
+
+.waiter-page {
+  min-height: 100vh !important;
+  background: #07111f !important;
+  padding: 28px 18px 28px !important;
+  color: #fff !important;
+}
+
+.waiter-header {
+  background: #0b1628 !important;
+  border-radius: 22px !important;
+  padding: 24px 22px !important;
+  min-height: 120px !important;
+  margin-bottom: 22px !important;
+  border: 1px solid rgba(255,255,255,0.06) !important;
+  box-shadow: none !important;
+}
+
+.waiter-header-top {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  gap: 14px !important;
+}
+
+.waiter-user-row {
+  display: flex !important;
+  align-items: center !important;
+  gap: 14px !important;
+}
+
+.waiter-user-icon {
+  color: #bfdbfe !important;
+}
+
+.waiter-header-left h1 {
+  font-size: 26px !important;
+  font-weight: 900 !important;
+  margin: 0 !important;
+  line-height: 1 !important;
+  color: #ffffff !important;
+}
+
+.waiter-subtitle {
+  font-size: 14px !important;
+  margin-top: 8px !important;
+  color: rgba(255,255,255,0.78) !important;
+}
+
+.waiter-header-actions {
+  display: flex !important;
+  gap: 12px !important;
+}
+
+.waiter-settings-icon,
+.waiter-logout-btn {
+  width: 56px !important;
+  height: 56px !important;
+  border-radius: 17px !important;
+  background: #111827 !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.waiter-settings-icon svg {
+  width: 22px !important;
+  height: 22px !important;
+  color: #ffffff !important;
+  stroke: #ffffff !important;
+}
+
+.waiter-logout-btn svg {
+  width: 22px !important;
+  height: 22px !important;
+  color: #ef4444 !important;
+  stroke: #ef4444 !important;
+}
+
+.waiter-location {
+  background: #111827 !important;
+  border-radius: 20px !important;
+  padding: 14px !important;
+  border: 1px solid rgba(255,255,255,0.08) !important;
+}
+
+.waiter-location-type {
+  display: grid !important;
+  grid-template-columns: repeat(3, 1fr) !important;
+  gap: 10px !important;
+}
+
+.wl-type-btn {
+  height: 48px !important;
+  border-radius: 14px !important;
+  background: #1f2937 !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  color: #ffffff !important;
+  font-size: 15px !important;
+  font-weight: 800 !important;
+}
+
+.wl-type-btn.active {
+  background: linear-gradient(135deg, #2563eb, #075985) !important;
+  border-color: #3b82f6 !important;
+}
+
+.tables-grid {
+  display: grid !important;
+  grid-template-columns: repeat(4, 1fr) !important;
+  gap: 10px !important;
+  margin-top: 14px !important;
+}
+
+.table-box {
+  min-height: 72px !important;
+  border-radius: 16px !important;
+  background: #1f2937 !important;
+  border: 1px solid rgba(255,255,255,0.10) !important;
+  color: #ffffff !important;
+  font-size: 18px !important;
+  font-weight: 900 !important;
+}
+
+.table-box.mine,
+.table-box.active {
+  background: linear-gradient(135deg, #315a93, #163f63) !important;
+  border-color: #60a5fa !important;
+  color: #ffffff !important;
+}
+
+.table-box.blocked {
+  background: rgba(127, 29, 29, 0.55) !important;
+  border-color: #ef4444 !important;
+  color: #fecaca !important;
+}
+/* Back button */
+
+.waiter-back-btn{
+    color:#ffffff !important;
+    background:#111827 !important;
+    border:1px solid rgba(255,255,255,.08) !important;
+}
+
+.waiter-back-btn svg{
+    color:#ffffff !important;
+    stroke:#ffffff !important;
+}
+
+.waiter-back-btn:hover{
+    background:#1f2937 !important;
+}
+.back-arrow{
+    color:#ffffff !important;
+    font-size:24px;
+    font-weight:700;
+    line-height:1;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+}/* =========================================================
+   LIGHT THEME OVERRIDE — përputhje me WaiterDesktopPage
+   (vetëm ngjyra, layout-i mbetet i njëjtë)
+   ========================================================= */
+
+.waiter-page {
+  background: #f7f8fa !important;
+  color: #111827 !important;
+}
+
+/* ---------- HEADER ---------- */
+.waiter-header {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.04) !important;
+}
+
+.waiter-user-icon {
+  color: #2563eb !important;
+}
+
+.waiter-header-left h1 {
+  color: #111827 !important;
+}
+
+.waiter-subtitle {
+  color: #6b7280 !important;
+  opacity: 1 !important;
+}
+
+.waiter-settings-icon {
+  background: #ffffff !important;
+  color: #111827 !important;
+  border: 1px solid #e5e7eb !important;
+}
+.waiter-settings-icon svg {
+  color: #111827 !important;
+  stroke: #111827 !important;
+}
+.waiter-settings-icon:hover {
+  background: #f9fafb !important;
+}
+
+.waiter-logout-btn {
+  background: #ffffff !important;
+  color: #dc2626 !important;
+  border: 1px solid #fecaca !important;
+}
+.waiter-logout-btn svg {
+  color: #dc2626 !important;
+  stroke: #dc2626 !important;
+}
+.waiter-logout-btn:hover {
+  background: #fef2f2 !important;
+}
+
+/* ---------- SETTINGS PANEL ---------- */
+.waiter-settings-card {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.04) !important;
+}
+.waiter-settings-title {
+  color: #111827 !important;
+}
+.waiter-settings-item {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+}
+.waiter-settings-item:hover {
+  background: #f9fafb !important;
+  border-color: #2563eb !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.waiter-settings-item.danger {
+  background: #fef2f2 !important;
+  border-color: #fecaca !important;
+  color: #dc2626 !important;
+}
+.waiter-settings-item.danger:hover {
+  background: #fee2e2 !important;
+}
+
+/* ---------- LOCATION / TABS ---------- */
+.waiter-location {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+}
+
+.wl-type-btn {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+}
+.wl-type-btn.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+}
+.wl-badge {
+  background: #ef4444 !important;
+  color: #fff !important;
+}
+
+.waiter-location-input {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+}
+.waiter-location-input::placeholder {
+  color: #9ca3af !important;
+}
+.waiter-location-hint {
+  color: #9ca3af !important;
+}
+
+/* ---------- TABLE GRID ---------- */
+.table-box {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+  box-shadow: none !important;
+}
+.table-box:hover {
+  background: #f9fafb !important;
+  border-color: #93c5fd !important;
+  transform: none !important;
+}
+.table-box.active {
+  background: #2563eb !important;
+  border-color: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+.table-box.mine {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+  box-shadow: none !important;
+}
+.table-box.blocked {
+  background: #ffffff !important;
+  border-color: #fca5a5 !important;
+  color: #dc2626 !important;
+  box-shadow: none !important;
+}
+.table-box.blocked:hover {
+  background: #ffffff !important;
+}
+
+/* ---------- PRODUCTS ---------- */
+.waiter-category-btn {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+}
+.waiter-category-btn.active {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+}
+
+.waiter-subcategory-btn {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #374151 !important;
+}
+.waiter-subcategory-btn.active {
+  background: #eff6ff !important;
+  border-color: #2563eb !important;
+  color: #2563eb !important;
+}
+
+.waiter-subcategory-dropdown select {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+}
+.waiter-subcategory-dropdown select:focus {
+  border-color: #2563eb !important;
+}
+
+.waiter-product-card {
+  background: #fafafa !important;
+  border: 1px solid #ececec !important;
+}
+.waiter-product-card:hover {
+  background: #f3f4f6 !important;
+  border-color: #d1d5db !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+.waiter-product-name {
+  color: #111827 !important;
+}
+.waiter-product-price {
+  background: #eff6ff !important;
+  border: 1px solid #dbeafe !important;
+  color: #2563eb !important;
+}
+
+/* ---------- CART ---------- */
+.waiter-cart {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+  box-shadow: 0 4px 24px rgba(17, 24, 39, 0.10) !important;
+}
+.waiter-cart h3 {
+  color: #111827 !important;
+}
+.waiter-cart-row {
+  background: #fafafa !important;
+  border: 1px solid #ececec !important;
+}
+.waiter-cart-actions button {
+  background: #eff6ff !important;
+  border: 1px solid #dbeafe !important;
+  color: #2563eb !important;
+}
+.waiter-cart-footer {
+  border-top: 1px solid #ececec !important;
+}
+.waiter-qty-btn {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+.waiter-note-btn {
+  background: #eff6ff !important;
+  border: 1px solid #dbeafe !important;
+  color: #2563eb !important;
+}
+.waiter-note-btn.has-note {
+  background: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #16a34a !important;
+}
+
+.waiter-print-btn {
+  background: #ffffff !important;
+  border: 1.5px solid #2563eb !important;
+  color: #2563eb !important;
+}
+.waiter-invoice-btn {
+  background: #16a34a !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+.waiter-send-btn {
+  background: #2563eb !important;
+  border: none !important;
+  color: #ffffff !important;
+}
+
+/* ---------- INCOMING ORDERS ---------- */
+.waiter-incoming {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+}
+.waiter-incoming h2 {
+  color: #111827 !important;
+}
+.incoming-card {
+  background: #fafafa !important;
+  border: 1px solid #ececec !important;
+}
+.incoming-card.status-pending {
+  border-color: #fde68a !important;
+}
+.incoming-card.status-accepted {
+  border-color: #bfdbfe !important;
+}
+.incoming-card.status-done {
+  border-color: #bbf7d0 !important;
+}
+.incoming-source {
+  color: #111827 !important;
+}
+.incoming-status {
+  color: #9ca3af !important;
+}
+.incoming-total {
+  color: #2563eb !important;
+}
+.incoming-item-row {
+  color: #6b7280 !important;
+}
+.incoming-btn.accept {
+  background: #2563eb !important;
+  color: #fff !important;
+}
+.incoming-btn.done {
+  background: #16a34a !important;
+  color: #fff !important;
+}
+.incoming-info {
+  color: #9ca3af !important;
+}
+.incoming-empty {
+  background: #fafafa !important;
+  border: 1px dashed #e5e7eb !important;
+  color: #9ca3af !important;
+}
+
+/* ---------- OPEN TABLES / SHIFT ---------- */
+.waiter-open-tables-header h2 {
+  color: #111827 !important;
+}
+.waiter-back-btn {
+  background: #ffffff !important;
+  border: 1px solid #e5e7eb !important;
+  color: #111827 !important;
+}
+.waiter-back-btn:hover {
+  background: #f9fafb !important;
+}
+.waiter-back-btn svg,
+.back-arrow {
+  color: #111827 !important;
+  stroke: #111827 !important;
+}
+
+.open-table-card {
+  background: #ffffff !important;
+  border: 1px solid #ececec !important;
+}
+.open-table-title {
+  color: #111827 !important;
+}
+.open-table-total {
+  color: #2563eb !important;
+}
+.open-table-item-row {
+  border-bottom: 1px solid #f3f4f6 !important;
+  color: #374151 !important;
+}
+.close-table-main-btn {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border: none !important;
+}
+
+/* ---------- ERROR ---------- */
+.error-text {
+  color: #dc2626 !important;
+  background: #fef2f2 !important;
+  border: 1px solid #fecaca !important;
+}

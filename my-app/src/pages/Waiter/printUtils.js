@@ -1,3 +1,5 @@
+import qz from "../../qz-signing";
+import "../../qz-signing";
 // =========================
 // FORMAT NUMBER
 // =========================
@@ -85,13 +87,13 @@ export const buildShiftPrint = (data) => {
 // =========================
 export const printShift = async (data) => {
   try {
-    if (!window.qz) {
+    if (!qz) {
       throw new Error("QZ Tray nuk është i lidhur");
     }
 
     const text = buildShiftPrint(data);
 
-    const printers = await window.qz.printers.find();
+    const printers = await qz.printers.find();
 
     if (!printers || printers.length === 0) {
       throw new Error("Nuk u gjet printer");
@@ -99,9 +101,9 @@ export const printShift = async (data) => {
 
     const printer = printers[0]; // mund ta ndryshosh me emër fiks
 
-    const config = window.qz.configs.create(printer);
+    const config = qz.configs.create(printer);
 
-    await window.qz.print(config, [
+    await qz.print(config, [
       {
         type: "raw",
         format: "plain",

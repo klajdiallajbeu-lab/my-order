@@ -1,0 +1,221 @@
+/* ===== PAGE ===== */
+
+.print-listener-page {
+  min-height: 100vh;
+  background: #f3f7fd;
+  padding: 32px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-family: Inter, Arial, sans-serif;
+}
+
+/* ===== CONTAINER ===== */
+
+.print-listener-container {
+  width: 100%;
+  max-width: 1350px;
+  background: #ffffff;
+  border-radius: 32px;
+  padding: 38px;
+  box-shadow: 0 24px 70px rgba(15, 23, 42, 0.08);
+}
+
+/* ===== HEADER ===== */
+
+.print-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.print-header-left {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+
+.print-icon-box {
+  width: 78px;
+  height: 78px;
+  border-radius: 24px;
+  background: #e8f1ff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 36px;
+}
+
+.print-title {
+  margin: 0;
+  font-size: 46px;
+  font-weight: 900;
+  color: #0f172a;
+}
+
+.print-subtitle {
+  margin: 6px 0 0;
+  font-size: 22px;
+  color: #64748b;
+  font-weight: 500;
+}
+
+.print-active-badge {
+  background: #eaf8ef;
+  color: #16a34a;
+  padding: 14px 24px;
+  border-radius: 18px;
+  font-weight: 900;
+  font-size: 22px;
+  white-space: nowrap;
+}
+
+/* ===== STATUS ===== */
+
+.print-status-card {
+  background: #edf8f1;
+  border: 1px solid #d7efde;
+  border-radius: 24px;
+  padding: 28px;
+  margin-bottom: 26px;
+}
+
+.print-status-title {
+  color: #16a34a;
+  font-size: 34px;
+  font-weight: 900;
+}
+
+.print-status-text {
+  color: #475569;
+  font-size: 22px;
+  margin-top: 8px;
+}
+
+/* ===== INFO CARDS ===== */
+
+.print-info-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin-bottom: 26px;
+}
+
+.print-info-card {
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  padding: 26px;
+}
+
+.print-info-title {
+  color: #64748b;
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.print-info-value {
+  font-size: 28px;
+  font-weight: 900;
+  color: #0f172a;
+  margin-top: 12px;
+  word-break: break-word;
+}
+
+.print-info-subtitle {
+  color: #64748b;
+  margin-top: 8px;
+  font-size: 15px;
+}
+
+/* ===== RULES ===== */
+
+.print-rules-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  background: #ffffff;
+  border: 1px solid #e5e7eb;
+  border-radius: 24px;
+  padding: 28px;
+}
+
+.print-rules-card h2 {
+  margin-top: 0;
+  margin-bottom: 16px;
+  font-size: 24px;
+}
+
+.print-rules-card.allowed h2 {
+  color: #16a34a;
+}
+
+.print-rules-card.blocked h2 {
+  color: #dc2626;
+}
+
+.print-rules-card p {
+  margin: 12px 0;
+  font-size: 18px;
+  color: #334155;
+  font-weight: 500;
+}
+
+/* ===== RESPONSIVE ===== */
+
+@media (max-width: 1100px) {
+  .print-info-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .print-rules-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .print-title {
+    font-size: 34px;
+  }
+
+  .print-subtitle {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 768px) {
+  .print-listener-page {
+    padding: 16px;
+  }
+
+  .print-listener-container {
+    padding: 22px;
+    border-radius: 24px;
+  }
+
+  .print-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .print-title {
+    font-size: 28px;
+  }
+
+  .print-subtitle {
+    font-size: 16px;
+  }
+
+  .print-status-title {
+    font-size: 26px;
+  }
+
+  .print-status-text {
+    font-size: 16px;
+  }
+
+  .print-info-value {
+    font-size: 22px;
+  }
+}

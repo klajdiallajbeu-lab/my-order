@@ -1,21 +1,17 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./WaiterPage.css";
 import { socket } from "../../realtime/socket.js";
 import { api } from "../../api/http.js";
+import qz from "../../qz-signing.js";
+
 import {
   closeTableApi,
   closeWaiterShiftApi,
   getWaiterShiftPreviewApi,
 } from "../../api/ordersApi.js";
 
-const CURRENT_WAITER_NAME =
-  sessionStorage.getItem("waiterName") || "Kamarjer 1";
 
-const CURRENT_WAITER_ID =
-  sessionStorage.getItem("waiterId") ||
-  localStorage.getItem("waiterId") ||
-  "";
 
 const getCurrencySymbol = (currency) => {
   switch (currency) {
@@ -34,7 +30,28 @@ const getCurrencySymbol = (currency) => {
 };
 
 export default function WaiterPage({ onLogout }) {
+  const [currentWaiterId, setCurrentWaiterId] = useState("");
+  const [currentWaiterName, setCurrentWaiterName] = useState("");
+
+  useEffect(() => {
+    const id =
+      sessionStorage.getItem("waiterId") ||
+      localStorage.getItem("waiterId") ||
+      "";
+
+const name =
+  sessionStorage.getItem("waiterName") ||
+  localStorage.getItem("waiterName") ||
+  sessionStorage.getItem("userName") ||
+  localStorage.getItem("userName") ||
+  "Kamarjer";
+
+    setCurrentWaiterId(id);
+    setCurrentWaiterName(name);
+  }, []);
+
   const navigate = useNavigate();
+
 
   const [locationType, setLocationType] = useState("tavoline");
   const [locationNumber, setLocationNumber] = useState("");
@@ -59,6 +76,8 @@ export default function WaiterPage({ onLogout }) {
     barPrinterName: "",
     invoicePrinterName: "",
   });
+
+  const printedOrdersRef = useRef(new Set());
 
   const businessId = useMemo(
     () => (localStorage.getItem("businessId") || "").trim(),
@@ -130,27 +149,128 @@ export default function WaiterPage({ onLogout }) {
       if (!Array.isArray(data)) return;
 
       const mapped = data.map((o) => ({
-        id: o._id,
-        sourceType: o.sourceType,
-        sourceNumber: o.sourceNumber,
-        items: o.items || [],
-        total: Number(o.total || 0),
-        totalALL: Number(o.totalALL || 0),
-        currency: o.currency || "ALL",
-        status: o.status || "pending",
-        acceptedBy: o.acceptedBy || "",
-        createdBy: o.createdBy || "",
-        destination: o.destination || "",
-        batchId: o.batchId || "",
-        business: o.business || null,
-        createdAt: o.createdAt || null,
-      }));
+  id: o._id,
+  sourceType: o.sourceType,
+  sourceNumber: o.sourceNumber,
+  items: o.items || [],
+  total: Number(o.total || 0),
+  totalALL: Number(o.totalALL || 0),
+  currency: o.currency || "ALL",
+  status: o.status || "pending",
+
+  waiterId: o.waiterId || "",
+  waiterName: o.waiterName || "",
+  acceptedBy: o.acceptedBy || "",
+  acceptedByName: o.acceptedByName || "",
+  createdBy: o.createdBy || "",
+
+  destination: o.destination || "",
+  batchId: o.batchId || "",
+  business: o.business || null,
+  createdAt: o.createdAt || null,
+}));
 
       setIncomingOrders(mapped);
     } catch (err) {
       console.error("Gabim duke lexuar porositë:", err?.response?.data || err);
     }
   }, [businessId]);
+
+const printIncomingOrderDirect = useCallback(async (order, forcePrint = false) => {
+  if (!order?._id && !order?.id && !order?.orderId) return;
+
+const orderId = String(order._id || order.id || order.orderId);
+
+if (!forcePrint && printedOrdersRef.current.has(orderId)) return;
+
+if (!forcePrint) {
+  printedOrdersRef.current.add(orderId);
+}
+  const items = Array.isArray(order.items) ? order.items : [];
+
+  const kitchenItems = items.filter(
+    (item) => String(item.destination || "").toLowerCase() === "kuzhine"
+  );
+
+  const barItems = items; // BANAKU PRINTON TE GJITHA
+
+  try {
+    if (!qz.websocket.isActive()) {
+      await qz.websocket.connect();
+    }
+
+    const buildLines = (title, printItems, showNote = false) => {
+      const lines = [];
+
+      lines.push("\x1B\x40");
+      lines.push(`${title}\n`);
+      lines.push("--------------------------\n");
+      lines.push(
+        `${String(order.sourceType || "").toUpperCase()} ${
+          order.sourceNumber || ""
+        }\n`
+      );
+      lines.push(`Kamarier: ${order.waiterName || currentWaiterName}\n`);
+      lines.push(`Data: ${new Date().toLocaleString("sq-AL")}\n`);
+      lines.push("--------------------------\n");
+
+      printItems.forEach((item) => {
+
+        const noteText = String(
+  order.note ||
+  order.orderNote ||
+  ""
+).trim();
+
+if (showNote && noteText) {
+  lines.push("--------------------------\n");
+  lines.push("NOTES:\n");
+  lines.push(`${noteText}\n`);
+}
+
+        lines.push(`${item.qty}x ${item.name}\n`);
+      });
+
+      lines.push("--------------------------\n");
+      lines.push("\n\n\n");
+      lines.push("\x1D\x56\x00");
+
+      return lines;
+    };
+
+    if (kitchenItems.length > 0) {
+      if (!printerSettings.kitchenPrinterName) {
+        console.warn("Mungon printeri i kuzhines");
+      } else {
+        const kitchenConfig = qz.configs.create(
+          printerSettings.kitchenPrinterName
+        );
+
+        await qz.print(
+          kitchenConfig,
+          buildLines("*** POROSI KUZHINE ***", kitchenItems, true)
+        );
+      }
+    }
+
+    if (barItems.length > 0) {
+      if (!printerSettings.barPrinterName) {
+        console.warn("Mungon printeri i banakut");
+      } else {
+        const barConfig = qz.configs.create(printerSettings.barPrinterName);
+
+        await qz.print(
+          barConfig,
+          buildLines("*** POROSI BANAK ***", barItems, false)
+        );
+      }
+    }
+
+    console.log("✅ Porosia u printua automatikisht:", orderId);
+  } catch (err) {
+    console.error("❌ Auto print failed:", err);
+  }
+}, [printerSettings]);
 
   useEffect(() => {
     fetchIncomingOrders();
@@ -171,16 +291,19 @@ export default function WaiterPage({ onLogout }) {
     if (socket.connected) join();
     socket.on("connect", join);
 
-    const onOrdersCreated = (payload) => {
-      if (
-        payload?.businessId &&
-        String(payload.businessId) !== String(businessId)
-      ) {
-        return;
-      }
-      fetchIncomingOrders();
-      fetchTables();
-    };
+const onOrdersCreated = async (payload) => {
+  if (
+    payload?.businessId &&
+    String(payload.businessId) !== String(businessId)
+  ) {
+    return;
+  }
+
+  await printIncomingOrderDirect(payload?.order || payload);
+
+  fetchIncomingOrders();
+  fetchTables();
+};
 
     const onOrdersChanged = (payload) => {
       if (
@@ -284,7 +407,7 @@ const printShiftReport = async () => {
         .filter(
           (t) =>
             t.isOccupied &&
-            String(t.occupiedByWaiterId || "") === String(CURRENT_WAITER_ID)
+            String(t.occupiedByWaiterId || "") === String(currentWaiterId)
         )
         .map((t) => String(t.code || "").trim());
 
@@ -325,7 +448,7 @@ const onlyMyOpenTables = data.filter((o) => {
             items: [],
             total: 0,
             currency: order.currency || "ALL",
-            ownerId: String(CURRENT_WAITER_ID),
+            ownerId: String(currentWaiterId),
           };
         }
 
@@ -359,7 +482,7 @@ const onlyMyOpenTables = data.filter((o) => {
         "Gabim duke lexuar tavolinat e hapura:",
         err?.response?.data || err
       );
-      alert("Nuk mund të lexoj tavolinat e hapura.");
+      ("Nuk mund të lexoj tavolinat e hapura.");
     } finally {
       setLoadingOpenTables(false);
     }
@@ -372,10 +495,10 @@ const onlyMyOpenTables = data.filter((o) => {
   };
 
 const handleCloseTable = async (table) => {
-  const isMine = String(table.ownerId || "") === String(CURRENT_WAITER_ID);
+  const isMine = String(table.ownerId || "") === String(currentWaiterId);
 
   if (!isMine) {
-    alert("Nuk mund të mbyllësh tavolinën e një kamarjeri tjetër.");
+    ("Nuk mund të mbyllësh tavolinën e një kamarjeri tjetër.");
     return;
   }
 
@@ -403,8 +526,8 @@ const handleCloseTable = async (table) => {
       sourceNumber: table.tableNumber,
       tableNumber: table.tableNumber,
 
-      waiterName: CURRENT_WAITER_NAME,
-      createdBy: CURRENT_WAITER_NAME,
+      waiterName: currentWaiterName,
+      createdBy: currentWaiterName,
 
       items: invoice.items || table.items || [],
 
@@ -417,14 +540,20 @@ const handleCloseTable = async (table) => {
     console.log("📱 DERGOJ FATURË TE MANAGER:", payload);
 
 if (!socket.connected) {
-  socket.connect();
+  await new Promise((resolve) => {
+    socket.connect();
+
+    socket.once("connect", () => {
+      resolve();
+    });
+  });
 }
 
 socket.emit("joinBusiness", businessId);
 
 setTimeout(() => {
   socket.emit("table:invoice", payload);
-}, 300);
+}, 1000);
 
     const place = tables.find(
       (t) =>
@@ -459,11 +588,11 @@ setTimeout(() => {
     await fetchTables();
     await fetchOpenTableOrders();
 
-    alert("Tavolina u mbyll dhe fatura u dërgua për printim te manageri.");
+    ("Tavolina u mbyll dhe fatura u dërgua për printim te manageri.");
   } catch (err) {
     console.error("Close table error:", err?.response?.data || err);
 
-    alert(
+    (
       err?.response?.data?.message ||
         err?.message ||
         "Nuk mund të mbyll tavolinën."
@@ -480,7 +609,7 @@ setTimeout(() => {
     const isTakenByOther =
       occ?.isOccupied &&
       occ?.occupiedByWaiterId &&
-      String(occ.occupiedByWaiterId) !== String(CURRENT_WAITER_ID);
+      String(occ.occupiedByWaiterId) !== String(currentWaiterId);
 
     if (isTakenByOther) {
       setError("Kjo tavolinë është zënë nga një kamarjer tjetër.");
@@ -492,22 +621,38 @@ setTimeout(() => {
     navigate(`/waiter/table/${code}`);
   };
 
-  const handleAcceptIncoming = async (orderId) => {
-    const ok = window.confirm("Ta marrësh këtë porosi?");
-    if (!ok) return;
+const handleAcceptIncoming = async (orderId) => {
+  const ok = window.confirm("Ta marrësh këtë porosi dhe ta printosh?");
+  if (!ok) return;
 
-    try {
-      await api.patch(`/orders/${orderId}/status`, {
-        status: "accepted",
-        acceptedBy: CURRENT_WAITER_NAME,
-      });
+  try {
+    const res = await api.patch(`/orders/${orderId}/status`, {
+      status: "accepted",
+      acceptedBy: currentWaiterId,
+      acceptedByName: currentWaiterName,
+    });
 
-      await fetchIncomingOrders();
-    } catch (err) {
-      console.error(err);
-      alert("Gabim gjatë accept.");
-    }
-  };
+    const acceptedOrder = res?.data;
+
+    console.log("ACCEPT ORDER:", acceptedOrder);
+
+    await printIncomingOrderDirect(
+      {
+        ...acceptedOrder,
+        waiterName:
+          acceptedOrder?.acceptedByName ||
+          currentWaiterName,
+        acceptedPrint: true,
+      },
+      true
+    );
+
+    await fetchIncomingOrders();
+  } catch (err) {
+    console.error("Gabim gjatë accept/print:", err?.response?.data || err);
+    ("Gabim gjatë accept/print.");
+  }
+};
 
   const handleMarkDone = async (orderId) => {
     try {
@@ -525,7 +670,7 @@ setTimeout(() => {
 const handleCloseShift = async () => {
   try {
     if (!businessId) {
-      alert("Mungon businessId.");
+      ("Mungon businessId.");
       return;
     }
 
@@ -533,7 +678,7 @@ const handleCloseShift = async () => {
 
     const res = await getWaiterShiftPreviewApi({
       businessId,
-      waiterName: CURRENT_WAITER_NAME,
+      waiterName: currentWaiterName,
     });
 
     const report = res?.data?.report;
@@ -551,7 +696,7 @@ const handleCloseShift = async () => {
   } catch (err) {
     console.error("Gabim te closeWaiterShift:", err?.response?.data || err);
 
-    alert(
+    (
       err?.response?.data?.message ||
         err?.message ||
         "Nuk mund të hap xhiron."
@@ -729,7 +874,7 @@ const handleCloseShift = async () => {
                 </div>
                 <div>
                   <b>Kamarieri:</b>{" "}
-                  {shiftReport?.waiterName || CURRENT_WAITER_NAME}
+                  {shiftReport?.waiterName || currentWaiterName}
                 </div>
                 <div>
                   <b>Porosi:</b> {shiftReport?.orderCount || 0}
@@ -797,13 +942,13 @@ const handleCloseShift = async () => {
                   onClick={async () => {
   try {
     if (!businessId) {
-      alert("Mungon businessId.");
+      ("Mungon businessId.");
       return;
     }
 
     const res = await closeWaiterShiftApi({
       businessId,
-      waiterName: CURRENT_WAITER_NAME,
+      waiterName: currentWaiterName,
     });
 
     const report = res?.data?.report;
@@ -817,7 +962,7 @@ const handleCloseShift = async () => {
     const payload = {
       businessId,
       ...report,
-      waiterName: CURRENT_WAITER_NAME,
+      waiterName: currentWaiterName,
       createdAt: new Date().toISOString(),
     };
 
@@ -839,14 +984,14 @@ const handleCloseShift = async () => {
     await fetchIncomingOrders();
     await fetchTables();
 
-    alert("Xhiro u mbyll dhe u dërgua për printim.");
+    ("Xhiro u mbyll dhe u dërgua për printim.");
   } catch (err) {
     console.error(
       "Gabim te handlePrintShiftReport:",
       err?.response?.data || err
     );
 
-    alert(
+    (
       err?.response?.data?.message ||
         err?.message ||
         "Nuk mund të printoj xhiron."
@@ -991,7 +1136,7 @@ const handleCloseShift = async () => {
                     const isMine =
                       isOccupied &&
                       String(occ?.occupiedByWaiterId || "") ===
-                        String(CURRENT_WAITER_ID);
+                        String(currentWaiterId);
                     const isBlocked = isOccupied && !isMine;
 
                     return (
@@ -1063,15 +1208,15 @@ const handleCloseShift = async () => {
                         className="incoming-btn accept"
                         onClick={() => handleAcceptIncoming(order.id)}
                       >
-                        Accepto
+                        Prano
                       </button>
                     )}
 
                     {order.status === "accepted" &&
-                      order.acceptedBy === CURRENT_WAITER_NAME && (
+                      String(order.acceptedBy) === String(currentWaiterId) && (
                         <>
                           <span className="incoming-info">
-                            E pranuar nga ti ({CURRENT_WAITER_NAME})
+                            E pranuar nga ti ({currentWaiterName})
                           </span>
                           <button
                             type="button"
@@ -1084,7 +1229,7 @@ const handleCloseShift = async () => {
                       )}
 
                     {order.status === "accepted" &&
-                      order.acceptedBy !== CURRENT_WAITER_NAME && (
+                      String(order.acceptedBy) !== String(currentWaiterId) && (
                         <span className="incoming-info">
                           E marrë nga {order.acceptedBy}
                         </span>

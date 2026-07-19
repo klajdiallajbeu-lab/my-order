@@ -1,3 +1,4 @@
+import "../../qz-signing";
 import { useEffect, useMemo, useState } from "react";
 import { getInventorySummary } from "../../api/inventoryApi.js";
 import "./InventoryPage.css";
@@ -46,7 +47,7 @@ export default function InventoryPage() {
       const businessId = getBusinessId();
 
       if (!businessId) {
-        alert("Mungon businessId. Dil dhe hyr sërish.");
+        ("Mungon businessId. Dil dhe hyr sërish.");
         return;
       }
 
@@ -66,7 +67,7 @@ export default function InventoryPage() {
       setItems([]);
       setTotalProductsWithSales(0);
       setTotalQuantitySold(0);
-      alert(err.response?.data?.message || "Nuk u lexua inventari nga serveri.");
+      (err.response?.data?.message || "Nuk u lexua inventari nga serveri.");
     } finally {
       setLoading(false);
     }
@@ -108,7 +109,7 @@ export default function InventoryPage() {
     <div className="inventory-container">
       <div className="inventory-header-card">
         <div>
-          <p className="inventory-eyebrow">Raport shitjesh</p>
+          
           <h1 className="inventory-title">Inventari i Shitjeve</h1>
           <p className="inventory-period">
             Periudha: <b>{periodLabel}</b>

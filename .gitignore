@@ -1,0 +1,13 @@
+node_modules/
+.env
+.env.local
+dist/
+build/
+*.log
+my-app/backend/uploads/products/
+**/keys/
+**/*.pem
+**/*digital-certificate*
+reset-admin.js
+*.save
+*.backup

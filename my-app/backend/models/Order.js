@@ -14,6 +14,19 @@ const OrderItemSchema = new mongoose.Schema(
     name: { type: String, required: true, trim: true },
     price: { type: Number, required: true, default: 0, min: 0 },
     qty: { type: Number, required: true, default: 1, min: 0.01 },
+
+    destination: {
+      type: String,
+      enum: ["kuzhine", "banak"],
+      default: "banak",
+      trim: true,
+    },
+
+    categoryType: {
+      type: String,
+      default: "",
+      trim: true,
+    },
   },
   { _id: false }
 );
@@ -108,6 +121,13 @@ const OrderSchema = new mongoose.Schema(
       index: true,
     },
 
+    waiterName: {
+  type: String,
+  default: "",
+  trim: true,
+  index: true,
+},
+
     acceptedBy: {
       type: String,
       default: "",
@@ -116,6 +136,18 @@ const OrderSchema = new mongoose.Schema(
     },
 
     acceptedByName: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    note: {
+      type: String,
+      default: "",
+      trim: true,
+    },
+
+    orderNote: {
       type: String,
       default: "",
       trim: true,
@@ -131,6 +163,12 @@ const OrderSchema = new mongoose.Schema(
       type: Date,
       default: null,
     },
+    
+    invoiceNumber: {
+  type: Number,
+  default: null,
+  index: true,
+},
   },
   { timestamps: true }
 );
@@ -142,7 +180,6 @@ OrderSchema.index({ businessId: 1, createdBy: 1, shiftClosed: 1, createdAt: -1 }
 OrderSchema.index({ businessId: 1, waiterId: 1, shiftClosed: 1, createdAt: -1 });
 OrderSchema.index({ businessId: 1, acceptedBy: 1, shiftClosed: 1, createdAt: -1 });
 
-// Fshin automatikisht faturat/orders pas 30 ditësh
 OrderSchema.index(
   { createdAt: 1 },
   { expireAfterSeconds: 60 * 60 * 24 * 30 }

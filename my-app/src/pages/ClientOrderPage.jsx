@@ -3,18 +3,118 @@ import { useLocation, useParams } from "react-router-dom";
 import "./ClientOrderPage.css";
 import { createOrder } from "../api/ordersApi.js";
 import { socket } from "../realtime/socket.js";
-import {
-  getInitialLang,
-  makeT,
-  setLangPersist,
-  LANGS,
-} from "../i18n/i18n.js";
+import { api } from "../api/http.js";
 
 function useQuery() {
   const { search } = useLocation();
   return useMemo(() => new URLSearchParams(search), [search]);
 }
 
+const LANGS = ["sq", "en", "it"];
+
+const dict = {
+  sq: {
+    invalidQR: "Nuk u gjet biznesi. QR është i pavlefshëm.",
+    loadingMenu: "Duke ngarkuar menunë...",
+    chooseAtLeastOne: "Zgjidhni të paktën një produkt.",
+    orderSent: "Porosia u dërgua me sukses!",
+    noProductsForFilter: "Nuk u gjet asnjë produkt për këtë filtër.",
+    invoice: "Fatura",
+    total: "Total",
+  },
+  en: {
+    invalidQR: "Business not found. Invalid QR.",
+    loadingMenu: "Loading menu...",
+    chooseAtLeastOne: "Please choose at least one product.",
+    orderSent: "Order sent successfully!",
+    noProductsForFilter: "No products found for this filter.",
+    invoice: "Invoice",
+    total: "Total",
+  },
+  it: {
+    invalidQR: "Attività non trovata. QR non valido.",
+    loadingMenu: "Caricamento menù...",
+    chooseAtLeastOne: "Seleziona almeno un prodotto.",
+    orderSent: "Ordine inviato con successo!",
+    noProductsForFilter: "Nessun prodotto trovato per questo filtro.",
+    invoice: "Fattura",
+    total: "Totale",
+  },
+};
+
+function normalizeLang(x) {
+  const v = String(x || "").toLowerCase().trim();
+  return LANGS.includes(v) ? v : "";
+}
+
+const pickName = (p, lang) => {
+  const sq = String(p?.nameSq ?? p?.name ?? "").trim();
+  const en = String(p?.nameEn ?? "").trim();
+  const it = String(p?.nameIt ?? "").trim();
+
+  if (lang === "it") return it || en || sq;
+  if (lang === "en") return en || it || sq;
+  return sq || en || it;
+};
+
+const pickDesc = (p, lang) => {
+  const sq = String(p?.descSq ?? p?.description ?? "").trim();
+  const en = String(p?.descEn ?? "").trim();
+  const it = String(p?.descIt ?? "").trim();
+
+  if (lang === "it") return it || en || sq;
+  if (lang === "en") return en || it || sq;
+  return sq || en || it;
+};
+
+const pickSubCategoryName = (p, lang) => {
+  const sq = String(
+    p?.subCategoryId?.nameSq ||
+    p?.subCategoryNameSq ||
+    p?.subCategoryName ||
+    p?.subCategory ||
+    p?.category ||
+    ""
+  ).trim();
+
+  const en = String(
+    p?.subCategoryId?.nameEn ||
+    p?.subCategoryNameEn ||
+    ""
+  ).trim();
+
+  const it = String(
+    p?.subCategoryId?.nameIt ||
+    p?.subCategoryNameIt ||
+    ""
+  ).trim();
+
+  if (lang === "en") return en || sq;
+  if (lang === "it") return it || en || sq;
+
+  return sq || en || it;
+};
+
+// GET /api/business/:id/settings — merr emrin e biznesit (të njëjtin që
+// shfaqet te ManagerPage tek "Emri i hotelit").
+async function fetchBusinessName(businessId) {
+  if (!businessId) return "";
+
+  try {
+    const res = await api.get(`/business/${businessId}/public-name`);
+    const data = res?.data?.data ?? res?.data;
+
+    return String(
+      data?.hotelName ||
+      data?.businessName ||
+      data?.name ||
+      ""
+    ).trim();
+  } catch (err) {
+    console.error("fetchBusinessName:", err?.response?.data || err);
+    return "";
+  }
+}
 
 function FoodIcon() {
   return (
@@ -63,8 +163,29 @@ export default function ClientOrderPage() {
   const { token, sessionToken } = useParams();
   const query = useQuery();
 
-  const [lang, setLang] = useState(() => getInitialLang(query));
-  const t = useMemo(() => makeT(lang), [lang]);
+  const urlLang = normalizeLang(query.get("lang"));
+  const storedLang = normalizeLang(
+    typeof window !== "undefined" ? localStorage.getItem("lang") : ""
+  );
+
+  const [lang, setLang] = useState(urlLang || storedLang || "sq");
+  const t = useCallback((key) => (dict[lang] || dict.sq)[key] || key, [lang]);
+
+  useEffect(() => {
+    if (urlLang) setLang(urlLang);
+  }, [urlLang]);
+
+  useEffect(() => {
+    localStorage.setItem("lang", lang);
+
+    try {
+      const u = new URL(window.location.href);
+      u.searchParams.set("lang", lang);
+      window.history.replaceState({}, "", u.toString());
+    } catch {
+      //
+    }
+  }, [lang]);
 
   const [place, setPlace] = useState(null);
   const [placeLoading, setPlaceLoading] = useState(true);
@@ -92,6 +213,36 @@ export default function ClientOrderPage() {
   const businessId = place?.businessId ? String(place.businessId) : "";
   const locationType = place?.type || "";
   const locationCode = place?.codeNormalized || place?.code || "";
+
+  const [businessName, setBusinessName] = useState("");
+
+  // 1) nëse `place` (nga /api/places/by-token) e sjell tashmë emrin, e përdorim direkt
+  const placeBusinessName = String(
+    place?.businessName ||
+    place?.hotelName ||
+    place?.business?.name ||
+    place?.business?.hotelName ||
+    ""
+  ).trim();
+
+  useEffect(() => {
+    if (placeBusinessName) {
+      setBusinessName(placeBusinessName);
+      return;
+    }
+
+    if (!businessId) return;
+
+    let cancelled = false;
+
+    fetchBusinessName(businessId).then((name) => {
+      if (!cancelled && name) setBusinessName(name);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [businessId, placeBusinessName]);
 
   const locationLabel =
     locationType === "room"
@@ -299,24 +450,17 @@ console.log(
           const p = map.get(i._id);
           return {
             ...i,
-            name: p?.name ?? i.name,
+            name: p ? pickName(p, lang) : i.name,
             price: Number(p?.price ?? i.price ?? 0),
           };
         })
     );
-  }, [products]);
+  }, [products, lang]);
 
   const groupedByCategory = useMemo(() => {
     const groups = {};
     for (const p of products) {
-      const cat = (
-        p.subCategoryName ||
-        p.subCategory ||
-        p.category ||
-        "Tjera"
-      )
-        .toString()
-        .trim();
+      const cat = pickSubCategoryName(p, lang) || "Tjera";
 
       if (!groups[cat]) groups[cat] = [];
       groups[cat].push(p);
@@ -325,13 +469,11 @@ console.log(
     Object.keys(groups).forEach((k) => {
       groups[k] = groups[k]
         .slice()
-        .sort((a, b) =>
-          String(a.name || "").localeCompare(String(b.name || ""))
-        );
+        .sort((a, b) => pickName(a, lang).localeCompare(pickName(b, lang)));
     });
 
     return groups;
-  }, [products]);
+  }, [products, lang]);
 
   const categoryKeys = useMemo(
     () => Object.keys(groupedByCategory),
@@ -402,17 +544,23 @@ console.log(
 
   const visibleByFilter = useMemo(() => {
     const q = search.trim().toLowerCase();
+
+    const productsWithoutOther = products.filter((p) => {
+      const category = pickSubCategoryName(p, lang).trim().toLowerCase();
+      return category !== "tjera";
+    });
+
     const base =
       activeCatId === "all"
-        ? products
+        ? productsWithoutOther
         : groupedByCategory[activeCatId] || [];
 
     if (!q) return base;
 
     return base.filter((p) =>
-      String(p.name || "").toLowerCase().includes(q)
+      pickName(p, lang).toLowerCase().includes(q)
     );
-  }, [activeCatId, groupedByCategory, products, search]);
+  }, [activeCatId, groupedByCategory, products, search, lang]);
 
   const totalItems = useMemo(
     () => cart.reduce((sum, item) => sum + (Number(item.quantity) || 0), 0),
@@ -445,7 +593,7 @@ console.log(
         ...prev,
         {
           _id: product._id,
-          name: product.name,
+          name: pickName(product, lang),
           price: Number(product.price || 0),
           quantity: 1,
         },
@@ -487,12 +635,12 @@ console.log(
 
 const handleSendOrder = async () => {
   if (cart.length === 0) {
-    alert(t("chooseAtLeastOne"));
+    (t("chooseAtLeastOne"));
     return;
   }
 
   if (!businessId || !locationType || !locationCode) {
-    alert(t("invalidQR"));
+    (t("invalidQR"));
     return;
   }
 
@@ -569,17 +717,6 @@ const handleConfirmOrder = async () => {
   await handleSendOrder();
 };
 
-  const changeLang = (next) => {
-    if (!LANGS.includes(next)) return;
-
-    setLang(next);
-    setLangPersist(next);
-
-    const url = new URL(window.location.href);
-    url.searchParams.set("lang", next);
-    window.history.replaceState({}, "", url.toString());
-  };
-
   const toggleMenuType = (type) => {
     setOpenMenuType((prev) => (prev === type ? null : type));
   };
@@ -616,448 +753,449 @@ const handleConfirmOrder = async () => {
     );
   }
 
-  return (
-    <div className="client-order-wrapper">
-      <header className="client-order-header premium">
-        <div className="co-head-top">
-          <div className="co-head-left">
-            <div className="co-place-badge">
-              {locationType === "room" ? "DHOMË" : "ÇADËR"}
-            </div>
+return (
+  <div className="client-order-wrapper modern-menu">
+    {/* HEADER */}
+    <header className="modern-menu-header">
+      <div className="modern-top-row">
 
-            <h1 className="client-order-title">{locationLabel}</h1>
-            <p className="client-order-subtitle">{t("orderSubtitle")}</p>
-          </div>
-
-          <div className="co-right">
-            <div
-              className="co-header-actions"
-              style={{
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-                position: "relative",
-                flexWrap: "wrap",
-                justifyContent: "flex-end",
-              }}
-            >
-              <div style={{ position: "relative" }}>
-                <button
-                  type="button"
-                  className={`co-lang-btn ${openMenuType === "food" ? "active" : ""}`}
-                  onClick={() => toggleMenuType("food")}
-                  aria-label="Ushqime"
-                  title="Ushqime"
-                >
-                  <FoodIcon />
-                </button>
-
-                {openMenuType === "food" && (
-                  <div
-                    className="co-mini-dropdown"
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      right: 0,
-                      minWidth: "180px",
-                      background: "#ffffff",
-                      border: "1px solid #dbe4f0",
-                      borderRadius: "14px",
-                      boxShadow: "0 12px 30px rgba(15,23,42,0.12)",
-                      padding: "8px",
-                      zIndex: 50,
-                    }}
-                  >
-                    {foodCategories.length > 0 ? (
-                      foodCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => handleCategoryPick(cat)}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            border: "none",
-                            background:
-                              activeCatId === cat ? "#eff6ff" : "transparent",
-                            color: "#0f172a",
-                            padding: "10px 12px",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                            fontWeight: activeCatId === cat ? 700 : 500,
-                          }}
-                        >
-                          {cat}
-                        </button>
-                      ))
-                    ) : (
-                      <div
-                        style={{
-                          padding: "10px 12px",
-                          color: "#64748b",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Nuk ka kategori ushqimi
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <div style={{ position: "relative" }}>
-                <button
-                  type="button"
-                  className={`co-lang-btn ${openMenuType === "drink" ? "active" : ""}`}
-                  onClick={() => toggleMenuType("drink")}
-                  aria-label="Bar"
-                  title="Bar"
-                >
-                  <DrinkIcon />
-                </button>
-
-                {openMenuType === "drink" && (
-                  <div
-                    className="co-mini-dropdown"
-                    style={{
-                      position: "absolute",
-                      top: "calc(100% + 8px)",
-                      right: 0,
-                      minWidth: "180px",
-                      background: "#ffffff",
-                      border: "1px solid #dbe4f0",
-                      borderRadius: "14px",
-                      boxShadow: "0 12px 30px rgba(15,23,42,0.12)",
-                      padding: "8px",
-                      zIndex: 50,
-                    }}
-                  >
-                    {drinkCategories.length > 0 ? (
-                      drinkCategories.map((cat) => (
-                        <button
-                          key={cat}
-                          type="button"
-                          onClick={() => handleCategoryPick(cat)}
-                          style={{
-                            width: "100%",
-                            textAlign: "left",
-                            border: "none",
-                            background:
-                              activeCatId === cat ? "#eff6ff" : "transparent",
-                            color: "#0f172a",
-                            padding: "10px 12px",
-                            borderRadius: "10px",
-                            cursor: "pointer",
-                            fontWeight: activeCatId === cat ? 700 : 500,
-                          }}
-                        >
-                          {cat}
-                        </button>
-                      ))
-                    ) : (
-                      <div
-                        style={{
-                          padding: "10px 12px",
-                          color: "#64748b",
-                          fontSize: "14px",
-                        }}
-                      >
-                        Nuk ka kategori pijesh
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-
-              <button
-                type="button"
-                className="co-lang-btn"
-                onClick={handleInvoiceClick}
-                aria-label="Fatura"
-                title="Fatura"
-              >
-                <ReceiptIcon />
-              </button>
-
-              <div className="co-lang compact">
-                {LANGS.map((l) => (
-                  <button
-                    key={l}
-                    type="button"
-                    className={`co-lang-btn ${lang === l ? "active" : ""}`}
-                    onClick={() => changeLang(l)}
-                  >
-                    {l.toUpperCase()}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="co-pill">
-              <span className="co-dot" />
-              {t("live")}
-            </div>
-          </div>
-        </div>
-      </header>
-
-      {bannerError && (
-  <div className="co-top-messages">
-    <div className="client-order-error-banner">
-      <div>
-        <strong>Vëmendje:</strong> {bannerError}
-      </div>
-
-      <button
-        type="button"
-        className="co-inline-close"
-        onClick={() => setBannerError("")}
-      >
-        ✕
-      </button>
-    </div>
+        <div className="modern-brand">
+  <div className="modern-brand-name">
+    {businessName || "Menu"}
   </div>
-)}
 
-      {success && (
-        <div className="client-order-success">
-          {success}
+  <div className="modern-brand-subtitle">
+    Menu
+  </div>
+</div>
 
-          {lastOrder && (
-            <div className="invoice-card" id="invoice">
-              <div className="invoice-head">
-                <div>
-                  <div className="invoice-title">{t("invoice")}</div>
-                  <div className="invoice-sub">
-                    {locationLabel} •{" "}
-                    {new Date(lastOrder.createdAt || Date.now()).toLocaleString()}
-                  </div>
-                </div>
+</div>
 
-                <div className="invoice-meta">
-                  <div>
-                    <b>{t("id")}:</b>{" "}
-                    {lastOrder?._id ? String(lastOrder._id).slice(-6) : "-"}
-                  </div>
-                  <div>
-                    <b>{t("status")}:</b> {lastOrder?.status || "pending"}
-                  </div>
-                </div>
-              </div>
+      {/* SEARCH + LANGUAGE */}
+      <div className="modern-search-language">
+        <div className="modern-search-box">
+          <span className="modern-search-icon">⌕</span>
 
-              <div className="invoice-lines">
-                {(lastOrder.items || []).map((it, idx) => (
-                  <div key={idx} className="invoice-line">
-                    <div className="invoice-left">
-                      <b>{it.qty}x</b> {it.name}
-                    </div>
-                    <div className="invoice-right">
-                      {(Number(it.price || 0) * Number(it.qty || 0)).toFixed(2)} ALL
-                    </div>
-                  </div>
-                ))}
-              </div>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Kërko në menu..."
+          />
 
-              <div className="invoice-total">
-                <span>{t("total")}</span>
-                <b>{Number(lastOrder.total || 0).toFixed(2)} ALL</b>
-              </div>
-
-              <div className="invoice-actions">
-                <button
-                  type="button"
-                  className="invoice-btn"
-                  onClick={printInvoice}
-                >
-                  Printo
-                </button>
-
-                <button
-                  type="button"
-                  className="invoice-btn secondary"
-                  onClick={() => {
-                    clearTopMessages();
-                    setLastOrder(null);
-                    setSearch("");
-                    setActiveCatId("all");
-                    setOpenMenuType(null);
-                  }}
-                >
-                  Porosi tjetër
-                </button>
-              </div>
-            </div>
+          {search && (
+            <button
+              type="button"
+              className="modern-clear-search"
+              onClick={() => setSearch("")}
+            >
+              ×
+            </button>
           )}
         </div>
-      )}
 
-      <main className="co-list">
-        {loading ? (
-          <div className="client-order-loading">{t("loadingMenu")}</div>
-        ) : activeCatId !== "all" ? (
-          <div className="co-section-title">{activeCatId}</div>
-        ) : null}
+        <div className="modern-language-switch">
+          {LANGS.map((language) => (
+            <button
+              key={language}
+              type="button"
+              className={lang === language ? "active" : ""}
+              onClick={() => setLang(language)}
+            >
+              {language.toUpperCase()}
+            </button>
+          ))}
+        </div>
+      </div>
+    </header>
 
-        {!loading && visibleByFilter.length === 0 ? (
-          <div className="co-empty">{t("noProductsForFilter")}</div>
-        ) : (
-          <div className="client-order-grid">
-            {visibleByFilter.map((p) => {
-              const qty = qtyInCart(p._id);
+    {/* ERROR / SUCCESS */}
+    {bannerError && (
+      <div className="modern-message-wrap">
+        <div className="modern-error-message">
+          <span>{bannerError}</span>
 
-              return (
-                <article key={p._id} className="client-order-card premium-card">
-                  <div className="client-order-info">
-                    <div className="co-item-topline">
-                      <span className="co-item-tag">
-                        {p.subCategoryName || p.subCategory || p.category || "Produkt"}
-                      </span>
+          <button
+            type="button"
+            onClick={() => setBannerError("")}
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    )}
+
+    {success && (
+      <div className="modern-message-wrap">
+        <div className="modern-success-message">
+          {success}
+        </div>
+      </div>
+    )}
+
+    {/* CATEGORIES */}
+    <nav className="modern-categories">
+      <button
+        type="button"
+        className={activeCatId === "all" ? "active" : ""}
+        onClick={() => handleCategoryPick("all")}
+      >
+        Të gjitha
+      </button>
+
+      {categoryKeys
+  .filter((category) => category.toLowerCase() !== "tjera")
+  .map((category) => (
+    <button
+      key={category}
+      type="button"
+      className={activeCatId === category ? "active" : ""}
+      onClick={() => handleCategoryPick(category)}
+    >
+      {category}
+    </button>
+  ))}
+    </nav>
+
+    {/* PRODUCTS */}
+    <main className="modern-products-area">
+      {loading ? (
+        <div className="modern-loading">
+          {t("loadingMenu")}
+        </div>
+      ) : visibleByFilter.length === 0 ? (
+        <div className="modern-empty">
+          {t("noProductsForFilter")}
+        </div>
+      ) : (
+        <div className="modern-products-grid">
+          {visibleByFilter.map((product) => {
+            const qty = qtyInCart(product._id);
+
+            const image =
+              product.thumbnail ||
+              product.thumbnailUrl ||
+              product.imageUrl ||
+              product.image ||
+              product.photoUrl ||
+              "";
+
+            const productName = pickName(product, lang) || "Produkt";
+
+            const productDescription = pickDesc(product, lang);
+
+            const categoryName =
+              pickSubCategoryName(product, lang) || "Produkt";
+
+            return (
+              <article
+                key={product._id}
+                className="modern-product-card"
+              >
+                <div className="modern-product-image-wrap">
+                  {image ? (
+                    <img
+                      src={image}
+                      alt={productName}
+                      className="modern-product-image"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="modern-product-placeholder">
+                      {productName.charAt(0).toUpperCase()}
                     </div>
+                  )}
 
-                    <h3 className="client-order-item-name">{p.name}</h3>
+                  <span className="modern-product-category">
+                    {categoryName}
+                  </span>
 
-                    {p.description ? (
-                      <p className="client-order-item-desc">{p.description}</p>
-                    ) : (
-                      <p className="client-order-item-desc muted">
-                        Produkt i disponueshëm për porosi online.
-                      </p>
-                    )}
-
-                    <div className="client-order-item-price">
-                      {Number(p.price || 0).toFixed(2)} ALL
-                    </div>
-                  </div>
-
-                  <div className="client-order-actions">
-                    {qty > 0 ? (
-                      <div className="co-qty">
-                        <button
-                          type="button"
-                          className="order-qty-btn"
-                          onClick={() => removeFromCart(p._id)}
-                          aria-label={t("decreaseQty")}
-                        >
-                          −
-                        </button>
-
-                        <span className="order-qty">{qty}</span>
-
-                        <button
-                          type="button"
-                          className="order-qty-btn"
-                          onClick={() => addToCart(p)}
-                          aria-label={t("increaseQty")}
-                        >
-                          +
-                        </button>
-                      </div>
-                    ) : (
+                  {qty > 0 ? (
+                    <div className="modern-product-qty">
                       <button
                         type="button"
-                        className="order-add-btn"
-                        onClick={() => addToCart(p)}
+                        onClick={() =>
+                          removeFromCart(product._id)
+                        }
                       >
-                        {t("add")}
+                        −
                       </button>
+
+                      <span>{qty}</span>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          addToCart(product)
+                        }
+                      >
+                        +
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      type="button"
+                      className="modern-add-btn"
+                      onClick={() =>
+                        addToCart(product)
+                      }
+                      aria-label={`Shto ${productName}`}
+                    >
+                      +
+                    </button>
+                  )}
+                </div>
+
+                <div className="modern-product-content">
+                  <h3>{productName}</h3>
+
+                  {productDescription ? (
+                    <p>{productDescription}</p>
+                  ) : (
+                    <p className="muted">
+                      Produkt i disponueshëm për porosi.
+                    </p>
+                  )}
+
+                  <div className="modern-product-footer">
+                    <strong>
+                      {Number(product.price || 0).toLocaleString(
+                        "sq-AL",
+                        {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 2,
+                        }
+                      )}{" "}
+                      ALL
+                    </strong>
+
+                    {product.weight && (
+                      <span>{product.weight}</span>
                     )}
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        )}
-      </main>
+                </div>
+              </article>
+            );
+          })}
+        </div>
+      )}
+    </main>
 
-      <div className="client-order-footer premium-footer">
-        <div className="client-order-summary">
-          <div className="co-sum-left">
-            <div className="co-sum-title">{locationLabel}</div>
-            <div className="co-sum-sub">
-              {totalItems} {t("items")} • {totalPrice.toFixed(2)} ALL
+    {/* STICKY CART */}
+    {cart.length > 0 && (
+      <div className="modern-cart-bar-wrap">
+        <div className="modern-cart-bar">
+          <div className="modern-cart-summary">
+            <div className="modern-receipt-icon">
+              🧾
+
+              <span>{totalItems}</span>
+            </div>
+
+            <div>
+              <small>Porosia juaj</small>
+
+              <strong>
+                {totalPrice.toLocaleString("sq-AL", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                ALL
+              </strong>
             </div>
           </div>
 
           <button
-            className="client-order-send-btn"
+            type="button"
+            className="modern-view-order-btn"
             onClick={() => {
               clearTopMessages();
               setShowConfirmModal(true);
             }}
-            disabled={sending || cart.length === 0}
+            disabled={sending}
           >
-            {sending ? t("sending") : t("send")}
+            {sending ? "Duke dërguar..." : "Shiko porosinë"}
+            <span>→</span>
           </button>
         </div>
       </div>
+    )}
 
-      {showConfirmModal && (
-        <div className="confirm-modal">
-          <div className="confirm-card">
-            <div className="confirm-head">
-              <div>
-                <div className="confirm-kicker">Konfirmim</div>
-                <h3>Porosia juaj</h3>
+    {/* CONFIRM MODAL */}
+    {showConfirmModal && (
+      <div
+        className="confirm-modal modern-confirm-modal"
+        onClick={() => setShowConfirmModal(false)}
+      >
+        <div
+          className="confirm-card modern-confirm-card"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="confirm-head">
+            <div>
+              <div className="confirm-kicker">
+                Konfirmim
               </div>
 
-              <button
-                type="button"
-                className="confirm-close"
-                onClick={() => setShowConfirmModal(false)}
+              <h3>Porosia juaj</h3>
+            </div>
+
+            <button
+              type="button"
+              className="confirm-close"
+              onClick={() =>
+                setShowConfirmModal(false)
+              }
+            >
+              ×
+            </button>
+          </div>
+
+          <div className="confirm-location">
+            {locationLabel}
+          </div>
+
+          <div className="confirm-items">
+            {cart.map((item) => (
+              <div
+                key={item._id}
+                className="confirm-line"
               >
-                ✕
-              </button>
-            </div>
+                <span>
+                  <b>{item.quantity}x</b>{" "}
+                  {item.name}
+                </span>
 
-            <div className="confirm-location">{locationLabel}</div>
+                <span>
+                  {(
+                    Number(item.quantity || 0) *
+                    Number(item.price || 0)
+                  ).toLocaleString("sq-AL", {
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 2,
+                  })}{" "}
+                  ALL
+                </span>
+              </div>
+            ))}
+          </div>
 
-            <div className="confirm-items">
-              {cart.map((item) => (
-                <div key={item._id} className="confirm-line">
-                  <span>
-                    <b>{item.quantity}x</b> {item.name}
-                  </span>
-                  <span>
-                    {(Number(item.quantity || 0) * Number(item.price || 0)).toFixed(2)} ALL
-                  </span>
-                </div>
-              ))}
-            </div>
-            <div className="confirm-note-box">
-  <label>Shënim opsional</label>
-  <textarea
-    value={orderNote}
-    onChange={(e) => setOrderNote(e.target.value)}
-    placeholder="P.sh. pa akull, pa qepë, silleni te dera..."
-  />
-</div>
+          <div className="confirm-note-box">
+            <label>Shënim opsional</label>
 
-            <div className="confirm-total">
-              <span>Total</span>
-              <b>{totalPrice.toFixed(2)} ALL</b>
-            </div>
+            <textarea
+              value={orderNote}
+              onChange={(e) =>
+                setOrderNote(e.target.value)
+              }
+              placeholder="P.sh. pa akull, pa qepë, silleni te dera..."
+            />
+          </div>
 
-            <div className="confirm-actions">
-              <button
-                type="button"
-                className="confirm-cancel"
-                onClick={() => setShowConfirmModal(false)}
-              >
-                Anulo
-              </button>
+          <div className="confirm-total">
+            <span>Total</span>
 
-              <button
-                type="button"
-                className="confirm-submit"
-                onClick={handleConfirmOrder}
-                disabled={sending}
-              >
-                {sending ? "Duke dërguar..." : "Konfirmo porosinë"}
-              </button>
-            </div>
+            <b>
+              {totalPrice.toLocaleString("sq-AL", {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              })}{" "}
+              ALL
+            </b>
+          </div>
+
+          <div className="confirm-actions">
+            <button
+              type="button"
+              className="confirm-cancel"
+              onClick={() =>
+                setShowConfirmModal(false)
+              }
+            >
+              Anulo
+            </button>
+
+            <button
+              type="button"
+              className="confirm-submit"
+              onClick={handleConfirmOrder}
+              disabled={sending}
+            >
+              {sending
+                ? "Duke dërguar..."
+                : "Konfirmo porosinë"}
+            </button>
           </div>
         </div>
-      )}
-    </div>
-  );
+      </div>
+    )}
+
+    {/* INVOICE AFTER ORDER */}
+    {lastOrder && (
+      <section
+        className="invoice-card modern-invoice"
+        id="invoice"
+      >
+        <div className="invoice-head">
+          <div>
+            <div className="invoice-title">
+              {t("invoice")}
+            </div>
+
+            <div className="invoice-sub">
+              {locationLabel}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            className="invoice-btn"
+            onClick={printInvoice}
+          >
+            Printo
+          </button>
+        </div>
+
+        <div className="invoice-lines">
+          {(lastOrder.items || []).map((item, index) => (
+            <div
+              key={index}
+              className="invoice-line"
+            >
+              <div className="invoice-left">
+                <b>{item.qty}x</b> {item.name}
+              </div>
+
+              <div className="invoice-right">
+                {(
+                  Number(item.price || 0) *
+                  Number(item.qty || 0)
+                ).toLocaleString("sq-AL", {
+                  minimumFractionDigits: 0,
+                  maximumFractionDigits: 2,
+                })}{" "}
+                ALL
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div className="invoice-total">
+          <span>{t("total")}</span>
+
+          <b>
+            {Number(lastOrder.total || 0).toLocaleString(
+              "sq-AL",
+              {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 2,
+              }
+            )}{" "}
+            ALL
+          </b>
+        </div>
+      </section>
+    )}
+  </div>
+);
 }

@@ -1,3 +1,4 @@
+import "../../qz-signing";
 // Shembull të dhënash xhiroje ditore (mund t'i ndryshosh sipas dëshirës)
 export const dailyRevenue = [
   { date: "2025-11-01", label: "01/11", revenue: 420 },

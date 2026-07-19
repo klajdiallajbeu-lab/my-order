@@ -8,23 +8,88 @@ import {
   changePassword,
   deleteUser,
   loginUser,
+
+  requestPasswordResetCode,
+  verifyPasswordResetCode,
+  resetForgottenPassword,
 } from "../controllers/userController.js";
+
+import { protectUser, requireRole } from "../middleware/protectUser.js";
+import { loginLimiter } from "../middleware/loginLimiter.js";
 
 const router = express.Router();
 
 /* =========================
-   USERS
+   PUBLIC
 ========================= */
+
+// Login
+router.post("/login", loginLimiter, loginUser);
+
+// Për momentin lihen publik që të mos prishet ManagerPage
 router.get("/", getUsers);
 router.get("/:id", getUserById);
 
-router.post("/", createUser);
-router.post("/login", loginUser);
+router.post(
+  "/forgot-password/request-code",
+  loginLimiter,
+  requestPasswordResetCode
+);
 
-router.put("/:id", updateUser);
-router.put("/:id/profile", updateProfile);
-router.put("/:id/change-password", changePassword);
+router.post(
+  "/forgot-password/verify-code",
+  loginLimiter,
+  verifyPasswordResetCode
+);
 
-router.delete("/:id", deleteUser);
+router.post(
+  "/forgot-password/reset",
+  loginLimiter,
+  resetForgottenPassword
+);
+
+/* =========================
+   PROTECTED (MANAGER / ADMIN)
+========================= */
+
+// Krijo user
+router.post(
+  "/",
+  protectUser,
+  requireRole("manager", "admin"),
+  createUser
+);
+
+// Përditëso user
+router.put(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  updateUser
+);
+
+// Përditëso profil
+router.put(
+  "/:id/profile",
+  protectUser,
+  requireRole("manager", "admin"),
+  updateProfile
+);
+
+// Ndrysho password
+router.put(
+  "/:id/change-password",
+  protectUser,
+  requireRole("manager", "admin"),
+  changePassword
+);
+
+// Fshi user
+router.delete(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  deleteUser
+);
 
 export default router;

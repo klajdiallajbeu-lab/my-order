@@ -1,7 +1,8 @@
+import "../../qz-signing";
 // src/pages/manager/ProductsPage.jsx
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { FiEdit2, FiTrash2 } from "react-icons/fi";
+import { FiTrash2, FiChevronRight, FiX, FiEdit2, FiPlus } from "react-icons/fi";
 import "./ProductsPage.css";
 
 import {
@@ -10,26 +11,15 @@ import {
   updateProduct,
   deleteProduct,
 } from "../../api/productApi.js";
-import { getSubCategories } from "../../api/subCategoryApi.js";
+import {
+  getSubCategories,
+  createSubCategory,
+  updateSubCategory,
+  deleteSubCategory,
+} from "../../api/subCategoryApi.js";
 import { api } from "../../api/http.js";
 
-const safeDecode = (v) => {
-  try {
-    return decodeURIComponent(v || "");
-  } catch {
-    return v || "";
-  }
-};
-
 const pickSubCatName = (sc) => String(sc?.nameSq ?? sc?.name ?? "").trim();
-
-const pickProductSubCatName = (p) =>
-  String(
-    p?.subCategoryId?.nameSq ??
-      p?.subCategoryId?.name ??
-      p?.subCategory ??
-      ""
-  ).trim();
 
 const getImageUrl = (img) => {
   if (!img) return "";
@@ -37,104 +27,85 @@ const getImageUrl = (img) => {
   return img;
 };
 
+const emptyForm = {
+  nameSq: "",
+  nameEn: "",
+  nameIt: "",
+  descSq: "",
+  descEn: "",
+  descIt: "",
+  price: "",
+  destination: "kuzhine",
+};
+
+const emptyCatForm = {
+  nameSq: "",
+  nameEn: "",
+  nameIt: "",
+  destination: "kuzhine",
+};
+
 export default function ProductsPage() {
-  const [params] = useSearchParams();
+  const [params, setParams] = useSearchParams();
+  const navigate = useNavigate();
 
-  const categoryTypeRaw = params.get("type") || "";
-  const subCategoryId = (params.get("subCategoryId") || "").trim();
-
-  const categoryType = useMemo(
-    () => safeDecode(categoryTypeRaw).trim().toLowerCase(),
-    [categoryTypeRaw]
-  );
+  const categoryType = (params.get("type") || "ushqime").toLowerCase();
+  const tabLabel = categoryType === "pije" ? "Bar" : "Restorant";
 
   const businessId = useMemo(
     () => (localStorage.getItem("businessId") || "").trim(),
     []
   );
 
-  const [products, setProducts] = useState([]);
-  const [loading, setLoading] = useState(false);
-
   const [subCats, setSubCats] = useState([]);
   const [subCatsLoading, setSubCatsLoading] = useState(false);
+  const [activeChip, setActiveChip] = useState("all");
 
-  const [showAdd, setShowAdd] = useState(false);
-  const [addPrice, setAddPrice] = useState("");
-  const [addNameSq, setAddNameSq] = useState("");
-  const [addNameEn, setAddNameEn] = useState("");
-  const [addNameIt, setAddNameIt] = useState("");
-  const [addDescSq, setAddDescSq] = useState("");
-  const [addDescEn, setAddDescEn] = useState("");
-  const [addDescIt, setAddDescIt] = useState("");
-  const [addDepartment, setAddDepartment] = useState("kuzhine");
-  const [addImage, setAddImage] = useState(null);
-  const [addImagePreview, setAddImagePreview] = useState("");
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [search, setSearch] = useState("");
 
-  const [editId, setEditId] = useState(null);
-  const [showEdit, setShowEdit] = useState(false);
-  const [editPrice, setEditPrice] = useState("");
-  const [editNameSq, setEditNameSq] = useState("");
-  const [editNameEn, setEditNameEn] = useState("");
-  const [editNameIt, setEditNameIt] = useState("");
-  const [editDescSq, setEditDescSq] = useState("");
-  const [editDescEn, setEditDescEn] = useState("");
-  const [editDescIt, setEditDescIt] = useState("");
-  const [editDepartment, setEditDepartment] = useState("kuzhine");
-  const [editImage, setEditImage] = useState(null);
-  const [editImagePreview, setEditImagePreview] = useState("");
+  const [selectedId, setSelectedId] = useState(null);
+  const [mode, setMode] = useState(null); // "edit" | "add" | null
 
-  const currentSubCategoryObj = useMemo(() => {
-    return subCats.find((sc) => String(sc?._id) === String(subCategoryId)) || null;
-  }, [subCats, subCategoryId]);
+  const [form, setForm] = useState(emptyForm);
+  const [image, setImage] = useState(null);
+  const [imagePreview, setImagePreview] = useState("");
+  const [existingThumbnail, setExistingThumbnail] = useState("");
 
-  const currentSubCategoryId = currentSubCategoryObj?._id || "";
-  const currentSubCategoryName =
-    pickSubCatName(currentSubCategoryObj) || "Nën-kategori";
+  const [showManageCats, setShowManageCats] = useState(false);
+  const [showAddCat, setShowAddCat] = useState(false);
+  const [catForm, setCatForm] = useState(emptyCatForm);
+  const [editCatId, setEditCatId] = useState(null);
 
-  const isNumberOnly =
-    !!categoryType &&
-    !!currentSubCategoryName &&
-    (categoryType === "cadra" || categoryType === "dhoma") &&
-    currentSubCategoryName.toLowerCase() === "numrat";
+  const activeSubCat = useMemo(
+    () => subCats.find((sc) => String(sc._id) === String(activeChip)) || null,
+    [subCats, activeChip]
+  );
 
-  const hasValidParams = !!categoryType && !!subCategoryId;
+  const setField = (key, value) => setForm((prev) => ({ ...prev, [key]: value }));
 
-  const resetAddForm = () => {
-    setAddPrice("");
-    setAddNameSq("");
-    setAddNameEn("");
-    setAddNameIt("");
-    setAddDescSq("");
-    setAddDescEn("");
-    setAddDescIt("");
-    setAddDepartment("kuzhine");
-    setAddImage(null);
-    setAddImagePreview("");
-  };
-
-  const closeAdd = () => setShowAdd(false);
-
-  const closeEdit = () => {
-    setShowEdit(false);
-    setEditId(null);
-    setEditImage(null);
-    setEditImagePreview("");
+  const clearForm = () => {
+    setForm(emptyForm);
+    setImage(null);
+    setImagePreview("");
+    setExistingThumbnail("");
   };
 
   const uploadImage = async (file) => {
-    if (!file) return "";
+    if (!file) return { imageUrl: "", thumbnailUrl: "" };
 
     const formData = new FormData();
     formData.append("image", file);
 
     const res = await api.post("/products/upload-image", formData, {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
+      headers: { "Content-Type": "multipart/form-data" },
     });
 
-    return res?.data?.imageUrl || "";
+    return {
+      imageUrl: res?.data?.imageUrl || "",
+      thumbnailUrl: res?.data?.thumbnailUrl || "",
+    };
   };
 
   const reloadSubCats = useCallback(async () => {
@@ -156,548 +127,549 @@ export default function ProductsPage() {
     }
   }, [businessId, categoryType]);
 
-  useEffect(() => {
-    if (!hasValidParams) return;
+useEffect(() => {
     reloadSubCats();
-  }, [reloadSubCats, hasValidParams]);
-
-  const reloadProducts = useCallback(async () => {
-    if (!businessId || !categoryType || !subCategoryId) {
-      setProducts([]);
-      return;
-    }
-
-    try {
-      setLoading(true);
-
-      const data = await getProducts({
-        businessId,
-        categoryType,
-        ...(currentSubCategoryId ? { subCategoryId: currentSubCategoryId } : {}),
-      });
-
-      const list = Array.isArray(data) ? data : [];
-      const filtered = list.filter((p) => {
-        const pid = String(p?.subCategoryId?._id || p?.subCategoryId || "");
-
-        if (pid && pid === String(currentSubCategoryId)) return true;
-
-        const name = pickProductSubCatName(p).toLowerCase();
-        const currentName = currentSubCategoryName.toLowerCase();
-
-        return name === currentName;
-      });
-
-      setProducts(filtered);
-    } catch (err) {
-      console.error("❌ getProducts error:", err?.response?.data || err);
-      setProducts([]);
-      alert(
-        err?.response?.data?.message ||
-          "Nuk po arrij të marr produktet nga serveri."
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [
-    businessId,
-    categoryType,
-    subCategoryId,
-    currentSubCategoryId,
-    currentSubCategoryName,
-  ]);
+  }, [reloadSubCats]);
 
   useEffect(() => {
-    if (!hasValidParams) return;
-    reloadProducts();
-  }, [reloadProducts, hasValidParams]);
-
-  const handleAdd = async () => {
-    if (isNumberOnly) {
-      if (!addNameSq.trim()) return alert("Shkruaj numrin!");
-    } else {
-      if (!addNameSq.trim()) return alert("Emri (Shqip) është i detyrueshëm!");
-      const p = Number(addPrice);
-      if (!p || p <= 0) return alert("Vendos çmim të vlefshëm!");
+    if (activeChip === "all" && subCats.length > 0) {
+      setActiveChip(subCats[0]._id);
     }
-
-    try {
-      let imageUrl = "";
-
-      if (addImage) {
-        imageUrl = await uploadImage(addImage);
-      }
-
-      await createProduct({
-        businessId,
-        data: {
-          categoryType,
-          subCategory: currentSubCategoryName,
-          subCategoryId: currentSubCategoryId || undefined,
-
-          nameSq: addNameSq.trim(),
-          nameEn: addNameEn.trim(),
-          nameIt: addNameIt.trim(),
-
-          descSq: addDescSq.trim(),
-          descEn: addDescEn.trim(),
-          descIt: addDescIt.trim(),
-
-          name: addNameSq.trim(),
-          price: isNumberOnly ? null : Number(addPrice),
-          destination: addDepartment,
-
-          image: imageUrl,
-        },
-      });
-
-      closeAdd();
-      resetAddForm();
-      await reloadProducts();
-    } catch (err) {
-      console.error("❌ createProduct:", err?.response?.data || err);
-      alert(err?.response?.data?.message || "Gabim gjatë shtimit të produktit.");
-    }
-  };
+  }, [subCats, activeChip]);
 
   const openEdit = (p) => {
-    setEditId(p._id);
+    setSelectedId(p._id);
+    setMode("edit");
 
-    setEditNameSq((p.nameSq ?? p.name ?? "").toString());
-    setEditNameEn((p.nameEn ?? "").toString());
-    setEditNameIt((p.nameIt ?? "").toString());
+    setForm({
+      nameSq: (p.nameSq ?? p.name ?? "").toString(),
+      nameEn: (p.nameEn ?? "").toString(),
+      nameIt: (p.nameIt ?? "").toString(),
+      descSq: (p.descSq ?? "").toString(),
+      descEn: (p.descEn ?? "").toString(),
+      descIt: (p.descIt ?? "").toString(),
+      price: p.price ?? "",
+      destination: p.destination || "kuzhine",
+    });
 
-    setEditDescSq((p.descSq ?? "").toString());
-    setEditDescEn((p.descEn ?? "").toString());
-    setEditDescIt((p.descIt ?? "").toString());
-
-    setEditPrice(p.price ?? "");
-    setEditDepartment(p.destination || "kuzhine");
-
-    setEditImage(null);
-    setEditImagePreview(getImageUrl(p.image || p.imageUrl || ""));
-
-    setShowEdit(true);
+    setImage(null);
+    setImagePreview(getImageUrl(p.image || p.imageUrl || ""));
+    setExistingThumbnail(p.thumbnail || "");
   };
 
-  const handleSaveEdit = async () => {
-    if (!editId) return;
-
-    if (isNumberOnly) {
-      if (!editNameSq.trim()) return alert("Numri nuk mund të jetë bosh.");
-    } else {
-      if (!editNameSq.trim()) return alert("Emri (Shqip) është i detyrueshëm!");
-      const p = Number(editPrice);
-      if (!p || p <= 0) return alert("Vendos çmim të vlefshëm!");
-    }
-
-    try {
-      let imageUrl = editImagePreview;
-
-      if (editImage) {
-        imageUrl = await uploadImage(editImage);
+  const reloadProducts = useCallback(
+    async (keepSelection = true) => {
+      if (!businessId || !categoryType) {
+        setProducts([]);
+        return;
       }
 
-      await updateProduct({
-        id: editId,
-        businessId,
-        data: {
-          subCategory: currentSubCategoryName,
-          subCategoryId: currentSubCategoryId || undefined,
+      try {
+        setLoading(true);
 
-          nameSq: editNameSq.trim(),
-          nameEn: editNameEn.trim(),
-          nameIt: editNameIt.trim(),
+        const data = await getProducts({ businessId, categoryType });
+        const list = Array.isArray(data) ? data : [];
 
-          descSq: editDescSq.trim(),
-          descEn: editDescEn.trim(),
-          descIt: editDescIt.trim(),
+        setProducts(list);
 
-          name: editNameSq.trim(),
-          price: isNumberOnly ? null : Number(editPrice),
-          destination: editDepartment,
+        if (!keepSelection) {
+          setSelectedId(null);
+          setMode(null);
+        }
+      } catch (err) {
+        console.error("❌ getProducts error:", err?.response?.data || err);
+        setProducts([]);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [businessId, categoryType]
+  );
 
-          image: imageUrl,
-        },
-      });
+  useEffect(() => {
+    reloadProducts(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [businessId, categoryType]);
 
-      closeEdit();
-      await reloadProducts();
+  const openAdd = () => {
+    setSelectedId(null);
+    setMode("add");
+    clearForm();
+  };
+
+  const closePanel = () => {
+    setSelectedId(null);
+    setMode(null);
+    clearForm();
+  };
+
+  const handleSave = async () => {
+    if (!form.nameSq.trim()) return;
+    const p = Number(form.price);
+    if (!p || p <= 0) return;
+
+    try {
+      let imageUrl = imagePreview;
+      let thumbnailUrl = existingThumbnail;
+
+      if (image) {
+        const uploaded = await uploadImage(image);
+        imageUrl = uploaded.imageUrl;
+        thumbnailUrl = uploaded.thumbnailUrl;
+      }
+
+      const subCatName =
+        activeChip !== "all" ? pickSubCatName(activeSubCat) : "";
+
+      const payload = {
+        categoryType,
+        subCategory: subCatName,
+        subCategoryId: activeChip !== "all" ? activeChip : undefined,
+
+        nameSq: form.nameSq.trim(),
+        nameEn: form.nameEn.trim(),
+        nameIt: form.nameIt.trim(),
+
+        descSq: form.descSq.trim(),
+        descEn: form.descEn.trim(),
+        descIt: form.descIt.trim(),
+
+        name: form.nameSq.trim(),
+        price: Number(form.price),
+        destination: form.destination,
+
+        image: imageUrl,
+        thumbnail: thumbnailUrl,
+      };
+
+      if (mode === "add") {
+        await createProduct({ businessId, data: payload });
+      } else if (mode === "edit" && selectedId) {
+        await updateProduct({ id: selectedId, businessId, data: payload });
+      }
+
+      await reloadProducts(mode === "edit");
+      if (mode === "add") closePanel();
     } catch (err) {
-      console.error("❌ updateProduct:", err?.response?.data || err);
-      alert(
-        err?.response?.data?.message ||
-          "Gabim gjatë përditësimit të produktit."
-      );
+      console.error("❌ save product:", err?.response?.data || err);
     }
   };
 
-  const removeProduct = async (productId) => {
+  const removeProduct = async () => {
+    if (!selectedId) return;
     const ok = window.confirm("Je i sigurt që do ta fshish këtë produkt?");
     if (!ok) return;
 
     try {
-      await deleteProduct({ id: productId, businessId });
-      await reloadProducts();
+      await deleteProduct({ id: selectedId, businessId });
+      closePanel();
+      await reloadProducts(false);
     } catch (err) {
       console.error("❌ deleteProduct:", err?.response?.data || err);
-      alert(err?.response?.data?.message || "Gabim gjatë fshirjes së produktit.");
     }
   };
 
+  const filteredProducts = useMemo(() => {
+    let list = products;
+
+    if (activeChip !== "all") {
+      const name = pickSubCatName(activeSubCat).toLowerCase();
+      list = list.filter((p) => {
+        const pid = String(p?.subCategoryId?._id || p?.subCategoryId || "");
+        if (pid && pid === String(activeChip)) return true;
+        const pname = String(
+          p?.subCategoryId?.nameSq ?? p?.subCategory ?? ""
+        ).toLowerCase();
+        return pname === name;
+      });
+    }
+
+    const q = search.trim().toLowerCase();
+    if (q) {
+      list = list.filter((p) =>
+        (p.nameSq || p.name || "").toLowerCase().includes(q)
+      );
+    }
+
+    return list;
+  }, [products, activeChip, activeSubCat, search]);
+
   const renderCardTitle = (p) => (p.nameSq ?? p.name ?? "").trim() || "Pa emër";
 
-  if (!hasValidParams) {
-    return (
-      <div style={{ padding: 40, textAlign: "center", fontSize: 18 }}>
-        <b>Gabim:</b> Nuk u gjet nën-kategoria.
-      </div>
-    );
-  }
+  // ============ MANAGE CATEGORIES ============
+  const openAddCat = () => {
+    setEditCatId(null);
+    setCatForm(emptyCatForm);
+    setShowAddCat(true);
+  };
+
+  const openEditCat = (sc) => {
+    setEditCatId(sc._id);
+    setCatForm({
+      nameSq: (sc.nameSq ?? sc.name ?? "").toString(),
+      nameEn: (sc.nameEn ?? "").toString(),
+      nameIt: (sc.nameIt ?? "").toString(),
+      destination: sc.destination === "banak" ? "banak" : "kuzhine",
+    });
+    setShowAddCat(true);
+  };
+
+  const saveCat = async () => {
+    const sq = catForm.nameSq.trim();
+    if (!sq) return;
+
+    try {
+      if (editCatId) {
+        await updateSubCategory({
+          id: editCatId,
+          businessId,
+          data: {
+            nameSq: sq,
+            nameEn: catForm.nameEn.trim(),
+            nameIt: catForm.nameIt.trim(),
+            name: sq,
+            destination: catForm.destination,
+          },
+        });
+      } else {
+        await createSubCategory({
+          businessId,
+          categoryType,
+          nameSq: sq,
+          nameEn: catForm.nameEn.trim(),
+          nameIt: catForm.nameIt.trim(),
+          destination: catForm.destination,
+        });
+      }
+
+      setShowAddCat(false);
+      setEditCatId(null);
+      setCatForm(emptyCatForm);
+      await reloadSubCats();
+    } catch (err) {
+      console.error("❌ save subcategory:", err?.response?.data || err);
+    }
+  };
+
+  const removeCat = async (sc) => {
+    const title = pickSubCatName(sc);
+    const ok = window.confirm(`Fshi kategorinë "${title}"?`);
+    if (!ok) return;
+
+    try {
+      await deleteSubCategory({ id: sc._id, businessId });
+      if (String(activeChip) === String(sc._id)) setActiveChip("all");
+      await reloadSubCats();
+    } catch (err) {
+      console.error("❌ deleteSubCategory:", err?.response?.data || err);
+    }
+  };
 
   return (
     <div className="prod-page">
       <div className="prod-top">
-        <div className="prod-top-left" />
+        <h1 className="prod-title">Produktet</h1>
+      </div>
 
-        <div className="prod-title-wrap">
-          <h1 className="prod-title">{currentSubCategoryName.toUpperCase()}</h1>
+      <div className="prod-chips-row">
+        <div className="prod-chips">
+
+          {subCats.map((sc) => (
+            <button
+              key={sc._id}
+              type="button"
+              className={String(activeChip) === String(sc._id) ? "chip active" : "chip"}
+              onClick={() => setActiveChip(sc._id)}
+            >
+              {pickSubCatName(sc)}
+            </button>
+          ))}
+
+          <button
+            type="button"
+            className="chip chip-add"
+            onClick={() => setShowManageCats(true)}
+          >
+            <FiPlus /> Kategoritë
+          </button>
+        </div>
+      </div>
+
+      <div className="prod-split">
+        <div className="prod-list-panel">
+          <div className="prod-list-head">
+            <h2>Produktet e {tabLabel.toLowerCase()}it</h2>
+            <p>Totali: {filteredProducts.length} produkte</p>
+          </div>
+
+          <div className="prod-list-toolbar">
+            <input
+              className="prod-search"
+              placeholder="Kërko produktin..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            <button className="prod-add-btn" onClick={openAdd} disabled={subCatsLoading}>
+              + Shto produkt
+            </button>
+          </div>
+
+          <div className="prod-list">
+            {loading ? (
+              <div className="prod-empty">Duke ngarkuar...</div>
+            ) : filteredProducts.length === 0 ? (
+              <div className="prod-empty">Nuk ka produkte.</div>
+            ) : (
+              filteredProducts.map((p) => (
+                <button
+                  key={p._id}
+                  className={`prod-list-item ${selectedId === p._id ? "active" : ""}`}
+                  onClick={() => openEdit(p)}
+                  type="button"
+                >
+                  <div className="prod-list-item-text">
+                    <span className="name">{renderCardTitle(p)}</span>
+                    <span className="price">
+                      {(Number(p.price) || 0).toFixed(2)} ALL
+                    </span>
+                  </div>
+                  <FiChevronRight className="chev" />
+                </button>
+              ))
+            )}
+          </div>
         </div>
 
-        <button
-          className="prod-add-open"
-          onClick={() => setShowAdd(true)}
-          disabled={subCatsLoading}
-        >
-          + Shto
-        </button>
-      </div>
+        <div className="prod-detail-panel">
+          {!mode ? (
+            <div className="prod-detail-empty">
+              Zgjidh një produkt nga lista, ose shto një të ri.
+            </div>
+          ) : (
+            <>
+              <div className="prod-detail-head">
+                <h2>{mode === "add" ? "Shto Produktin" : "Ndrysho Produktin"}</h2>
 
-      <div className="prod-content">
-        {loading ? (
-          <div className="prod-empty">Duke ngarkuar...</div>
-        ) : products.length === 0 ? (
-          <div className="prod-empty">Nuk ka produkte. Shto të parin.</div>
-        ) : (
-          <div className="prod-grid">
-            {products.map((p) => {
-              const title = renderCardTitle(p);
-              const img = getImageUrl(p.image || p.imageUrl || "");
+                <div className="prod-detail-head-actions">
+                  {mode === "edit" && (
+                    <button className="prod-delete-btn" onClick={removeProduct} type="button">
+                      <FiTrash2 /> Fshi produktin
+                    </button>
+                  )}
 
-              return (
-                <div className="prod-card" key={p._id}>
+                  <button className="prod-close-btn" onClick={closePanel} type="button">
+                    <FiX />
+                  </button>
+                </div>
+              </div>
 
-                  <div className="prod-card-row">
-                    <div className="prod-card-left">
-                      <div className="prod-card-name" title={title}>
-                        {title}
-                      </div>
+              <div className="prod-detail-form">
+                <div className="field">
+                  <label>Emri (Shqip)</label>
+                  <input
+                    value={form.nameSq}
+                    onChange={(e) => setField("nameSq", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Emri (English)</label>
+                  <input
+                    value={form.nameEn}
+                    onChange={(e) => setField("nameEn", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Emri (Italiano)</label>
+                  <input
+                    value={form.nameIt}
+                    onChange={(e) => setField("nameIt", e.target.value)}
+                  />
+                </div>
 
-                      {!isNumberOnly && (
-                        <div className="prod-card-price">
-                          {(Number(p.price) || 0).toFixed(2)} ALL
-                        </div>
-                      )}
+                <div className="field">
+                  <label>Përshkrimi (Shqip)</label>
+                  <input
+                    value={form.descSq}
+                    onChange={(e) => setField("descSq", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Description (English)</label>
+                  <input
+                    value={form.descEn}
+                    onChange={(e) => setField("descEn", e.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label>Descrizione (Italiano)</label>
+                  <input
+                    value={form.descIt}
+                    onChange={(e) => setField("descIt", e.target.value)}
+                  />
+                </div>
 
-                      {!isNumberOnly && (p.descSq || p.descEn || p.descIt) ? (
-                        <div className="prod-card-desc">
-                          {(p.descSq || p.descEn || p.descIt || "")
-                            .toString()
-                            .slice(0, 72)}
-                          {(p.descSq || p.descEn || p.descIt || "").toString()
-                            .length > 72
-                            ? "..."
-                            : ""}
-                        </div>
-                      ) : null}
-                    </div>
+                <div className="field span-price">
+                  <label>Çmimi (ALL)</label>
+                  <input
+                    type="number"
+                    value={form.price}
+                    onChange={(e) => setField("price", e.target.value)}
+                  />
+                </div>
 
-                    <div className="prod-card-actions">
-                      <button
-                        className="prod-icon edit"
-                        onClick={() => openEdit(p)}
-                        title="Ndrysho"
-                        type="button"
-                      >
-                        <FiEdit2 className="i" />
-                      </button>
-
-                      <button
-                        className="prod-icon del"
-                        onClick={() => removeProduct(p._id)}
-                        title="Fshi"
-                        type="button"
-                      >
-                        <FiTrash2 className="i" />
-                      </button>
-                    </div>
+                <div className="field span-dest">
+                  <label>Destinacioni</label>
+                  <div className="dest-toggle">
+                    <button
+                      type="button"
+                      className={form.destination === "kuzhine" ? "active" : ""}
+                      onClick={() => setField("destination", "kuzhine")}
+                    >
+                      Kuzhinë
+                    </button>
+                    <button
+                      type="button"
+                      className={form.destination === "banak" ? "active" : ""}
+                      onClick={() => setField("destination", "banak")}
+                    >
+                      Banak
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        )}
+              </div>
+
+              {imagePreview && (
+                <img src={imagePreview} alt="preview" className="prod-detail-image" />
+              )}
+
+              <label className="prod-image-label">
+                {imagePreview ? "Ndrysho foto produkti" : "Zgjidh foto produkti"}
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    setImage(file);
+                    setImagePreview(URL.createObjectURL(file));
+                  }}
+                />
+              </label>
+
+              <div className="prod-detail-actions">
+                <button className="btn ghost" onClick={closePanel} type="button">
+                  Anulo
+                </button>
+                <button className="btn primary" onClick={handleSave} type="button">
+                  Ruaj ndryshimet
+                </button>
+              </div>
+            </>
+          )}
+        </div>
       </div>
 
-      {showAdd && (
-        <div className="prod-modal-overlay" onClick={closeAdd}>
-          <div className="prod-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="prod-modal-head">
-              <h2>Shto {isNumberOnly ? "Numër" : "Produkt"}</h2>
-              <button className="prod-modal-x" onClick={closeAdd} type="button">
-                ✕
+      {/* ============ MANAGE CATEGORIES MODAL ============ */}
+      {showManageCats && (
+        <div className="cat-modal-overlay" onClick={() => setShowManageCats(false)}>
+          <div className="cat-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="cat-modal-head">
+              <h2>Kategoritë e {tabLabel.toLowerCase()}it</h2>
+              <button className="prod-close-btn" onClick={() => setShowManageCats(false)}>
+                <FiX />
               </button>
             </div>
 
-            {isNumberOnly ? (
-              <div className="prod-form-grid onecol">
-                <input
-                  id="add-number"
-                  name="number"
-                  autoComplete="off"
-                  placeholder="Numri (p.sh. 1, 2, 3...)"
-                  value={addNameSq}
-                  onChange={(e) => setAddNameSq(e.target.value)}
-                />
-              </div>
-            ) : (
-              <>
-                <div className="prod-form-grid modal-3rows">
-                  <input
-                    id="add-name-sq"
-                    name="nameSq"
-                    autoComplete="off"
-                    className="f-name-sq"
-                    placeholder="Emri (Shqip)"
-                    value={addNameSq}
-                    onChange={(e) => setAddNameSq(e.target.value)}
-                  />
-                  <input
-                    id="add-name-en"
-                    name="nameEn"
-                    autoComplete="off"
-                    className="f-name-en"
-                    placeholder="Name (English)"
-                    value={addNameEn}
-                    onChange={(e) => setAddNameEn(e.target.value)}
-                  />
-                  <input
-                    id="add-name-it"
-                    name="nameIt"
-                    autoComplete="off"
-                    className="f-name-it"
-                    placeholder="Nome (Italiano)"
-                    value={addNameIt}
-                    onChange={(e) => setAddNameIt(e.target.value)}
-                  />
+            <button className="prod-add-btn cat-add-full" onClick={openAddCat} type="button">
+              + Shto kategori
+            </button>
 
-                  <input
-                    id="add-desc-sq"
-                    name="descSq"
-                    autoComplete="off"
-                    className="f-desc-sq"
-                    placeholder="Përshkrimi (Shqip)"
-                    value={addDescSq}
-                    onChange={(e) => setAddDescSq(e.target.value)}
-                  />
-                  <input
-                    id="add-desc-en"
-                    name="descEn"
-                    autoComplete="off"
-                    className="f-desc-en"
-                    placeholder="Description (English)"
-                    value={addDescEn}
-                    onChange={(e) => setAddDescEn(e.target.value)}
-                  />
-                  <input
-                    id="add-desc-it"
-                    name="descIt"
-                    autoComplete="off"
-                    className="f-desc-it"
-                    placeholder="Descrizione (Italiano)"
-                    value={addDescIt}
-                    onChange={(e) => setAddDescIt(e.target.value)}
-                  />
+            <div className="cat-list">
+              {subCats.length === 0 ? (
+                <div className="prod-empty">Nuk ka kategori ende.</div>
+              ) : (
+                subCats.map((sc) => (
+                  <div className="cat-row" key={sc._id}>
+                    <span className="cat-row-name">{pickSubCatName(sc)}</span>
+                    <span className={`cat-row-dest ${sc.destination === "banak" ? "banak" : "kuzhine"}`}>
+                      {sc.destination === "banak" ? "Banak" : "Kuzhinë"}
+                    </span>
 
-                  <input
-                    id="add-price"
-                    name="price"
-                    autoComplete="off"
-                    className="f-price"
-                    placeholder="Çmimi (ALL)"
-                    type="number"
-                    value={addPrice}
-                    onChange={(e) => setAddPrice(e.target.value)}
-                  />
-                </div>
-
-                <div className="prod-image-upload">
-                  {addImagePreview ? (
-                    <img
-                      src={addImagePreview}
-                      alt="preview"
-                      className="prod-image-preview"
-                    />
-                  ) : null}
-
-                  <label className="prod-image-label">
-                    Zgjidh foto produkti
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-
-                        setAddImage(file);
-                        setAddImagePreview(URL.createObjectURL(file));
-                      }}
-                    />
-                  </label>
-                </div>
-              </>
-            )}
-
-            <div className="prod-modal-actions">
-              <button className="btn ghost" onClick={closeAdd} type="button">
-                Mbyll
-              </button>
-              <button className="btn primary" onClick={handleAdd} type="button">
-                Ruaj
-              </button>
+                    <div className="cat-row-actions">
+                      <button onClick={() => openEditCat(sc)} type="button">
+                        <FiEdit2 />
+                      </button>
+                      <button onClick={() => removeCat(sc)} type="button" className="del">
+                        <FiTrash2 />
+                      </button>
+                    </div>
+                  </div>
+                ))
+              )}
             </div>
           </div>
         </div>
       )}
 
-      {showEdit && (
-        <div className="prod-modal-overlay" onClick={closeEdit}>
-          <div className="prod-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="prod-modal-head">
-              <h2>Ndrysho {isNumberOnly ? "Numrin" : "Produktin"}</h2>
-              <button className="prod-modal-x" onClick={closeEdit} type="button">
-                ✕
+      {/* ============ ADD/EDIT CATEGORY MODAL ============ */}
+      {showAddCat && (
+        <div className="cat-modal-overlay" onClick={() => setShowAddCat(false)}>
+          <div className="cat-modal small" onClick={(e) => e.stopPropagation()}>
+            <div className="cat-modal-head">
+              <h2>{editCatId ? "Ndrysho kategorinë" : "Shto kategori"}</h2>
+              <button className="prod-close-btn" onClick={() => setShowAddCat(false)}>
+                <FiX />
               </button>
             </div>
 
-            {isNumberOnly ? (
-              <div className="prod-form-grid onecol">
-                <input
-                  id="edit-number"
-                  name="number"
-                  autoComplete="off"
-                  placeholder="Numri"
-                  value={editNameSq}
-                  onChange={(e) => setEditNameSq(e.target.value)}
-                />
+            <div className="field">
+              <label>Emri (Shqip)</label>
+              <input
+                value={catForm.nameSq}
+                onChange={(e) => setCatForm((p) => ({ ...p, nameSq: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label>Name (English)</label>
+              <input
+                value={catForm.nameEn}
+                onChange={(e) => setCatForm((p) => ({ ...p, nameEn: e.target.value }))}
+              />
+            </div>
+            <div className="field">
+              <label>Nome (Italiano)</label>
+              <input
+                value={catForm.nameIt}
+                onChange={(e) => setCatForm((p) => ({ ...p, nameIt: e.target.value }))}
+              />
+            </div>
+
+            <div className="field">
+              <label>Destinacioni</label>
+              <div className="dest-toggle">
+                <button
+                  type="button"
+                  className={catForm.destination === "kuzhine" ? "active" : ""}
+                  onClick={() => setCatForm((p) => ({ ...p, destination: "kuzhine" }))}
+                >
+                  Kuzhinë
+                </button>
+                <button
+                  type="button"
+                  className={catForm.destination === "banak" ? "active" : ""}
+                  onClick={() => setCatForm((p) => ({ ...p, destination: "banak" }))}
+                >
+                  Banak
+                </button>
               </div>
-            ) : (
-              <>
-                <div className="prod-form-grid modal-3rows">
-                  <input
-                    id="edit-name-sq"
-                    name="nameSq"
-                    autoComplete="off"
-                    className="f-name-sq"
-                    placeholder="Emri (Shqip)"
-                    value={editNameSq}
-                    onChange={(e) => setEditNameSq(e.target.value)}
-                  />
-                  <input
-                    id="edit-name-en"
-                    name="nameEn"
-                    autoComplete="off"
-                    className="f-name-en"
-                    placeholder="Name (English)"
-                    value={editNameEn}
-                    onChange={(e) => setEditNameEn(e.target.value)}
-                  />
-                  <input
-                    id="edit-name-it"
-                    name="nameIt"
-                    autoComplete="off"
-                    className="f-name-it"
-                    placeholder="Nome (Italiano)"
-                    value={editNameIt}
-                    onChange={(e) => setEditNameIt(e.target.value)}
-                  />
+            </div>
 
-                  <input
-                    id="edit-desc-sq"
-                    name="descSq"
-                    autoComplete="off"
-                    className="f-desc-sq"
-                    placeholder="Përshkrimi (Shqip)"
-                    value={editDescSq}
-                    onChange={(e) => setEditDescSq(e.target.value)}
-                  />
-                  <input
-                    id="edit-desc-en"
-                    name="descEn"
-                    autoComplete="off"
-                    className="f-desc-en"
-                    placeholder="Description (English)"
-                    value={editDescEn}
-                    onChange={(e) => setEditDescEn(e.target.value)}
-                  />
-                  <input
-                    id="edit-desc-it"
-                    name="descIt"
-                    autoComplete="off"
-                    className="f-desc-it"
-                    placeholder="Descrizione (Italiano)"
-                    value={editDescIt}
-                    onChange={(e) => setEditDescIt(e.target.value)}
-                  />
-
-                  <input
-                    id="edit-price"
-                    name="price"
-                    autoComplete="off"
-                    className="f-price"
-                    placeholder="Çmimi (ALL)"
-                    type="number"
-                    value={editPrice}
-                    onChange={(e) => setEditPrice(e.target.value)}
-                  />
-                </div>
-
-                <div className="prod-image-upload">
-                  {editImagePreview ? (
-                    <img
-                      src={editImagePreview}
-                      alt="preview"
-                      className="prod-image-preview"
-                    />
-                  ) : null}
-
-                  <label className="prod-image-label">
-                    Ndrysho foto produkti
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (!file) return;
-
-                        setEditImage(file);
-                        setEditImagePreview(URL.createObjectURL(file));
-                      }}
-                    />
-                  </label>
-                </div>
-              </>
-            )}
-
-            <div className="prod-modal-actions">
-              <button className="btn ghost" onClick={closeEdit} type="button">
-                Mbyll
+            <div className="prod-detail-actions">
+              <button className="btn ghost" onClick={() => setShowAddCat(false)} type="button">
+                Anulo
               </button>
-              <button
-                className="btn primary"
-                onClick={handleSaveEdit}
-                type="button"
-              >
+              <button className="btn primary" onClick={saveCat} type="button">
                 Ruaj
               </button>
             </div>

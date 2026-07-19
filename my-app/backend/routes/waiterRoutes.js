@@ -1,6 +1,8 @@
 import express from "express";
 import bcrypt from "bcrypt";
 import Waiter from "../models/Waiter.js";
+import jwt from "jsonwebtoken";
+import { loginLimiter } from "../middleware/loginLimiter.js";
 
 const router = express.Router();
 
@@ -42,7 +44,7 @@ router.post("/", async (req, res) => {
 });
 
 // LOGIN i kamarjerit (përfaqson atë që folëm për WaiterLoginPage)
-router.post("/login", async (req, res) => {
+router.post("/login", loginLimiter, async (req, res) => {
   try {
     const { username, password } = req.body;
 
@@ -62,11 +64,24 @@ router.post("/login", async (req, res) => {
         .json({ message: "Ky kamarjer është çaktivizuar nga menaxheri" });
     }
 
+    const token = jwt.sign(
+  {
+    id: waiter._id,
+    businessId: waiter.businessId,
+    role: "waiter",
+    name: waiter.name,
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: "12h" }
+);
+
     res.json({
       message: "Hyrja u krye me sukses",
       waiterId: waiter._id,
       name: waiter.name,
+      token: token,
       businessId: waiter.businessId,
+      role: "waiter",
     });
   } catch (err) {
     console.error("Gabim POST /api/waiters/login:", err);

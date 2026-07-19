@@ -1,381 +1,450 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import {
+  ShieldCheckIcon,
+  DocumentTextIcon,
+  PhoneIcon,
+  ChartBarIcon,
+  ArchiveBoxIcon,
+  UsersIcon,
+  PresentationChartLineIcon,
+  UserIcon,
+  LockClosedIcon,
+  EyeIcon,
+  EyeSlashIcon,
+  ArrowRightIcon,
+  UserPlusIcon,
+} from "@heroicons/react/24/outline";
+import logo from "../../assets/logo.webp";
 import "./LoginPage.css";
 
 export default function LoginPage({ onLogin }) {
   const navigate = useNavigate();
 
-  const [showLogin, setShowLogin] = useState(false);
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-  const [loaded, setLoaded] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [remember, setRemember] = useState(false);
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoaded(true), 120);
-    return () => clearTimeout(t);
-  }, []);
+  const [turnstileToken, setTurnstileToken] = useState("");
+  const [turnstileError, setTurnstileError] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onLogin(username, password);
+  const turnstileContainerRef = useRef(null);
+  const widgetIdRef = useRef(null);
+
+  const resetTurnstile = () => {
+    setTurnstileToken("");
+
+    if (window.turnstile && widgetIdRef.current !== null) {
+      try {
+        window.turnstile.reset(widgetIdRef.current);
+      } catch {
+        // widget mund të mos jetë gati për reset
+      }
+    }
   };
 
-  const scrollToSection = (id) => {
-    document.getElementById(id)?.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => {
+    const renderTurnstile = () => {
+      if (
+        !window.turnstile ||
+        !turnstileContainerRef.current ||
+        widgetIdRef.current !== null
+      ) {
+        return;
+      }
+
+      const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+
+      if (!siteKey) {
+        setTurnstileError("Site Key i Turnstile mungon.");
+        return;
+      }
+
+      widgetIdRef.current = window.turnstile.render(
+        turnstileContainerRef.current,
+        {
+          sitekey: siteKey,
+          theme: "light",
+
+          callback: (token) => {
+
+  if (!token) {
+    setTurnstileToken("");
+    setTurnstileError("Turnstile nuk ktheu token.");
+    return;
+  }
+
+  setTurnstileToken(token);
+  setTurnstileError("");
+},
+
+          "expired-callback": () => {
+            setTurnstileToken("");
+          },
+
+          "timeout-callback": () => {
+            setTurnstileToken("");
+          },
+
+          "error-callback": () => {
+            setTurnstileToken("");
+            setTurnstileError(
+              "Kontrolli i sigurisë dështoi. Provo përsëri."
+            );
+          },
+        }
+      );
+    };
+
+    const scriptUrl =
+      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
+
+    if (window.turnstile) {
+      renderTurnstile();
+    } else {
+      const existingScript = document.querySelector(
+        `script[src="${scriptUrl}"]`
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", renderTurnstile);
+      } else {
+        const script = document.createElement("script");
+
+        script.src = scriptUrl;
+        script.async = true;
+        script.defer = true;
+        script.addEventListener("load", renderTurnstile);
+
+        document.head.appendChild(script);
+      }
+    }
+
+    return () => {
+      const existingScript = document.querySelector(
+        `script[src="${scriptUrl}"]`
+      );
+
+      existingScript?.removeEventListener("load", renderTurnstile);
+
+      if (window.turnstile && widgetIdRef.current !== null) {
+        try {
+          window.turnstile.remove(widgetIdRef.current);
+        } catch {
+          // Widget-i mund të jetë hequr më parë.
+        }
+      }
+
+      widgetIdRef.current = null;
+    };
+  }, []);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setTurnstileError("");
+
+    const cleanUsername = username.trim();
+
+    if (!cleanUsername || !password) {
+      setTurnstileError("Plotëso përdoruesin dhe fjalëkalimin.");
+      return;
+    }
+
+    if (!turnstileToken) {
+      setTurnstileError("Përfundo kontrollin e sigurisë.");
+      return;
+    }
+
+    // Mbron nga double-submit (double-click/double-tap), i cili do të
+    // dërgonte të njëjtin token turnstile dy herë dhe do ta bënte
+    // Cloudflare-in ta refuzojë si "duplicate" (token-at janë single-use).
+    if (submitting) return;
+
+    setSubmitting(true);
+
+    try {
+      await onLogin(cleanUsername, password, turnstileToken);
+      // Nëse onLogin ka sukses, faqja navigon larg — s'ka nevojë të
+      // rivendosim submitting këtu.
+    } catch (err) {
+      const msg =
+        err?.response?.data?.message ||
+        "Hyrja dështoi. Kontrollo kredencialet dhe provo përsëri.";
+
+      setTurnstileError(msg);
+
+      // Token-i i Turnstile-it është single-use — pasi login-i dështoi,
+      // duhet marrë një token i ri para riprovimit, përndryshe
+      // Cloudflare kthen "timeout-or-duplicate".
+      resetTurnstile();
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
-    <div className="premium-login-page">
-      <div className="bg-glow bg-glow-1" />
-      <div className="bg-glow bg-glow-2" />
-      <div className="bg-grid" />
+    <div className="myorder-page">
+      <header className="myorder-topbar">
+        <div className="myorder-brand">
+          <img src={logo} alt="myOrder" className="myorder-logo" />
+          <span className="myorder-brand-sub">Management Platform</span>
+        </div>
 
-      <header className={`premium-header ${loaded ? "show" : ""}`}>
-        <div className="premium-navbar">
-          <button
-            className="premium-brand"
-            type="button"
-            onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}
-          >
-            <span className="premium-brand-mark" />
-            <span>myOrder</span>
+        <nav className="myorder-toplinks">
+          <button type="button" onClick={() => navigate("/privacy")}>
+            <ShieldCheckIcon className="toplink-icon" />
+            Politika e Privatësisë
+
           </button>
 
-          <nav className="premium-nav">
-            <button type="button" onClick={() => window.scrollTo({ top: 0, behavior: "smooth" })}>
-              Kryesore
-            </button>
-            <button type="button" onClick={() => scrollToSection("funksione")}>
-              Funksione
-            </button>
-            <button type="button" onClick={() => scrollToSection("produkte")}>
-              Produkte
-            </button>
-            <button type="button" onClick={() => scrollToSection("raporte")}>
-              Raporte
-            </button>
-            <button type="button" onClick={() => scrollToSection("kontakt")}>
-              Kontakt
-            </button>
-          </nav>
+          <button type="button" onClick={() => navigate("/terms")}>
+            <DocumentTextIcon className="toplink-icon" />
+            Kushtet e Përdorimit
+          </button>
 
-          <div className="premium-header-actions">
-            <button
-              className="premium-login-ghost"
-              type="button"
-              onClick={() => setShowLogin(true)}
-            >
-              Log in
-            </button>
-
-            <button
-              className="premium-login-top-btn"
-              type="button"
-              onClick={() => navigate("/signup")}
-            >
-              Sign Up
-            </button>
-          </div>
-        </div>
+          <button type="button" onClick={() => navigate("/contact")}>
+            <PhoneIcon className="toplink-icon" />
+            Na Kontaktoni
+          </button>
+        </nav>
       </header>
 
-      <main className="premium-hero">
-        <section className={`premium-left ${loaded ? "show" : ""}`}>
-          <div className="premium-badge">
-            Platformë moderne për hotel, bar dhe restorant
-          </div>
+      <main className="myorder-main">
+        <div className="myorder-card">
+          <section className="myorder-left">
+            <div className="myorder-left-content">
+              <h1 className="myorder-title">
+                Menaxho biznesin tënd
+                <br />
+                <span>më thjeshtë se kurrë!</span>
+              </h1>
 
-          <h2 className="premium-title">
-            Menaxho biznesin tënd në një{" "}
-            <span>platformë moderne</span>
-          </h2>
+              <p className="myorder-subtitle">
+                myOrder ju ndihmon të menaxhoni porositë, inventarin, stafin
+                dhe raportet në një platformë të vetme.
+              </p>
 
-          <p className="premium-text">
-            QR menu, porosi live, produkte, staf dhe raporte të qarta në një
-            sistem të vetëm.
-          </p>
+              <ul className="myorder-features">
+                <li>
+                  <span className="feature-icon">
+                    <ChartBarIcon />
+                  </span>
+                  <div>
+                    <strong>Rrit efikasitetin</strong>
+                    <span>Monitoro performancën në kohë reale</span>
+                  </div>
+                </li>
 
-          <div className="premium-actions">
-            <button
-              className="premium-primary-btn"
-              type="button"
-              onClick={() => setShowLogin(true)}
-            >
-              Hyr në sistem
-              <span>→</span>
-            </button>
+                <li>
+                  <span className="feature-icon">
+                    <ArchiveBoxIcon />
+                  </span>
+                  <div>
+                    <strong>Menaxho inventarin</strong>
+                    <span>Kontrollo produktet dhe stokun lehtësisht</span>
+                  </div>
+                </li>
 
-            <button
-              className="premium-secondary-btn"
-              type="button"
-              onClick={() => scrollToSection("funksione")}
-            >
-              Shiko demo
-              <span>▷</span>
-            </button>
-          </div>
+                <li>
+                  <span className="feature-icon">
+                    <UsersIcon />
+                  </span>
+                  <div>
+                    <strong>Menaxho stafin</strong>
+                    <span>Organizo rolet dhe përgjegjësitë</span>
+                  </div>
+                </li>
 
-          <div className="premium-strip">
-            <div className="premium-strip-item">
-              <div className="strip-icon">QR</div>
-              <strong>QR Menu</strong>
-              <span>Porosi të menjëhershme nga klienti.</span>
+                <li>
+                  <span className="feature-icon">
+                    <PresentationChartLineIcon />
+                  </span>
+                  <div>
+                    <strong>Raporte të avancuara</strong>
+                    <span>Vendime më të mira me të dhëna të sakta</span>
+                  </div>
+                </li>
+              </ul>
             </div>
 
-            <div className="premium-strip-item">
-              <div className="strip-icon">PR</div>
-              <strong>Produkte</strong>
-              <span>Ushqime dhe pije të organizuara.</span>
+            <div className="myorder-illustration" aria-hidden="true">
+              <svg viewBox="0 0 320 300" xmlns="http://www.w3.org/2000/svg">
+                <defs>
+                  <linearGradient id="barGrad" x1="0" y1="1" x2="0" y2="0">
+                    <stop offset="0" stopColor="#3b82f6" />
+                    <stop offset="1" stopColor="#7fb2ff" />
+                  </linearGradient>
+                  <filter id="cardShadow" x="-60%" y="-60%" width="220%" height="220%">
+                    <feDropShadow
+                      dx="0"
+                      dy="12"
+                      stdDeviation="14"
+                      floodColor="#1d4ed8"
+                      floodOpacity="0.16"
+                    />
+                  </filter>
+                </defs>
+
+                <g filter="url(#cardShadow)">
+                  <rect x="98" y="18" width="200" height="182" rx="22" fill="#ffffff" />
+                </g>
+
+                <rect x="124" y="108" width="18" height="62" rx="6" fill="url(#barGrad)" />
+                <rect x="152" y="76" width="18" height="94" rx="6" fill="url(#barGrad)" />
+                <rect x="180" y="96" width="18" height="74" rx="6" fill="url(#barGrad)" />
+
+                <g transform="translate(150, 60)">
+                  <circle r="24" fill="#e2e8f0" />
+                  <path d="M0 0 L0 -24 A24 24 0 0 1 20.8 -12 Z" fill="#2563eb" />
+                  <path d="M0 0 L20.8 -12 A24 24 0 0 1 5.6 23.4 Z" fill="#f472b6" />
+                </g>
+
+                <g filter="url(#cardShadow)">
+                  <circle cx="264" cy="150" r="22" fill="#ffffff" />
+                </g>
+
+                <path
+                  d="M254 156 L262 144 L270 152 L280 136"
+                  stroke="#2563eb"
+                  strokeWidth="3"
+                  fill="none"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+
+                <rect x="118" y="204" width="164" height="16" rx="8" fill="#ffffff" opacity="0.9" />
+                <rect x="176" y="220" width="48" height="16" rx="8" fill="#2563eb" opacity="0.9" />
+              </svg>
             </div>
+          </section>
 
-            <div className="premium-strip-item">
-              <div className="strip-icon">RP</div>
-              <strong>Raporte</strong>
-              <span>Xhiro, fatura dhe statistika live.</span>
-            </div>
-          </div>
-        </section>
+          <section className="myorder-right">
+            <div className="lpp-card">
+              <h1>LOGIN</h1>
+              
 
-        <section className={`premium-right ${loaded ? "show" : ""}`}>
-          <div className="dashboard-mockup">
-            <div className="mockup-top">
-              <span className="mockup-pill">Dashboard</span>
-              <span className="mockup-live">Live</span>
-            </div>
-
-            <div className="mockup-main-card">
-              <div>
-                <div className="mockup-label">Porosi sot</div>
-                <div className="mockup-value">148</div>
-              </div>
-
-              <div className="mockup-chart">
-                <span className="chart-line" />
-              </div>
-            </div>
-
-            <div className="mockup-grid">
-              <div className="mockup-small-card">
-                <div>
-                  <div className="mockup-label">Ushqime</div>
-                  <div className="mockup-small-value">
-                    62 <span>+12%</span>
+              <form className="lpp-form" onSubmit={handleSubmit}>
+                <div className="lpp-field">
+                  <label htmlFor="username">Përdoruesi</label>
+                  <div className="lpp-input-wrap">
+                    <UserIcon />
+                    <input
+                      id="username"
+                      type="text"
+                      placeholder="Përdoruesi"
+                      value={username}
+                      onChange={(e) => setUsername(e.target.value)}
+                      autoComplete="username"
+                      disabled={submitting}
+                    />
                   </div>
                 </div>
-                <div className="mockup-card-icon">U</div>
-              </div>
 
-              <div className="mockup-small-card">
-                <div>
-                  <div className="mockup-label">Pije</div>
-                  <div className="mockup-small-value">
-                    86 <span>+8%</span>
+                <div className="lpp-field">
+                  <label htmlFor="password">Fjalëkalimi</label>
+                  <div className="lpp-input-wrap">
+                    <LockClosedIcon />
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      placeholder="Fjalëkalimi"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      autoComplete="current-password"
+                      disabled={submitting}
+                    />
+
+                    <button
+                      type="button"
+                      className="lpp-eye"
+                      onClick={() => setShowPassword((s) => !s)}
+                      aria-label={
+                        showPassword ? "Fshih fjalëkalimin" : "Shfaq fjalëkalimin"
+                      }
+                    >
+                      {showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                    </button>
                   </div>
                 </div>
-                <div className="mockup-card-icon purple">P</div>
-              </div>
-            </div>
 
-            <div className="mockup-list-card">
-              <div className="mockup-row">
-                <span>Dhoma 204</span>
-                <b className="status success">Konfirmuar</b>
-              </div>
-              <div className="mockup-row">
-                <span>Tavolina 7</span>
-                <b className="status warning">Në pritje</b>
-              </div>
-              <div className="mockup-row">
-                <span>Porosi aktive</span>
-                <b className="status blue">32</b>
-              </div>
+                <div className="lpp-remember-row">
+                  <label className="lpp-remember">
+                    <input
+                      type="checkbox"
+                      checked={remember}
+                      onChange={(e) => setRemember(e.target.checked)}
+                    />
+                    Më mbaj mend
+                  </label>
+                  <button
+   type="button"
+   className="lpp-forgot-link"
+   onClick={() => navigate("/forgot-password")}
+>
+   Keni harruar fjalëkalimin?
+</button>
+                </div>
+
+
+                <div
+  ref={turnstileContainerRef}
+  className="lpp-turnstile"
+/>
+
+{turnstileError && (
+  <div className="lpp-turnstile-error">
+    {turnstileError}
+  </div>
+)}
+
+                <button
+  type="submit"
+  className="lpp-submit"
+  disabled={!turnstileToken || submitting}
+>
+                  {submitting ? "Duke u kyçur..." : "Hyr"}
+                  <ArrowRightIcon />
+                </button>
+
+                <div className="lpp-divider">
+                  <span>ose</span>
+                </div>
+
+                <button
+                  type="button"
+                  className="lpp-demo-btn"
+                  onClick={() => navigate("/signup")}
+                >
+                  <UserPlusIcon />
+                  Regjistro biznesin tënd
+                </button>
+              </form>
             </div>
-          </div>
-        </section>
+          </section>
+        </div>
       </main>
 
-      <section className="landing-section" id="funksione">
-        <div className="section-head">
-          <div className="section-badge">Funksione</div>
-          <h3>Gjithçka që i duhet biznesit tënd në një platformë moderne</h3>
-          <p>
-            Organizim i thjeshtë për porosi, staf dhe vendet e shërbimit në një
-            rrjedhë të vetme pune.
-          </p>
-        </div>
-
-        <div className="feature-grid">
-          <div className="feature-box">
-            <div className="feature-icon">QR</div>
-            <h4>Porosi me QR</h4>
-            <p>Klientët skanojnë kodin dhe porosisin direkt nga telefoni.</p>
-          </div>
-
-          <div className="feature-box">
-            <div className="feature-icon">Live</div>
-            <h4>Menaxhim porosish</h4>
-            <p>Porosi në kohë reale me status të qartë dhe dërgim të shpejtë.</p>
-          </div>
-
-          <div className="feature-box">
-            <div className="feature-icon">Staff</div>
-            <h4>Menaxhim stafi</h4>
-            <p>Role të ndara për admin, manager dhe kamarierë.</p>
-          </div>
-
-          <div className="feature-box">
-            <div className="feature-icon">Place</div>
-            <h4>Dhoma, tavolina, çadra</h4>
-            <p>Kontroll i plotë sipas vendit ku ndodhet klienti.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section" id="produkte">
-        <div className="section-head">
-          <div className="section-badge">Produkte</div>
-          <h3>Menu e qartë dhe menaxhim i shpejtë i ushqimeve dhe pijeve</h3>
-          <p>
-            E ndërtuar për punë të përditshme, me fokus te thjeshtësia dhe
-            kontrolli i plotë mbi menunë.
-          </p>
-        </div>
-
-        <div className="product-grid">
-          <div className="product-box">
-            <span className="product-tag">Ushqime</span>
-            <h4>Menaxhim ushqimesh</h4>
-            <p>Shto, ndrysho ose çaktivizo produktet në pak sekonda.</p>
-          </div>
-
-          <div className="product-box">
-            <span className="product-tag">Pije</span>
-            <h4>Menaxhim pijesh</h4>
-            <p>Mbaj menunë të përditësuar dhe të qartë për klientin.</p>
-          </div>
-
-          <div className="product-box">
-            <span className="product-tag">Menu</span>
-            <h4>Menu online</h4>
-            <p>Klientët shohin menunë nga telefoni pa menu fizike.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section" id="raporte">
-        <div className="section-head">
-          <div className="section-badge">Raporte</div>
-          <h3>Shiko xhiron, faturat dhe performancën e biznesit në çdo moment</h3>
-          <p>
-            Raporte të qarta për të kuptuar çfarë po ecën mirë dhe ku duhet më
-            shumë kontroll.
-          </p>
-        </div>
-
-        <div className="report-grid">
-          <div className="report-box">
-            <h4>Xhiro ditore</h4>
-            <p>Shiko totalet sipas datës dhe monitoro performancën.</p>
-          </div>
-
-          <div className="report-box">
-            <h4>Produktet më të shitura</h4>
-            <p>Kupto cilat ushqime dhe pije performojnë më mirë.</p>
-          </div>
-
-          <div className="report-box">
-            <h4>Fatura dhe historik</h4>
-            <p>Ruaj, printo dhe kontrollo historikun e shitjeve.</p>
-          </div>
-        </div>
-      </section>
-
-      <section className="landing-section contact-section" id="kontakt">
-        <div className="contact-card">
-          <div className="contact-left">
-            <div className="section-badge">Kontakt</div>
-
-            <h3>Kontakto me ne për aktivizimin e biznesit</h3>
-
-            <p>
-              Mund të na shkruash direkt ose të dërgosh kërkesën përmes formës
-              së regjistrimit.
-            </p>
-          </div>
-
-          <div className="contact-info">
-
-            <a
-  href="mailto:support@myorder.com"
-  className="contact-item"
->
-  <span className="contact-icon">✉</span>
-
-  <div>
-    <strong>support@myorder.com</strong>
-    <small>Email</small>
-  </div>
-</a>
-
-            <a href="tel:+35567 75 09 879" className="contact-item">
-              <span className="contact-icon">T</span>
-              <div>
-                <strong>+355 67 75 09 879</strong>
-                <small>Telefon</small>
-              </div>
-            </a>
-          </div>
-
-          <button
-            className="premium-primary-btn contact-main-btn"
-            type="button"
-            onClick={() => navigate("/signup")}
-          >
-            Dërgo kërkesën
-            <span>→</span>
+      <footer className="myorder-footer">
+        <nav className="myorder-footer-links">
+          <button type="button" onClick={() => navigate("/privacy")}>
+            Politika e Privatësisë
           </button>
+          <span>·</span>
+          <button type="button" onClick={() => navigate("/terms")}>
+            Kushtet e Përdorimit
+          </button>
+          <span>·</span>
+          <button type="button" onClick={() => navigate("/contact")}>
+            Na Kontaktoni
+          </button>
+        </nav>
+
+        <div className="myorder-copyright">
+          © 2026 myOrder. Të gjitha të drejtat e rezervuara.
         </div>
-      </section>
-
-      {showLogin && (
-        <div className="login-overlay" onClick={() => setShowLogin(false)}>
-          <div className="login-modal" onClick={(e) => e.stopPropagation()}>
-            <button
-              className="close-btn"
-              type="button"
-              onClick={() => setShowLogin(false)}
-            >
-              ×
-            </button>
-
-            <div className="login-modal-head">
-              <div className="login-modal-badge">Hyrje</div>
-              <h3>Hyr në sistem</h3>
-              <p>Vendos të dhënat për të hyrë në panelin tënd.</p>
-            </div>
-
-            <form className="login-form" onSubmit={handleSubmit}>
-              <input
-                type="text"
-                placeholder="Përdoruesi"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-              />
-
-              <input
-                type="password"
-                placeholder="Fjalëkalimi"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-
-              <button type="submit" className="submit-btn">
-                Hyr në sistem
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
+      </footer>
     </div>
   );
 }

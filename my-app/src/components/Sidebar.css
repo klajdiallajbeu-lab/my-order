@@ -27,14 +27,11 @@
   padding: 4px 8px 12px;
 }
 
-.sb-logo-mark {
-  width: 13px;
-  height: 13px;
-  border-radius: 4px;
-  border: 2px solid #2534ff;
-  box-sizing: border-box;
-  margin-top: 4px;
-  flex: 0 0 13px;
+.sb-logo-img {
+  width: 100%;
+  max-width: 150px;
+  height: auto;
+  display: block;
 }
 
 .sb-brand {
@@ -82,7 +79,7 @@
   padding: 0 12px;
   display: flex;
   align-items: center;
-  justify-content: flex-start
+justify-content: flex-start;
   box-sizing: border-box;
   transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
   cursor: pointer;
