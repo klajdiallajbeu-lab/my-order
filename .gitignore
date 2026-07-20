@@ -12,3 +12,4 @@ reset-admin.js
 *.save
 *.backup
 my-app/backend/backend/
+*.old
