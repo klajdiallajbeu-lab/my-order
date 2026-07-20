@@ -16,9 +16,17 @@ qz.security.setSignatureAlgorithm("SHA512");
 
 qz.security.setSignaturePromise((toSign) => {
   return (resolve, reject) => {
+    const token =
+      sessionStorage.getItem("token") ||
+      localStorage.getItem("token") ||
+      "";
+
     fetch("/api/qz-sign", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
       body: JSON.stringify({ request: toSign }),
     })
       .then((res) => res.json())

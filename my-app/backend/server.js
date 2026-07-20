@@ -10,6 +10,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import crypto from "crypto";
+import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 
 import connectDB from "./config/db.js";
@@ -34,6 +35,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 dotenv.config({ path: path.join(__dirname, ".env") });
+
+// Path-e relative te çelësat (jo më /root/... të hardcoduar)
+const KEYS_DIR = path.join(__dirname, "keys");
+const QZ_CERT_PATH = path.join(KEYS_DIR, "digital-certificate.txt");
+const QZ_KEY_PATH = path.join(KEYS_DIR, "private-key.pem");
 
 const app = express();
 app.set("trust proxy", 1);
@@ -238,37 +244,74 @@ app.get("/api/health", (req, res) => {
 
 connectDB();
 
+// Logger global — pa query params (mund të përmbajnë të dhëna sensitive)
 app.use((req, res, next) => {
   console.log("GLOBAL REQ:", {
     method: req.method,
-    url: req.originalUrl,
-    query: req.query,
+    url: req.path,
   });
 
   next();
 });
 
+/* =========================
+   QZ TRAY (nënshkrimi i printimit)
+========================= */
+
+// Middleware: pranon çdo token JWT valid (manager / waiter / admin).
+// Nënshkrimi me çelësin privat nuk duhet të jetë publik.
+const requireAnyAuth = (req, res, next) => {
+  try {
+    const header = req.headers.authorization || "";
+    const token = header.startsWith("Bearer ") ? header.slice(7) : "";
+
+    if (!token) {
+      return res.status(401).json({ message: "Kërkohet autentikim." });
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET);
+    next();
+  } catch {
+    return res.status(401).json({ message: "Token i pavlefshëm." });
+  }
+};
+
+// Certifikata është publike nga natyra — mbetet e hapur.
 app.get("/api/qz-certificate", (req, res) => {
-  let cert = fs.readFileSync("/root/my-order/my-app/backend/keys/digital-certificate.txt", "utf8");
+  try {
+    let cert = fs.readFileSync(QZ_CERT_PATH, "utf8");
+    cert = cert.replace(/"/g, "").trim();
 
-  cert = cert.replace(/"/g, "").trim();
-
-  res.setHeader("Content-Type", "text/plain");
-  res.send(cert);
+    res.setHeader("Content-Type", "text/plain");
+    res.send(cert);
+  } catch (err) {
+    console.error("❌ qz-certificate error:", err.message);
+    res.status(500).json({ message: "Nuk mund të lexoj certifikatën." });
+  }
 });
 
-app.post("/api/qz-sign", (req, res) => {
-  const { request } = req.body;
+// Nënshkrimi mbrohet me autentikim + validim input-i.
+app.post("/api/qz-sign", requireAnyAuth, (req, res) => {
+  try {
+    const { request } = req.body;
 
-  const privateKey = fs.readFileSync("/root/my-order/my-app/backend/keys/private-key.pem", "utf8");
+    if (typeof request !== "string" || request.length === 0 || request.length > 10000) {
+      return res.status(400).json({ message: "Kërkesë e pavlefshme." });
+    }
 
-  const signer = crypto.createSign("RSA-SHA512");
-  signer.update(request);
-  signer.end();
+    const privateKey = fs.readFileSync(QZ_KEY_PATH, "utf8");
 
-  const signature = signer.sign(privateKey, "base64");
+    const signer = crypto.createSign("RSA-SHA512");
+    signer.update(request);
+    signer.end();
 
-  res.json({ signature });
+    const signature = signer.sign(privateKey, "base64");
+
+    res.json({ signature });
+  } catch (err) {
+    console.error("❌ qz-sign error:", err.message);
+    res.status(500).json({ message: "Nuk mund të nënshkruaj." });
+  }
 });
 
 /* =========================
@@ -290,7 +333,7 @@ app.use("/api/business", businessRoutes);
 app.use("/api/places", placesRoutes);
 app.use("/api/business-request", businessRequestRoutes);
 app.use("/api/tables", tableRoutes);
-app.use("/downloads", express.static("backend/public/downloads"));
+app.use("/downloads", express.static(path.join(__dirname, "public", "downloads")));
 
 /* =========================
    ERRORS

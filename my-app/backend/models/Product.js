@@ -101,4 +101,8 @@ const ProductSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
+ProductSchema.index({ businessId: 1, subCategoryId: 1 });
+ProductSchema.index({ businessId: 1, categoryType: 1 });
+ProductSchema.index({ businessId: 1 });
+
 export default mongoose.model("Product", ProductSchema);

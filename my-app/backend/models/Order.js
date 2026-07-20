@@ -180,10 +180,6 @@ OrderSchema.index({ businessId: 1, createdBy: 1, shiftClosed: 1, createdAt: -1 }
 OrderSchema.index({ businessId: 1, waiterId: 1, shiftClosed: 1, createdAt: -1 });
 OrderSchema.index({ businessId: 1, acceptedBy: 1, shiftClosed: 1, createdAt: -1 });
 
-OrderSchema.index(
-  { createdAt: 1 },
-  { expireAfterSeconds: 60 * 60 * 24 * 30 }
-);
 
 OrderSchema.pre("save", function (next) {
   if (Array.isArray(this.items)) {
