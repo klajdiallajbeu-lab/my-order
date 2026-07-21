@@ -49,8 +49,13 @@ async function run() {
   console.log("✅ Lidhur me MongoDB");
 
   const products = await Product.find({
-  image: { $exists: true, $ne: "" },
-}).lean();
+    image: { $exists: true, $ne: "" },
+    $or: [
+      { thumbnail: { $exists: false } },
+      { thumbnail: "" },
+      { thumbnail: null },
+    ],
+  }).lean();
 
   console.log(`🔍 U gjetën ${products.length} produkte pa thumbnail.\n`);
 
@@ -76,13 +81,17 @@ async function run() {
       if (!DRY_RUN) {
 
         await sharp(srcPath)
-  .rotate()
-  .resize(200, 200, {
-  fit: "cover",
-  position: sharp.strategy.attention,
-})
-  .webp({ quality: 75 })
-  .toFile(thumbPath);
+          .rotate()
+          // Sfond i bardhë për PNG transparente (p.sh. shishe pijesh),
+          // që të mos dalë sfond i zi/transparent në kornizë.
+          .flatten({ background: { r: 255, g: 255, b: 255 } })
+          .resize(200, 200, {
+            fit: "cover",
+            position: sharp.strategy.attention,
+            background: { r: 255, g: 255, b: 255 },
+          })
+          .webp({ quality: 78 })
+          .toFile(thumbPath);
 
         await Product.updateOne(
           { _id: p._id },
