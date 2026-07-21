@@ -2,6 +2,7 @@ import "../../qz-signing";
 // src/pages/Waiter/WaiterLoginPage.jsx
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { refreshSocketAuth } from "../../realtime/socket.js";
 import "./WaiterPage.css";
 
 export default function WaiterLoginPage() {
@@ -232,6 +233,9 @@ export default function WaiterLoginPage() {
       sessionStorage.setItem("userName", String(waiterName));
       sessionStorage.setItem("role", "waiter");
       sessionStorage.setItem("token", String(token));
+
+      // Rilidh socket-in me token-in e ri => room-i privat i biznesit.
+      refreshSocketAuth();
 
       navigate("/waiter");
     } catch (err) {

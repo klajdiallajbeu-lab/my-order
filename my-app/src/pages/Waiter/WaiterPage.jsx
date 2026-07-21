@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./WaiterPage.css";
-import { socket } from "../../realtime/socket.js";
+import { socket, refreshSocketAuth } from "../../realtime/socket.js";
 import { api } from "../../api/http.js";
 import qz from "../../qz-signing.js";
 
@@ -91,6 +91,10 @@ const name =
     if (typeof onLogout === "function") return onLogout();
 
     sessionStorage.clear();
+
+    // Pa token => socket-i bie nga room-i privat.
+    refreshSocketAuth();
+
     window.location.replace("/login");
   };
 

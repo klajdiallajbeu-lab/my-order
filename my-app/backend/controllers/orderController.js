@@ -4,6 +4,7 @@ import Business from "../models/Business.js";
 import Product from "../models/Product.js";
 import SubCategory from "../models/SubCategory.js";
 import GuestSession from "../models/GuestSession.js";
+import { getNextSequence } from "../models/Counter.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
 
@@ -275,13 +276,8 @@ const createdBySafe = waiterNameSafe;
     const sourceNumberSafe = String(sourceNumber).trim();
 
 
-const lastOrder = await Order.findOne(
-  { businessId: finalBusinessId, invoiceNumber: { $ne: null } },
-  { invoiceNumber: 1 },
-  { sort: { invoiceNumber: -1 } }
-).lean();
-
-const invoiceNumber = (lastOrder?.invoiceNumber || 0) + 1;
+// Numër fature atomik — pa race condition edhe kur dy porosi vijnë njëkohësisht.
+const invoiceNumber = await getNextSequence(finalBusinessId, "invoice");
 
 
 // Order.create() me invoiceNumber

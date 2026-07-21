@@ -1,6 +1,7 @@
 import { useMemo, useState, lazy, Suspense } from "react";
 import { Routes, Route, Navigate, useNavigate } from "react-router-dom";
 import { loginUserApi } from "./api/userApi.js";
+import { refreshSocketAuth } from "./realtime/socket.js";
 
 
 /* LAZY IMPORTS */
@@ -105,6 +106,10 @@ export default function App() {
 
   const handleLogout = () => {
     clearAuth(); setIsLoggedIn(false); setRole(null);
+
+    // Pa token => socket-i bie nga room-i privat, mbetet guest.
+    refreshSocketAuth();
+
     navigate("/login", { replace: true });
   };
 
@@ -137,6 +142,9 @@ export default function App() {
         localStorage.setItem("waiterId", userId);   localStorage.setItem("waiterName", userName);
         sessionStorage.setItem("waiterId", userId); sessionStorage.setItem("waiterName", userName);
       }
+
+      // Rilidh socket-in me token-in e ri => hyn te room-i privat i biznesit.
+      refreshSocketAuth();
 
       setIsLoggedIn(true); setRole(normalizedRole);
       navigate(normalizedRole === "waiter" ? "/waiter" : "/manager", { replace: true });

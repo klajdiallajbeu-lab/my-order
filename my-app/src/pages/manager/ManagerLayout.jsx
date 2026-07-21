@@ -1,6 +1,7 @@
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import Sidebar from "../../components/Sidebar";
+import { refreshSocketAuth } from "../../realtime/socket.js";
 import "./ManagerPage.css";
 
 export default function ManagerLayout({ setIsLoggedIn }) {
@@ -30,6 +31,9 @@ export default function ManagerLayout({ setIsLoggedIn }) {
   const handleLogout = () => {
   sessionStorage.clear();
   localStorage.clear();
+
+  // Pa token => socket-i bie nga room-i privat.
+  refreshSocketAuth();
 
   if (typeof setIsLoggedIn === "function") {
     setIsLoggedIn(false);

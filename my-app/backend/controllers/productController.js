@@ -20,7 +20,13 @@ const readBusinessId = (req) => {
 
 const emitProductsChanged = (req, businessId) => {
   const io = req.app.get("io");
-  io?.to(`business:${businessId}`).emit("products:changed", { businessId });
+
+  // Event jo-sensitiv: dërgohet edhe te room-i publik (klientët e QR-së
+  // pa token), edhe te ai privat (waiter/manager të autentikuar).
+  io?.to([`business:${businessId}`, `business:${businessId}:public`]).emit(
+    "products:changed",
+    { businessId }
+  );
 };
 
 const normalizeStr = (v) => String(v ?? "").trim();

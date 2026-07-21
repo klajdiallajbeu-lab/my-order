@@ -1,6 +1,7 @@
 import "../../qz-signing";
 import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
+import { refreshSocketAuth } from "../../realtime/socket.js";
 import {
   PieChart,
   Receipt,
@@ -34,6 +35,9 @@ export default function ManagerMobilePage({
     localStorage.removeItem("waiterId");
     localStorage.removeItem("waiterName");
     localStorage.removeItem("businessId");
+
+    // Pa token => socket-i bie nga room-i privat.
+    refreshSocketAuth();
 
     setIsLoggedIn(false);
     navigate("/login");

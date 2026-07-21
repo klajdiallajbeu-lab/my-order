@@ -63,64 +63,88 @@ const io = new Server(server, {
 app.set("io", io);
 
 /* =========================
-   SOCKET.IO
-========================= */
+   SOCKET.IO — AUTH + ROOMS
+=========================
+
+Dy lloje klientësh:
+
+1) TË AUTENTIKUAR (manager / waiter / admin / printer):
+   dërgojnë JWT te handshake (auth.token). businessId merret VETËM nga
+   token-i — kurrë nga payload-i i klientit. Hyjnë te room-i privat
+   `business:{id}` ku dërgohen faturat, porositë dhe xhirot.
+
+2) GUESTS (klientët e QR-së, pa token):
+   lejohen të lidhen, por hyjnë vetëm te room-i publik
+   `business:{id}:public`, ku dërgohen vetëm evente jo-sensitive
+   (p.sh. "products:changed"). Nuk marrin kurrë fatura apo xhiro.
+*/
+
+const PRIVATE_ROOM = (businessId) => `business:${businessId}`;
+const PUBLIC_ROOM = (businessId) => `business:${businessId}:public`;
+
+// Auth opsional në handshake: token valid => i autentikuar, ndryshe guest.
+io.use((socket, next) => {
+  const token = String(socket.handshake.auth?.token || "").trim();
+
+  socket.data.auth = null;
+
+  if (token) {
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      socket.data.auth = {
+        id: String(decoded.id || ""),
+        businessId: String(decoded.businessId || ""),
+        role: String(decoded.role || ""),
+      };
+    } catch {
+      // Token i pavlefshëm/skaduar => trajtohet si guest (s'ka room privat).
+      socket.data.auth = null;
+    }
+  }
+
+  next();
+});
 
 io.on("connection", (socket) => {
-  console.log("🟢 Socket connected:", socket.id);
+  const isAuthed = () => Boolean(socket.data.auth?.businessId);
 
   socket.on("joinBusiness", (businessId) => {
-    if (!businessId) return;
-
-    const room = `business:${businessId}`;
-    socket.join(room);
-
-    console.log("🏢 Joined business room:", room);
-  });
-
-  const emitTableInvoice = (payload, eventName) => {
-    if (!payload?.businessId) {
-      console.log(`⚠️ ${eventName} pa businessId`);
+    if (isAuthed()) {
+      // businessId nga payload injorohet — përdoret vetëm ai i token-it.
+      const bid = socket.data.auth.businessId;
+      socket.join(PRIVATE_ROOM(bid));
+      socket.join(PUBLIC_ROOM(bid));
       return;
     }
 
-    const room = `business:${payload.businessId}`;
+    // Guest: vetëm room-i publik.
+    const bid = String(businessId || "").trim();
+    if (!bid) return;
 
-    console.log(`✅ SERVER MORI ${eventName}:`, payload.businessId);
-    console.log(`📤 Po e dërgoj te room: ${room}`);
+    socket.join(PUBLIC_ROOM(bid));
+  });
 
-    io.to(room).emit("table:invoice", payload);
+  // Relay i eventeve të printimit — VETËM për të autentikuarit,
+  // gjithmonë te biznesi i token-it të tyre.
+  const relayToOwnBusiness = (eventName) => (payload) => {
+    if (!isAuthed()) return;
+
+    const bid = socket.data.auth.businessId;
+
+    io.to(PRIVATE_ROOM(bid)).emit(eventName, {
+      ...(payload && typeof payload === "object" ? payload : {}),
+      businessId: bid, // mbishkruhet me vlerën e besuar
+    });
   };
 
-  socket.on("table:invoice", (payload) => {
-    emitTableInvoice(payload, "table:invoice");
-  });
-
-  socket.on("tableInvoice", (payload) => {
-    emitTableInvoice(payload, "tableInvoice");
-  });
-
-  socket.on("manager:print-table-invoice", (payload) => {
-    emitTableInvoice(payload, "manager:print-table-invoice");
-  });
-
-  socket.on("waiter:shift-report", (payload) => {
-    if (!payload?.businessId) {
-      console.log("⚠️ waiter:shift-report pa businessId");
-      return;
-    }
-
-    const room = `business:${payload.businessId}`;
-
-    console.log("✅ SERVER MORI waiter:shift-report:", payload.businessId);
-    console.log(`📤 Po e dërgoj xhiron te room: ${room}`);
-
-    io.to(room).emit("waiter:shift-report", payload);
-  });
-
-  socket.on("disconnect", () => {
-    console.log("🔴 Socket disconnected:", socket.id);
-  });
+  socket.on("table:invoice", relayToOwnBusiness("table:invoice"));
+  socket.on("tableInvoice", relayToOwnBusiness("table:invoice"));
+  socket.on(
+    "manager:print-table-invoice",
+    relayToOwnBusiness("table:invoice")
+  );
+  socket.on("waiter:shift-report", relayToOwnBusiness("waiter:shift-report"));
 });
 
 /* =========================
