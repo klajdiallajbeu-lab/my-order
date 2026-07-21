@@ -1,5 +1,9 @@
 import axios from "axios";
 
+// Log vetëm gjatë zhvillimit (vite dev). Në prodhim: heshtje —
+// pa ekspozuar URL-të, statusin e token-it apo trupat e gabimeve në console.
+const isDev = import.meta.env.DEV;
+
 export const api = axios.create({
   baseURL: "/api",
   withCredentials: true,
@@ -28,13 +32,13 @@ api.interceptors.request.use(
       config.headers["x-guest-session"] = guestSessionToken;
     }
 
-    console.log(
-      "➡️",
-      (config.method || "GET").toUpperCase(),
-      `${config.baseURL || ""}${config.url || ""}`,
-      token ? "TOKEN=ON" : "TOKEN=OFF",
-      guestSessionToken ? "GUEST=ON" : "GUEST=OFF"
-    );
+    if (isDev) {
+      console.log(
+        "➡️",
+        (config.method || "GET").toUpperCase(),
+        `${config.baseURL || ""}${config.url || ""}`
+      );
+    }
 
     return config;
   },
@@ -44,17 +48,19 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    const status = error?.response?.status;
+    if (isDev) {
+      const status = error?.response?.status;
 
-    if (status === 401 || status === 403) {
-      console.warn("🔐 Access denied:", error?.response?.data?.message);
+      if (status === 401 || status === 403) {
+        console.warn("🔐 Access denied:", error?.response?.data?.message);
+      }
+
+      console.error(
+        "❌ API ERROR:",
+        status,
+        error?.response?.data || error.message
+      );
     }
-
-    console.error(
-      "❌ API ERROR:",
-      status,
-      error?.response?.data || error.message
-    );
 
     return Promise.reject(error);
   }

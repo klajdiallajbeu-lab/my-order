@@ -162,7 +162,6 @@ app.use(
           "'self'",
           "https://challenges.cloudflare.com",
           "https://static.cloudflareinsights.com",
-          "'unsafe-inline'",
         ],
 
         scriptSrcAttr: ["'none'"],
@@ -241,11 +240,8 @@ app.use(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-const loginLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 20,
-  message: { message: "Shumë tentativa. Provo përsëri më vonë." },
-});
+// Rate limiting i login-it bëhet në një vend të vetëm:
+// middleware/loginLimiter.js, i aplikuar te userRoutes dhe waiterRoutes.
 
 const apiLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -253,8 +249,6 @@ const apiLimiter = rateLimit({
   message: { message: "Shumë kërkesa. Provo përsëri pas pak." },
 });
 
-app.use("/api/waiters/login", loginLimiter);
-app.use("/api/users/login", loginLimiter);
 app.use("/api", apiLimiter);
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
@@ -268,15 +262,13 @@ app.get("/api/health", (req, res) => {
 
 connectDB();
 
-// Logger global — pa query params (mund të përmbajnë të dhëna sensitive)
-app.use((req, res, next) => {
-  console.log("GLOBAL REQ:", {
-    method: req.method,
-    url: req.path,
+// Logger global vetëm jashtë prodhimit — pa query params (të dhëna sensitive)
+if (process.env.NODE_ENV !== "production") {
+  app.use((req, res, next) => {
+    console.log("GLOBAL REQ:", { method: req.method, url: req.path });
+    next();
   });
-
-  next();
-});
+}
 
 /* =========================
    QZ TRAY (nënshkrimi i printimit)

@@ -121,15 +121,6 @@ export const getOrderById = async (req, res) => {
 
 export const createOrder = async (req, res) => {
   try {
-    console.log("📥 BODY /api/orders:", req.body);
-
-    console.log("📦 WAITER DEBUG:", {
-  createdBy: req.body.createdBy,
-  waiterId: req.body.waiterId,
-  waiterName: req.body.waiterName,
-  acceptedByName: req.body.acceptedByName,
-});
-
     const {
   businessId,
   sourceType,
