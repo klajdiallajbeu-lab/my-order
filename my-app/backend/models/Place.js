@@ -68,8 +68,4 @@ placeSchema.index(
   { unique: true }
 );
 
-ProductSchema.index({ businessId: 1, subCategoryId: 1 });
-ProductSchema.index({ businessId: 1, categoryType: 1 });
-ProductSchema.index({ businessId: 1 });
-
 export default mongoose.model("Place", placeSchema);
