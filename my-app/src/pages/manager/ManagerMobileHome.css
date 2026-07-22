@@ -1,0 +1,519 @@
+/* =========================================================
+   ManagerMobileHome — paneli i menaxherit për telefon
+   Paleta: e bardhë / blu #2563eb, minimale
+   Klasa me prefiks "mmh-" — të izoluara, s'përplasen me faqet e tjera.
+   ========================================================= */
+
+.mmh-page {
+  --mmh-blue: #2563eb;
+  --mmh-blue-dark: #1d4ed8;
+  --mmh-ink: #0f172a;
+  --mmh-muted: #64748b;
+  --mmh-line: #e8edf5;
+  --mmh-bg: #f6f8fc;
+
+  min-height: 100%;
+  background: var(--mmh-bg);
+  color: var(--mmh-ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* ---------- HERO ---------- */
+
+.mmh-hero {
+  padding: 20px 18px 54px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.mmh-hero-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.mmh-hero-text h1 {
+  margin: 0;
+  color: #ffffff;
+  font-size: 21px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  line-height: 1.2;
+}
+
+.mmh-hero-text p {
+  margin: 6px 0 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+/* dropdown i periudhës */
+.mmh-period {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.mmh-period-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  padding: 10px 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+
+  font-size: 13.5px;
+  font-weight: 600;
+  cursor: pointer;
+
+  backdrop-filter: blur(8px);
+}
+
+.mmh-period-btn .mmh-rot {
+  transform: rotate(180deg);
+}
+
+.mmh-period-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 40;
+
+  min-width: 140px;
+  padding: 6px;
+
+  border: 1px solid var(--mmh-line);
+  border-radius: 14px;
+  background: #ffffff;
+  box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+}
+
+.mmh-period-menu button {
+  display: block;
+  width: 100%;
+
+  padding: 10px 12px;
+
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--mmh-ink);
+
+  font-size: 13.5px;
+  font-weight: 600;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mmh-period-menu button.active {
+  background: #eff4ff;
+  color: var(--mmh-blue);
+}
+
+/* ---------- FLETA E BARDHË ---------- */
+
+.mmh-sheet {
+  position: relative;
+  margin-top: -34px;
+  padding: 18px 16px 24px;
+
+  border-radius: 26px 26px 0 0;
+  background: var(--mmh-bg);
+}
+
+.mmh-error {
+  margin-bottom: 14px;
+  padding: 12px 14px;
+
+  border: 1px solid #fecaca;
+  border-radius: 14px;
+  background: #fef2f2;
+  color: #b91c1c;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+/* ---------- STAT CARDS ---------- */
+
+.mmh-stats {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(146px, 1fr);
+  gap: 11px;
+
+  margin: 0 -16px 22px;
+  padding: 0 16px 4px;
+
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.mmh-stats::-webkit-scrollbar {
+  display: none;
+}
+
+.mmh-stat {
+  scroll-snap-align: start;
+
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  padding: 14px;
+
+  border: 1px solid var(--mmh-line);
+  border-radius: 18px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.035);
+}
+
+.mmh-stat-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 38px;
+  height: 38px;
+
+  border-radius: 12px;
+}
+
+.mmh-tone-blue .mmh-stat-icon {
+  background: #eff4ff;
+  color: var(--mmh-blue);
+}
+
+.mmh-tone-green .mmh-stat-icon {
+  background: #ecfdf3;
+  color: #12a150;
+}
+
+.mmh-tone-purple .mmh-stat-icon {
+  background: #f5f0ff;
+  color: #7c3aed;
+}
+
+.mmh-tone-orange .mmh-stat-icon {
+  background: #fff4ec;
+  color: #ea7317;
+}
+
+.mmh-stat-label {
+  color: var(--mmh-muted);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.4px;
+  text-transform: uppercase;
+}
+
+.mmh-stat-value {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  min-height: 26px;
+}
+
+.mmh-stat-value strong {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+}
+
+.mmh-stat-value em {
+  color: var(--mmh-muted);
+  font-size: 11px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.mmh-stat-diff {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mmh-stat-diff.up {
+  color: #12a150;
+}
+
+.mmh-stat-diff.down {
+  color: #e11d48;
+}
+
+.mmh-skeleton {
+  display: block;
+  width: 64px;
+  height: 20px;
+
+  border-radius: 7px;
+  background: linear-gradient(90deg, #eef2f7 25%, #e2e8f0 50%, #eef2f7 75%);
+  background-size: 200% 100%;
+
+  animation: mmh-shimmer 1.3s infinite;
+}
+
+@keyframes mmh-shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* ---------- BLLOQE ---------- */
+
+.mmh-block {
+  margin-bottom: 22px;
+}
+
+.mmh-block-title {
+  margin: 0 0 12px;
+  font-size: 16.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+/* ---------- SHKURTORE ---------- */
+
+.mmh-shortcuts {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.mmh-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 13px 10px;
+
+  border: 1px solid var(--mmh-line);
+  border-radius: 15px;
+  background: #ffffff;
+
+  text-align: left;
+  cursor: pointer;
+
+  transition: transform 0.12s ease, box-shadow 0.12s ease;
+}
+
+.mmh-shortcut:active {
+  transform: scale(0.975);
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.1);
+}
+
+.mmh-shortcut-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  width: 30px;
+  height: 30px;
+
+  color: var(--mmh-blue);
+}
+
+.mmh-shortcut-label {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  color: var(--mmh-ink);
+  font-size: 12.5px;
+  font-weight: 600;
+  line-height: 1.25;
+}
+
+.mmh-shortcut-arrow {
+  flex-shrink: 0;
+  color: #cbd5e1;
+}
+
+/* ---------- KARTË (porositë e fundit) ---------- */
+
+.mmh-card {
+  padding: 16px;
+
+  border: 1px solid var(--mmh-line);
+  border-radius: 20px;
+  background: #ffffff;
+  box-shadow: 0 2px 10px rgba(15, 23, 42, 0.035);
+}
+
+.mmh-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+
+  margin-bottom: 6px;
+}
+
+.mmh-card-head h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.mmh-link {
+  border: 0;
+  background: transparent;
+  color: var(--mmh-blue);
+
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.mmh-empty {
+  padding: 22px 0;
+  color: var(--mmh-muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+.mmh-orders {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.mmh-order {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  padding: 13px 0;
+  border-bottom: 1px solid #f1f5f9;
+
+  cursor: pointer;
+}
+
+.mmh-order:last-child {
+  border-bottom: 0;
+  padding-bottom: 2px;
+}
+
+.mmh-order-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+
+  width: 40px;
+  height: 40px;
+
+  border-radius: 50%;
+  color: #ffffff;
+}
+
+.mmh-order-avatar.tone-blue {
+  background: var(--mmh-blue);
+}
+
+.mmh-order-avatar.tone-purple {
+  background: #7c3aed;
+}
+
+.mmh-order-avatar.tone-sky {
+  background: #0ea5e9;
+}
+
+.mmh-order-main {
+  flex: 1 1 auto;
+  min-width: 0;
+
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.mmh-order-main strong {
+  font-size: 14.5px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.mmh-order-main em {
+  color: var(--mmh-muted);
+  font-size: 12px;
+  font-style: normal;
+}
+
+.mmh-order-side {
+  flex-shrink: 0;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 5px;
+}
+
+.mmh-order-side b {
+  color: #12a150;
+  font-size: 14.5px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.mmh-order-side b i {
+  color: var(--mmh-muted);
+  font-size: 10.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.mmh-badge {
+  padding: 3px 9px;
+
+  border-radius: 999px;
+
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.mmh-badge.ok {
+  background: #ecfdf3;
+  color: #12a150;
+}
+
+.mmh-badge.info {
+  background: #eff4ff;
+  color: var(--mmh-blue);
+}
+
+.mmh-badge.warn {
+  background: #fff7ed;
+  color: #c2620a;
+}
+
+.mmh-badge.bad {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+/* ---------- ekrane shumë të vegjël ---------- */
+
+@media (max-width: 360px) {
+  .mmh-shortcuts {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mmh-hero-text h1 {
+    font-size: 19px;
+  }
+}

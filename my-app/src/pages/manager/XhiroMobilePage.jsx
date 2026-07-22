@@ -1,26 +1,64 @@
 import "../../qz-signing";
-import { useEffect, useMemo, useState } from "react";
-import "./XhiroMobilePage.css";
-import { getPeriodStats, getWaiterStats } from "../../api/statsApi.js";
-import logo from "../../assets/logo.png";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Wallet,
   ShoppingBag,
   TrendingUp,
   Trophy,
   UserRound,
+  BedDouble,
+  Umbrella,
+  Calendar,
 } from "lucide-react";
 
+import { getPeriodStats, getWaiterStats } from "../../api/statsApi.js";
+import "./XhiroMobilePage.css";
 
-const DASHBOARD_FROM_KEY = "dashboard_from_date";
-const DASHBOARD_TO_KEY = "dashboard_to_date";
+/* ---------- helpers ---------- */
 
-const getSavedDate = (key) => localStorage.getItem(key) || "";
-
-const formatMoney = (value) => {
-  const num = Number(value || 0);
-  return `${num.toLocaleString("sq-AL")} ALL`;
+const toYMD = (d) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 };
+
+const addDays = (date, n) => {
+  const d = new Date(date);
+  d.setDate(d.getDate() + n);
+  return d;
+};
+
+const PERIODS = [
+  { id: "today", label: "Sot" },
+  { id: "yesterday", label: "Dje" },
+  { id: "week", label: "7 ditë" },
+  { id: "month", label: "30 ditë" },
+  { id: "custom", label: "Zgjidh datat" },
+];
+
+const buildRange = (periodId) => {
+  const today = new Date();
+
+  switch (periodId) {
+    case "yesterday": {
+      const d = addDays(today, -1);
+      return { from: toYMD(d), to: toYMD(d) };
+    }
+    case "week":
+      return { from: toYMD(addDays(today, -6)), to: toYMD(today) };
+    case "month":
+      return { from: toYMD(addDays(today, -29)), to: toYMD(today) };
+    case "today":
+    default:
+      return { from: toYMD(today), to: toYMD(today) };
+  }
+};
+
+const formatMoney = (value) =>
+  `${Number(value || 0).toLocaleString("sq-AL", {
+    maximumFractionDigits: 0,
+  })} ALL`;
 
 const normalizeWaiterStats = (raw) => {
   const empty = {
@@ -94,7 +132,13 @@ const normalizeWaiterStats = (raw) => {
   return empty;
 };
 
+/* ---------- komponenti ---------- */
+
 export default function XhiroMobilePage() {
+  const [periodId, setPeriodId] = useState("today");
+  const [customFrom, setCustomFrom] = useState("");
+  const [customTo, setCustomTo] = useState("");
+
   const [summary, setSummary] = useState({
     totalRevenue: 0,
     totalOrders: 0,
@@ -102,18 +146,8 @@ export default function XhiroMobilePage() {
   });
 
   const [waiterRows, setWaiterRows] = useState([]);
-  const [roomRow, setRoomRow] = useState({
-    waiterName: "Dhoma",
-    orderCount: 0,
-    totalRevenue: 0,
-    type: "dhoma",
-  });
-  const [umbrellaRow, setUmbrellaRow] = useState({
-    waiterName: "Cadra",
-    orderCount: 0,
-    totalRevenue: 0,
-    type: "cadra",
-  });
+  const [roomRow, setRoomRow] = useState({ orderCount: 0, totalRevenue: 0 });
+  const [umbrellaRow, setUmbrellaRow] = useState({ orderCount: 0, totalRevenue: 0 });
 
   const [loading, setLoading] = useState(true);
   const [errMsg, setErrMsg] = useState("");
@@ -123,272 +157,323 @@ export default function XhiroMobilePage() {
     return id && id !== "undefined" && id !== "null" ? id : "";
   }, []);
 
-  const [from, setFrom] = useState(getSavedDate(DASHBOARD_FROM_KEY));
-  const [to, setTo] = useState(getSavedDate(DASHBOARD_TO_KEY));
+  const range = useMemo(() => {
+    if (periodId === "custom") {
+      return { from: customFrom || undefined, to: customTo || undefined };
+    }
+    return buildRange(periodId);
+  }, [periodId, customFrom, customTo]);
+
+  const loadData = useCallback(async () => {
+    if (!businessId) {
+      setErrMsg("Mungon businessId. Hyni sërish në sistem.");
+      setLoading(false);
+      return;
+    }
+
+    // për "Zgjidh datat" prit derisa të dyja të plotësohen
+    if (periodId === "custom" && (!customFrom || !customTo)) return;
+
+    setLoading(true);
+    setErrMsg("");
+
+    try {
+      const [periodData, waiterStatsRaw] = await Promise.all([
+        getPeriodStats(range.from, range.to),
+        getWaiterStats(range.from, range.to),
+      ]);
+
+      const totalRevenue = Number(periodData?.totalRevenue || 0);
+      const totalOrders = Number(
+        periodData?.countOrders || periodData?.orderCount || 0
+      );
+
+      const byDay = Array.isArray(periodData?.byDay) ? periodData.byDay : [];
+      const activeDays = byDay.length || 1;
+
+      setSummary({
+        totalRevenue,
+        totalOrders,
+        averagePerDay: totalRevenue / activeDays,
+      });
+
+      const normalized = normalizeWaiterStats(waiterStatsRaw);
+
+      setWaiterRows(
+        [...normalized.waiterRows].sort(
+          (a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0)
+        )
+      );
+      setRoomRow(normalized.roomRow);
+      setUmbrellaRow(normalized.umbrellaRow);
+    } catch (err) {
+      console.error("XhiroMobilePage:", err?.response?.data || err);
+      setErrMsg(
+        err?.response?.data?.message ||
+          err?.message ||
+          "Nuk po arrij të marr të dhënat e financave."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }, [businessId, periodId, customFrom, customTo, range]);
 
   useEffect(() => {
-    const loadData = async () => {
-      try {
-        setLoading(true);
-        setErrMsg("");
-
-        if (!businessId) {
-          setErrMsg("Mungon businessId. Hyni sërish në sistem.");
-          return;
-        }
-
-        const [periodData, waiterStatsRaw] = await Promise.all([
-          getPeriodStats(from, to),
-          getWaiterStats(from, to),
-        ]);
-
-        const totalRevenue = Number(periodData?.totalRevenue || 0);
-        const totalOrders = Number(
-          periodData?.countOrders || periodData?.orderCount || 0
-        );
-
-        const byDay = Array.isArray(periodData?.byDay) ? periodData.byDay : [];
-        const activeDays = byDay.length || 1;
-
-        setSummary({
-          totalRevenue,
-          totalOrders,
-          averagePerDay: totalRevenue / activeDays,
-        });
-
-        const normalized = normalizeWaiterStats(waiterStatsRaw);
-
-        setWaiterRows(
-          [...normalized.waiterRows].sort(
-            (a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0)
-          )
-        );
-
-        setRoomRow(normalized.roomRow);
-        setUmbrellaRow(normalized.umbrellaRow);
-      } catch (err) {
-        console.error("XhiroMobilePage error:", err?.response?.data || err);
-        setErrMsg(
-          err?.response?.data?.message ||
-            err?.message ||
-            "Nuk po arrij të marr të dhënat e financave."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadData();
-  }, [businessId, from, to]);
+  }, [loadData]);
 
+  /* rreshtat e breakdown-it */
   const breakdownRows = useMemo(() => {
-    return [
+    const rows = [
       ...waiterRows.map((w) => ({
-        ...w,
         label: w.waiterName,
         kind: "Kamarier",
+        icon: "waiter",
+        orderCount: w.orderCount,
+        totalRevenue: w.totalRevenue,
       })),
-      { ...roomRow, label: "Dhoma", kind: "Dhoma" },
-      { ...umbrellaRow, label: "Cadra", kind: "Cadra" },
+      {
+        label: "Dhoma",
+        kind: "Dhoma",
+        icon: "room",
+        orderCount: roomRow.orderCount,
+        totalRevenue: roomRow.totalRevenue,
+      },
+      {
+        label: "Çadra",
+        kind: "Çadra",
+        icon: "umbrella",
+        orderCount: umbrellaRow.orderCount,
+        totalRevenue: umbrellaRow.totalRevenue,
+      },
     ]
-      .filter((r) => Number(r.totalRevenue || 0) > 0 || Number(r.orderCount || 0) > 0)
-      .sort((a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0));
+      .filter(
+        (r) =>
+          Number(r.totalRevenue || 0) > 0 || Number(r.orderCount || 0) > 0
+      )
+      .sort(
+        (a, b) => Number(b.totalRevenue || 0) - Number(a.totalRevenue || 0)
+      );
+
+    return rows;
   }, [waiterRows, roomRow, umbrellaRow]);
+
+  const maxRevenue =
+    breakdownRows.length > 0 ? Number(breakdownRows[0].totalRevenue || 0) : 0;
 
   const topWaiter = waiterRows.length > 0 ? waiterRows[0] : null;
 
+  const rowIcon = (icon) => {
+    if (icon === "room") return <BedDouble size={17} strokeWidth={2.3} />;
+    if (icon === "umbrella") return <Umbrella size={17} strokeWidth={2.3} />;
+    return <UserRound size={17} strokeWidth={2.3} />;
+  };
+
   return (
-    <div className="xhiro-mobile-page">
-      <div className="xhiro-mobile-shell">
-        <section className="xhiro-mobile-hero">
-          <div className="xhiro-mobile-hero-left">
-            <div className="xhiro-mobile-logo-card">
-              <img src={logo} alt="Logo" />
-            </div>
+    <div className="xhm-page">
+      {/* HERO */}
+      <section className="xhm-hero">
+        <h1>
+          <Wallet size={20} strokeWidth={2.3} />
+          Financat
+        </h1>
+        <p>Xhiroja dhe porositë sipas periudhës</p>
 
-            <div>
-              <div className="xhiro-mobile-hero-badge">Raporti i periudhës</div>
-              <h1 className="xhiro-mobile-title">Financat</h1>
-              <p className="xhiro-mobile-subtitle">
-                Përmbledhje moderne për xhiron dhe porositë.
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <div className="xhiro-mobile-date-picker">
-          <div className="date-field">
-            <label>Nga</label>
-            <div className="date-input-wrap">
-              <input
-                type="date"
-                value={from}
-                onChange={(e) => {
-                  setFrom(e.target.value);
-                  localStorage.setItem(DASHBOARD_FROM_KEY, e.target.value);
-                }}
-              />
-            </div>
-          </div>
-
-          <div className="date-field">
-            <label>Deri</label>
-            <div className="date-input-wrap">
-              <input
-                type="date"
-                value={to}
-                onChange={(e) => {
-                  setTo(e.target.value);
-                  localStorage.setItem(DASHBOARD_TO_KEY, e.target.value);
-                }}
-              />
-            </div>
-          </div>
+        <div className="xhm-periods">
+          {PERIODS.map((p) => (
+            <button
+              key={p.id}
+              type="button"
+              className={periodId === p.id ? "active" : ""}
+              onClick={() => setPeriodId(p.id)}
+              disabled={loading && periodId !== p.id}
+            >
+              {p.id === "custom" && (
+                <Calendar size={13} strokeWidth={2.5} />
+              )}
+              {p.label}
+            </button>
+          ))}
         </div>
 
-        {errMsg && <div className="xhiro-mobile-empty">{errMsg}</div>}
+        {periodId === "custom" && (
+          <div className="xhm-custom-dates">
+            <label>
+              <span>Nga</span>
+              <input
+                type="date"
+                value={customFrom}
+                onChange={(e) => setCustomFrom(e.target.value)}
+              />
+            </label>
+
+            <label>
+              <span>Deri</span>
+              <input
+                type="date"
+                value={customTo}
+                onChange={(e) => setCustomTo(e.target.value)}
+              />
+            </label>
+          </div>
+        )}
+      </section>
+
+      <div className="xhm-body">
+        {errMsg && <div className="xhm-error">{errMsg}</div>}
 
         {loading ? (
-          <div className="xhiro-mobile-empty">Duke ngarkuar...</div>
+          <div className="xhm-empty">Duke ngarkuar…</div>
         ) : (
           <>
-            <section className="xhiro-main-card">
-              <div className="xhiro-main-icon">
-  <Wallet size={30} strokeWidth={2.2} />
-</div>
+            {/* KARTA KRYESORE */}
+            <section className="xhm-main-card">
+              <span className="xhm-main-icon">
+                <Wallet size={22} strokeWidth={2.3} />
+              </span>
 
-              <div>
-                <div className="xhiro-card-label">Totali i xhiros</div>
-                <div className="xhiro-main-value">
-                  {formatMoney(summary.totalRevenue)}
-                </div>
-                <div className="xhiro-card-subtitle">Për gjithë periudhën</div>
+              <div className="xhm-main-text">
+                <em>TOTALI I XHIROS</em>
+                <strong>{formatMoney(summary.totalRevenue)}</strong>
               </div>
             </section>
 
-            <div className="xhiro-mini-grid">
-              <section className="xhiro-mini-card">
-                <div className="xhiro-mini-icon">
-  <ShoppingBag size={24} strokeWidth={2.2} />
-</div>
-                <div className="xhiro-card-label">Porosi</div>
-                <div className="xhiro-mini-value">
-                  {summary.totalOrders.toLocaleString("sq-AL")}
-                </div>
-                <div className="xhiro-card-subtitle">Numri total</div>
+            {/* DY MINI-KARTA */}
+            <div className="xhm-mini-grid">
+              <section className="xhm-mini-card">
+                <span className="xhm-mini-icon green">
+                  <ShoppingBag size={17} strokeWidth={2.3} />
+                </span>
+                <b>{summary.totalOrders.toLocaleString("sq-AL")}</b>
+                <em>Porosi</em>
               </section>
 
-              <section className="xhiro-mini-card">
-                <div className="xhiro-mini-icon">
-  <TrendingUp size={24} strokeWidth={2.2} />
-</div>
-                <div className="xhiro-card-label">Mesatarja / ditë</div>
-                <div className="xhiro-mini-value">
-                  {formatMoney(summary.averagePerDay)}
-                </div>
-                <div className="xhiro-card-subtitle">Ditët aktive</div>
+              <section className="xhm-mini-card">
+                <span className="xhm-mini-icon purple">
+                  <TrendingUp size={17} strokeWidth={2.3} />
+                </span>
+                <b>{formatMoney(summary.averagePerDay)}</b>
+                <em>Mesatarja / ditë</em>
               </section>
             </div>
 
-            <section className="xhiro-top-card">
-              <div>
-                <div className="xhiro-section-mini">Kamarieri më i mirë</div>
+            {/* KAMARIERI ME I MIRE */}
+            {topWaiter && (
+              <section className="xhm-top-card">
+                <span className="xhm-top-icon">
+                  <Trophy size={20} strokeWidth={2.3} />
+                </span>
 
-                {topWaiter ? (
-                  <>
-                    <div className="xhiro-top-name">{topWaiter.waiterName}</div>
-                    <div className="xhiro-top-meta">
-                      {formatMoney(topWaiter.totalRevenue)} ·{" "}
-                      {Number(topWaiter.orderCount || 0).toLocaleString("sq-AL")} porosi
-                    </div>
-                  </>
-                ) : (
-                  <div className="xhiro-muted">Nuk ka kamarierë me xhiro.</div>
-                )}
-              </div>
+                <div className="xhm-top-text">
+                  <em>Kamarieri më i mirë</em>
+                  <strong>{topWaiter.waiterName}</strong>
+                  <span>
+                    {formatMoney(topWaiter.totalRevenue)} ·{" "}
+                    {Number(topWaiter.orderCount || 0).toLocaleString("sq-AL")}{" "}
+                    porosi
+                  </span>
+                </div>
+              </section>
+            )}
 
-              <div className="xhiro-top-badge">
-  <Trophy size={28} strokeWidth={2.2} />
-</div>
-            </section>
-
-            <section className="xhiro-section-card">
-              <div className="xhiro-section-head">
-                <h3>Breakdown i xhiros</h3>
-                <p>Ndarja sipas burimit të të ardhurave</p>
+            {/* BREAKDOWN */}
+            <section className="xhm-card">
+              <div className="xhm-card-head">
+                <h2>Ndarja e xhiros</h2>
+                <p>Sipas burimit të të ardhurave</p>
               </div>
 
               {breakdownRows.length === 0 ? (
-                <div className="xhiro-mobile-empty small">
+                <div className="xhm-empty small">
                   Nuk ka të dhëna për këtë periudhë.
                 </div>
               ) : (
-                <div className="xhiro-list">
-                  {breakdownRows.map((item, index) => (
-                    <div className="xhiro-list-item" key={`${item.kind}-${item.label}-${index}`}>
-                      <div className="xhiro-list-left">
-                        <div className="xhiro-rank">
-  <UserRound size={18} strokeWidth={2.4} />
-</div>
+                <ul className="xhm-list">
+                  {breakdownRows.map((item, index) => {
+                    const pct =
+                      maxRevenue > 0
+                        ? (Number(item.totalRevenue || 0) / maxRevenue) * 100
+                        : 0;
 
-                        <div>
-                          <div className="xhiro-list-name">{item.label}</div>
-                          <div className="xhiro-list-kind">{item.kind}</div>
-                        </div>
-                      </div>
+                    return (
+                      <li
+                        key={`${item.kind}-${item.label}-${index}`}
+                        className="xhm-row"
+                      >
+                        <span className="xhm-row-icon">
+                          {rowIcon(item.icon)}
+                        </span>
 
-                      <div className="xhiro-list-right">
-                        <div className="xhiro-list-total">
-                          {formatMoney(item.totalRevenue)}
-                        </div>
-                        <div className="xhiro-list-orders">
-                          {Number(item.orderCount || 0).toLocaleString("sq-AL")} porosi
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                        <span className="xhm-row-main">
+                          <span className="xhm-row-top">
+                            <strong>{item.label}</strong>
+                            <b>{formatMoney(item.totalRevenue)}</b>
+                          </span>
+
+                          <span className="xhm-bar">
+                            <span
+                              className="xhm-bar-fill"
+                              style={{ width: `${pct}%` }}
+                            />
+                          </span>
+
+                          <span className="xhm-row-sub">
+                            {item.kind} ·{" "}
+                            {Number(item.orderCount || 0).toLocaleString(
+                              "sq-AL"
+                            )}{" "}
+                            porosi
+                          </span>
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
             </section>
 
-            <section className="xhiro-section-card">
-              <div className="xhiro-section-head">
-                <h3>Renditja e kamarierëve</h3>
+            {/* RENDITJA E KAMARIEREVE */}
+            <section className="xhm-card">
+              <div className="xhm-card-head">
+                <h2>Renditja e kamarierëve</h2>
                 <p>Kush ka sjellë më shumë xhiro</p>
               </div>
 
               {waiterRows.length === 0 ? (
-                <div className="xhiro-mobile-empty small">
+                <div className="xhm-empty small">
                   Nuk ka kamarierë me xhiro në këtë periudhë.
                 </div>
               ) : (
-                <div className="xhiro-list">
+                <ul className="xhm-list">
                   {waiterRows.map((item, index) => (
-                    <div className="xhiro-list-item" key={`${item.waiterName}-${index}`}>
-                      <div className="xhiro-list-left">
-                        <div className="xhiro-rank">{index + 1}</div>
+                    <li
+                      key={`${item.waiterName}-${index}`}
+                      className="xhm-row"
+                    >
+                      <span
+                        className={`xhm-rank ${index === 0 ? "gold" : ""}`}
+                      >
+                        {index + 1}
+                      </span>
 
-                        <div>
-                          <div className="xhiro-list-name">{item.waiterName}</div>
-                          <div className="xhiro-list-kind">Kamarier</div>
-                        </div>
-                      </div>
+                      <span className="xhm-row-main">
+                        <span className="xhm-row-top">
+                          <strong>{item.waiterName}</strong>
+                          <b>{formatMoney(item.totalRevenue)}</b>
+                        </span>
 
-                      <div className="xhiro-list-right">
-                        <div className="xhiro-list-total">
-                          {formatMoney(item.totalRevenue)}
-                        </div>
-                        <div className="xhiro-list-orders">
-                          {Number(item.orderCount || 0).toLocaleString("sq-AL")} porosi
-                        </div>
-                      </div>
-                    </div>
+                        <span className="xhm-row-sub">
+                          {Number(item.orderCount || 0).toLocaleString(
+                            "sq-AL"
+                          )}{" "}
+                          porosi
+                        </span>
+                      </span>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </section>
-
-            <div className="xhiro-mobile-bottom-space" />
           </>
         )}
       </div>

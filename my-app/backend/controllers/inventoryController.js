@@ -27,15 +27,25 @@ const parseYmdEndUTC = (ymd) => {
 const stockableName = (p) =>
   toStr(p?.nameSq || p?.name || p?.nameEn || p?.nameIt);
 
+const makeDateRange = (from, to) => {
+  const range = {};
+
+  if (from) range.$gte = new Date(`${from}T00:00:00+02:00`);
+  if (to) range.$lte = new Date(`${to}T23:59:59.999+02:00`);
+
+  return Object.keys(range).length ? range : null;
+};
+
 export const getInventorySummary = async (req, res) => {
   try {
-    const { businessId } = req.query;
+    const { businessId, from, to } = req.query;
 
     if (!businessId) {
       return res.status(400).json({ message: "businessId mungon" });
     }
 
     const bidObj = new mongoose.Types.ObjectId(businessId);
+    const dateRange = makeDateRange(from, to);
 
     const products = await Product.find({
       businessId: bidObj,
@@ -68,7 +78,12 @@ export const getInventorySummary = async (req, res) => {
     });
 
     const supplies = await Supply.aggregate([
-      { $match: { businessId: bidObj } },
+      {
+        $match: {
+          businessId: bidObj,
+          ...(dateRange ? { createdAt: dateRange } : {}),
+        },
+      },
       {
         $group: {
           _id: "$productId",
@@ -88,6 +103,7 @@ export const getInventorySummary = async (req, res) => {
       {
         $match: {
           businessId: bidObj,
+          ...(dateRange ? { createdAt: dateRange } : {}),
         },
       },
       { $unwind: "$items" },
@@ -98,8 +114,6 @@ export const getInventorySummary = async (req, res) => {
         },
       },
     ]);
-
-    console.log("INVENTORY SALES:", sales);
 
     sales.forEach((s) => {
       const pid = String(s._id || "");

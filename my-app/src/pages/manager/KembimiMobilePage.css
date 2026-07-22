@@ -1,0 +1,216 @@
+/* KembimiMobilePage — prefiks "kmb-", i izoluar */
+
+.kmb-page {
+  --kmb-blue: #2563eb;
+  --kmb-ink: #0f172a;
+  --kmb-muted: #64748b;
+  --kmb-line: #e8edf5;
+
+  min-height: 100%;
+  padding-bottom: 40px;
+  background: #f6f8fc;
+  color: var(--kmb-ink);
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+/* HERO */
+.kmb-hero {
+  padding: 18px 16px 46px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+}
+
+.kmb-hero h1 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  margin: 0 0 5px;
+  color: #fff;
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.kmb-hero p {
+  margin: 0;
+  color: rgba(255, 255, 255, 0.82);
+  font-size: 13px;
+}
+
+/* TRUPI */
+.kmb-body {
+  position: relative;
+  margin-top: -26px;
+  padding: 16px 16px 0;
+  border-radius: 22px 22px 0 0;
+  background: #f6f8fc;
+}
+
+.kmb-error {
+  margin-bottom: 12px;
+  padding: 11px 13px;
+  border: 1px solid #fecaca;
+  border-radius: 12px;
+  background: #fef2f2;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.kmb-empty {
+  padding: 34px 12px;
+  color: var(--kmb-muted);
+  font-size: 13.5px;
+  text-align: center;
+}
+
+/* KARTAT E MONEDHAVE */
+.kmb-list {
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.kmb-card {
+  padding: 14px;
+  border: 1px solid var(--kmb-line);
+  border-radius: 17px;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.03);
+}
+
+.kmb-card-top {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 12px;
+}
+
+.kmb-symbol {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: #eff4ff;
+  color: var(--kmb-blue);
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.kmb-names {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.kmb-names strong {
+  font-size: 15px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+}
+
+.kmb-names em {
+  color: var(--kmb-muted);
+  font-size: 11.5px;
+  font-style: normal;
+}
+
+.kmb-diff {
+  flex-shrink: 0;
+  padding: 4px 9px;
+  border-radius: 999px;
+  font-size: 10.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.kmb-diff.ok   { background: #ecfdf3; color: #12a150; }
+.kmb-diff.up   { background: #fff7ed; color: #c2620a; }
+.kmb-diff.down { background: #fef2f2; color: #dc2626; }
+
+.kmb-input-row {
+  display: flex;
+  gap: 9px;
+}
+
+.kmb-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 13px;
+  height: 48px;
+  border: 1px solid var(--kmb-line);
+  border-radius: 13px;
+  background: #f8fafc;
+}
+
+.kmb-input:focus-within {
+  border-color: var(--kmb-blue);
+  background: #fff;
+}
+
+.kmb-input input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--kmb-ink);
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+}
+
+.kmb-input span {
+  color: var(--kmb-muted);
+  font-size: 11.5px;
+  font-weight: 700;
+}
+
+.kmb-live {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 13px;
+  height: 48px;
+  border: 1px solid var(--kmb-line);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--kmb-blue);
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.kmb-live:active { background: #eff4ff; }
+
+/* RUAJ */
+.kmb-save {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 15px;
+  border: 0;
+  border-radius: 14px;
+  background: var(--kmb-blue);
+  color: #fff;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.16s ease;
+}
+
+.kmb-save.done { background: #12a150; }
+.kmb-save:disabled { opacity: 0.6; }

@@ -35,6 +35,11 @@ const PlacesPage           = lazy(() => import("./pages/manager/PlacesPage.jsx")
 const PrinterSettingsPage  = lazy(() => import("./pages/manager/PrinterSettingsPage"));
 const FaturaTelefoni       = lazy(() => import("./pages/manager/FaturaTelefoni"));
 const ManagerLayout        = lazy(() => import("./pages/manager/ManagerLayout.jsx"));
+const ManagerMobileHome    = lazy(() => import("./pages/manager/ManagerMobileHome.jsx"));
+const PlacesMobilePage     = lazy(() => import("./pages/manager/PlacesMobilePage.jsx"));
+const ProductsMobilePage   = lazy(() => import("./pages/manager/ProductsMobilePage.jsx"));
+const InventoryMobilePage  = lazy(() => import("./pages/manager/InventoryMobilePage.jsx"));
+const KembimiMobilePage    = lazy(() => import("./pages/manager/KembimiMobilePage.jsx"));
 const PorosiMobilePage     = lazy(() => import("./pages/manager/PorosiMobilePage.jsx"));
 const XhiroMobilePage      = lazy(() => import("./pages/manager/XhiroMobilePage.jsx"));
 const ClientMenuPage       = lazy(() => import("./pages/ClientMenuPage.jsx"));
@@ -183,17 +188,18 @@ export default function App() {
 
         {/* MANAGER */}
         <Route path="/manager" element={<ManagerProtected><ManagerLayout setIsLoggedIn={setIsLoggedIn} /></ManagerProtected>}>
-          <Route index element={<Navigate to="xhiro" replace />} />
+          <Route index element={<Navigate to={isMobile ? "home" : "xhiro"} replace />} />
+          <Route path="home"            element={isMobile ? <ManagerMobileHome /> : <DashboardPage />} />
           <Route path="dashboard"       element={<DashboardPage />} />
           <Route path="users"           element={<UserPage />} />
           <Route path="qr"              element={<QrPage />} />
           <Route path="subcategory"     element={<SubCategoryPage />} />
-          <Route path="products"        element={<ProductsPage />} />
-          <Route path="inventari"       element={<InventoryPage />} />
+          <Route path="products"        element={isMobile ? <ProductsMobilePage /> : <ProductsPage />} />
+          <Route path="inventari"       element={isMobile ? <InventoryMobilePage /> : <InventoryPage />} />
           <Route path="xhiro"           element={isMobile ? <XhiroMobilePage /> : <XhiroPage />} />
           <Route path="orders"          element={isMobile ? <PorosiMobilePage /> : <PorosiPage />} />
-          <Route path="kembimi-valutor" element={<KembimiValutorPage />} />
-          <Route path="places"          element={<PlacesPage />} />
+          <Route path="kembimi-valutor" element={isMobile ? <KembimiMobilePage /> : <KembimiValutorPage />} />
+          <Route path="places"          element={isMobile ? <PlacesMobilePage /> : <PlacesPage />} />
           <Route path="profile"         element={<ProfilePage />} />
           <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="printers"        element={<PrinterSettingsPage />} />
