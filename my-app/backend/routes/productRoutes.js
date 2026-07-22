@@ -99,13 +99,16 @@ router.post(
           .toFile(fullPath);
 
           await sharp(req.file.buffer)
-  .rotate()
-  .resize(200, 200, {
-  fit: "cover",
-  position: sharp.strategy.attention,
-})
-  .webp({ quality: 75 })
-  .toFile(thumbPath);
+            .rotate()
+            // Sfond i bardhë për PNG transparente
+            .flatten({ background: { r: 255, g: 255, b: 255 } })
+            .resize(600, 600, {
+              fit: "cover",
+              position: sharp.strategy.attention,
+              background: { r: 255, g: 255, b: 255 },
+            })
+            .webp({ quality: 80 })
+            .toFile(thumbPath);
 
         const imageUrl = `/uploads/products/${fullFilename}`;
         const thumbnailUrl = `/uploads/products/${thumbFilename}`;

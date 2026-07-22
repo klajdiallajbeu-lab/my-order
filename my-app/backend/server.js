@@ -251,6 +251,14 @@ const apiLimiter = rateLimit({
 
 app.use("/api", apiLimiter);
 
+// Pergjigjet e API-t nuk cache-ohen kurre (as nga CDN, as nga shfletuesit).
+// Pa kete, JSON i vjeter (p.sh. produkte pa thumbnail) mund te mbetet ne cache.
+app.use("/api", (req, res, next) => {
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
+  res.setHeader("Pragma", "no-cache");
+  next();
+});
+
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 app.get("/api/health", (req, res) => {

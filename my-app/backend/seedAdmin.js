@@ -10,8 +10,8 @@ const run = async () => {
   try {
     await connectDB();
 
-    const username = "admin";
-    const plainPassword = "admin123";
+    const username = "Klajdi";
+    const plainPassword = "shfktewa@13259itur";
 
     // fshi çdo admin ekzistues me këtë username
     await Admin.deleteOne({ username });

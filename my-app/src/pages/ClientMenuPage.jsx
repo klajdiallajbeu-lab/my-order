@@ -224,12 +224,14 @@ export default function ClientMenuPage() {
           setSyncing(true);
         }
 
-        const res = await api.get("/products", {
-          params: { businessId, hideNumbers: 1 },
-          headers: { "Cache-Control": "no-cache" },
-        });
+        // fetch me cache: "no-store" + parametër kohor — njësoj si ClientOrderPage,
+        // që të mos marrim kurrë JSON të vjetruar nga cache (CDN ose shfletues).
+        const url =
+          `/api/products?businessId=${encodeURIComponent(businessId)}` +
+          `&hideNumbers=1&_ts=${Date.now()}`;
 
-        const data = res?.data;
+        const res = await fetch(url, { cache: "no-store" });
+        const data = await res.json().catch(() => null);
 
         if (!Array.isArray(data)) {
           if (showLoading) setError(t.cantLoad);
@@ -337,13 +339,13 @@ export default function ClientMenuPage() {
   };
 
   if (loading) {
-    return <div className="client-order-loading">{t.loading}</div>;
+    return <div className="menup-page-loading">{t.loading}</div>;
   }
 
   if (error) {
     return (
-      <div className="client-order-wrapper">
-        <div className="client-order-fatal-card">
+      <div className="menup-page-wrapper">
+        <div className="menup-page-fatal-card">
           <h2>{t.invalidQR}</h2>
           <p>{error}</p>
         </div>
@@ -352,20 +354,20 @@ export default function ClientMenuPage() {
   }
 
   return (
-    <div className="client-order-wrapper modern-menu">
+    <div className="menup-page-wrapper menup-menu">
       {/* HEADER */}
-      <header className="modern-menu-header">
-        <div className="modern-top-row">
-          <div className="modern-brand">
-            <div className="modern-brand-name">{businessName || t.title}</div>
-            <div className="modern-brand-subtitle">{syncing ? t.syncing : t.subtitle}</div>
+      <header className="menup-menu-header">
+        <div className="menup-top-row">
+          <div className="menup-brand">
+            <div className="menup-brand-name">{businessName || t.title}</div>
+            <div className="menup-brand-subtitle">{syncing ? t.syncing : t.subtitle}</div>
           </div>
         </div>
 
         {/* SEARCH + LANGUAGE */}
-        <div className="modern-search-language">
-          <div className="modern-search-box">
-            <span className="modern-search-icon">⌕</span>
+        <div className="menup-search-language">
+          <div className="menup-search-box">
+            <span className="menup-search-icon">⌕</span>
 
             <input
               type="search"
@@ -377,7 +379,7 @@ export default function ClientMenuPage() {
             {search && (
               <button
                 type="button"
-                className="modern-clear-search"
+                className="menup-clear-search"
                 onClick={() => setSearch("")}
               >
                 ×
@@ -385,7 +387,7 @@ export default function ClientMenuPage() {
             )}
           </div>
 
-          <div className="modern-language-switch">
+          <div className="menup-language-switch">
             {["sq", "en", "it"].map((language) => (
               <button
                 key={language}
@@ -401,7 +403,7 @@ export default function ClientMenuPage() {
       </header>
 
       {/* CATEGORIES */}
-      <nav className="modern-categories">
+      <nav className="menup-categories">
         <button
           type="button"
           className={activeCatId === "all" ? "active" : ""}
@@ -423,14 +425,14 @@ export default function ClientMenuPage() {
       </nav>
 
       {/* PRODUCTS */}
-      <main className="modern-products-area">
+      <main className="menup-products-area">
         {!hasResults ? (
-          <div className="modern-empty">
+          <div className="menup-empty">
             <div>{t.emptyProductsTitle}</div>
-            <div className="modern-empty-sub">{t.emptyProductsSub}</div>
+            <div className="menup-empty-sub">{t.emptyProductsSub}</div>
           </div>
         ) : (
-          <div className="modern-products-grid">
+          <div className="menup-products-grid">
             {visibleProducts.map((product) => {
               const title = pickName(product, lang);
               const desc = pickDesc(product, lang);
@@ -439,33 +441,33 @@ export default function ClientMenuPage() {
               const categoryName = pickSubCategoryName(product, lang) || product?.category || "";
 
               return (
-                <article key={product._id} className="modern-product-card">
-                  <div className="modern-product-image-wrap">
+                <article key={product._id} className="menup-product-card">
+                  <div className="menup-product-image-wrap">
                     {thumb ? (
                       <img
                         src={thumb}
                         alt={title}
-                        className="modern-product-image"
+                        className="menup-product-image"
                         loading="lazy"
                         decoding="async"
                       />
                     ) : (
-                      <div className="modern-product-placeholder">
+                      <div className="menup-product-placeholder">
                         {title.charAt(0).toUpperCase()}
                       </div>
                     )}
 
                     {categoryName && (
-                      <span className="modern-product-category">{categoryName}</span>
+                      <span className="menup-product-category">{categoryName}</span>
                     )}
                   </div>
 
-                  <div className="modern-product-content">
+                  <div className="menup-product-content">
                     <h3>{title}</h3>
 
                     {desc ? <p>{desc}</p> : <p className="muted">&nbsp;</p>}
 
-                    <div className="modern-product-footer">
+                    <div className="menup-product-footer">
                       <strong>
                         {price.toLocaleString("sq-AL", {
                           minimumFractionDigits: 0,
