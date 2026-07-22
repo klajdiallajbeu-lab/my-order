@@ -56,7 +56,8 @@ body {
   color: var(--co-ink);
   display: flex;
   flex-direction: column;
-  align-items: center;
+  /* align-items: center;  ← HEQUR: tkurte header/main sipas gjatësisë së teksteve
+     të produkteve — shkaku i grid-it të ngushtë te pijet */
 }
 
 .menup-page-loading {
@@ -117,6 +118,7 @@ body {
 }
 
 .menup-menu-header {
+  width: 100%;
   max-width: 1080px;
   margin: 0 auto;
   padding: 24px 18px 12px;
@@ -290,6 +292,7 @@ body {
 }
 
 .menup-products-area {
+  width: 100%;
   max-width: 1080px;
   margin: 0 auto;
   padding: 8px 18px 45px;
