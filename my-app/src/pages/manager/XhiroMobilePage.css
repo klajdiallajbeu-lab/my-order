@@ -397,3 +397,33 @@
   font-size: 11.5px;
   font-weight: 600;
 }
+
+
+/* ===== Butoni "Fitimi" ne hero — shtuar ===== */
+
+.xhm-hero-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.xhm-report-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  padding: 9px 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.16);
+  color: #ffffff;
+
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+
+  backdrop-filter: blur(8px);
+}

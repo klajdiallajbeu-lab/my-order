@@ -21,6 +21,7 @@ import orderRoutes from "./routes/orderRoutes.js";
 import printerRoutes from "./routes/printerRoutes.js";
 import statsRoutes from "./routes/statsRoutes.js";
 import inventoryRoutes from "./routes/inventoryRoutes.js";
+import expenseRoutes from "./routes/expenseRoutes.js";
 import userRoutes from "./routes/userRoutes.js";
 import waiterRoutes from "./routes/waiterRoutes.js";
 import subCategoryRoutes from "./routes/subCategoryRoutes.js";
@@ -30,6 +31,7 @@ import businessRoutes from "./routes/businessRoutes.js";
 import placesRoutes from "./routes/placesRoutes.js";
 import businessRequestRoutes from "./routes/businessRequestRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
+import periodCloseRoutes from "./routes/periodCloseRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -251,8 +253,8 @@ const apiLimiter = rateLimit({
 
 app.use("/api", apiLimiter);
 
-// Pergjigjet e API-t nuk cache-ohen kurre (as nga CDN, as nga shfletuesit).
-// Pa kete, JSON i vjeter (p.sh. produkte pa thumbnail) mund te mbetet ne cache.
+// Përgjigjet e API-t nuk cache-ohen kurrë (as nga CDN, as nga shfletuesit).
+// Pa këtë, JSON i vjetër (p.sh. produkte pa thumbnail) mund të mbetet në cache.
 app.use("/api", (req, res, next) => {
   res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   res.setHeader("Pragma", "no-cache");
@@ -348,6 +350,8 @@ app.use("/api/orders", orderRoutes);
 app.use("/api/printer", printerRoutes);
 app.use("/api/stats", statsRoutes);
 app.use("/api/inventory", inventoryRoutes);
+app.use("/api/expenses", expenseRoutes);
+app.use("/api/period-close", periodCloseRoutes);
 app.use("/api/users", userRoutes);
 app.use("/api/waiters", waiterRoutes);
 app.use("/api/subcategories", subCategoryRoutes);

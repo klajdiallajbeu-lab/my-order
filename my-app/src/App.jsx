@@ -40,6 +40,7 @@ const PlacesMobilePage     = lazy(() => import("./pages/manager/PlacesMobilePage
 const ProductsMobilePage   = lazy(() => import("./pages/manager/ProductsMobilePage.jsx"));
 const InventoryMobilePage  = lazy(() => import("./pages/manager/InventoryMobilePage.jsx"));
 const KembimiMobilePage    = lazy(() => import("./pages/manager/KembimiMobilePage.jsx"));
+const RaportFitimiPage     = lazy(() => import("./pages/manager/RaportFitimiPage.jsx"));
 const PorosiMobilePage     = lazy(() => import("./pages/manager/PorosiMobilePage.jsx"));
 const XhiroMobilePage      = lazy(() => import("./pages/manager/XhiroMobilePage.jsx"));
 const ClientMenuPage       = lazy(() => import("./pages/ClientMenuPage.jsx"));
@@ -198,6 +199,7 @@ export default function App() {
           <Route path="inventari"       element={isMobile ? <InventoryMobilePage /> : <InventoryPage />} />
           <Route path="xhiro"           element={isMobile ? <XhiroMobilePage /> : <XhiroPage />} />
           <Route path="orders"          element={isMobile ? <PorosiMobilePage /> : <PorosiPage />} />
+          <Route path="raporti-fitimit"  element={<RaportFitimiPage />} />
           <Route path="kembimi-valutor" element={isMobile ? <KembimiMobilePage /> : <KembimiValutorPage />} />
           <Route path="places"          element={isMobile ? <PlacesMobilePage /> : <PlacesPage />} />
           <Route path="profile"         element={<ProfilePage />} />

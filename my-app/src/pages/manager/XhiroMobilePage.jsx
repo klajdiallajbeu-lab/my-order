@@ -1,5 +1,6 @@
 import "../../qz-signing";
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   Wallet,
   ShoppingBag,
@@ -9,6 +10,7 @@ import {
   BedDouble,
   Umbrella,
   Calendar,
+  FileText,
 } from "lucide-react";
 
 import { getPeriodStats, getWaiterStats } from "../../api/statsApi.js";
@@ -135,6 +137,7 @@ const normalizeWaiterStats = (raw) => {
 /* ---------- komponenti ---------- */
 
 export default function XhiroMobilePage() {
+  const navigate = useNavigate();
   const [periodId, setPeriodId] = useState("today");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -273,10 +276,21 @@ export default function XhiroMobilePage() {
     <div className="xhm-page">
       {/* HERO */}
       <section className="xhm-hero">
-        <h1>
-          <Wallet size={20} strokeWidth={2.3} />
-          Financat
-        </h1>
+        <div className="xhm-hero-row">
+          <h1>
+            <Wallet size={20} strokeWidth={2.3} />
+            Financat
+          </h1>
+
+          <button
+            type="button"
+            className="xhm-report-btn"
+            onClick={() => navigate("/manager/raporti-fitimit")}
+          >
+            <FileText size={15} strokeWidth={2.4} />
+            Fitimi
+          </button>
+        </div>
         <p>Xhiroja dhe porositë sipas periudhës</p>
 
         <div className="xhm-periods">

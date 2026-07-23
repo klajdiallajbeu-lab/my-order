@@ -17,6 +17,8 @@ import {
   Tooltip,
 } from "recharts";
 import { getPeriodStats, getWaiterStats } from "../../api/statsApi.js";
+import { useNavigate } from "react-router-dom";
+import { FileText } from "lucide-react";
 
 const DASHBOARD_FROM_KEY = "dashboard_from_date";
 const DASHBOARD_TO_KEY = "dashboard_to_date";
@@ -128,6 +130,7 @@ const normalizeWaiterStats = (raw) => {
 };
 
 export default function XhiroPage() {
+  const navigate = useNavigate();
   const businessName = localStorage.getItem("hotelName") || "Biznesi";
   const userName =
     sessionStorage.getItem("userName") || localStorage.getItem("userName") || "User";
@@ -255,6 +258,15 @@ export default function XhiroPage() {
             <span className="sep">—</span>
             <span>{toDate.toLocaleDateString("sq-AL")}</span>
           </div>
+
+          <button
+            type="button"
+            className="xhiro-report-btn"
+            onClick={() => navigate("/manager/raporti-fitimit")}
+          >
+            <FileText size={16} strokeWidth={2.4} />
+            Raporti i Fitimit
+          </button>
         </div>
 
         <div className="xhiro-total-card">

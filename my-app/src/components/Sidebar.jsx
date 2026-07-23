@@ -19,6 +19,10 @@ import {
   Printer,
 } from "lucide-react";
 
+// Kontrolli i vetëm për linkat e printerit në menu.
+// false = të fshehura (rrugët dhe kodi mbeten të paprekura).
+const SHOW_PRINTER_LINKS = false;
+
 export default function Sidebar({ onLogout, closeSidebar }) {
   const navigate = useNavigate();
 
@@ -155,16 +159,21 @@ export default function Sidebar({ onLogout, closeSidebar }) {
               <span>Vendet & QR</span>
             </NavLink>
 
-            <NavLink
-              to="printers"
-              onClick={handleNavigate}
-              className={({ isActive }) =>
-                `sb-sub-link ${isActive ? "active" : ""}`
-              }
-            >
-              <Printer size={15} />
-              <span>Printerat</span>
-            </NavLink>
+            {/* I fshehur vizualisht — rruga /manager/printers mbetet aktive
+                dhe mund të hapet direkt me URL. Për ta rikthyer në menu,
+                ndrysho SHOW_PRINTER_LINKS në true. */}
+            {SHOW_PRINTER_LINKS && (
+              <NavLink
+                to="printers"
+                onClick={handleNavigate}
+                className={({ isActive }) =>
+                  `sb-sub-link ${isActive ? "active" : ""}`
+                }
+              >
+                <Printer size={15} />
+                <span>Printerat</span>
+              </NavLink>
+            )}
           </div>
         )}
 
@@ -209,7 +218,7 @@ export default function Sidebar({ onLogout, closeSidebar }) {
             <span className="sb-icon-wrap">
               <Wallet size={16} />
             </span>
-            <span className="sb-link-text">Financat</span>
+            <span className="sb-link-text">Portofoli</span>
           </span>
 
           <span className="sb-action-icon">
@@ -234,14 +243,17 @@ export default function Sidebar({ onLogout, closeSidebar }) {
       </div>
 
       <div className="sb-footer">
-        <button
-          type="button"
-          className="sb-link"
-          onClick={openPrintListener}
-        >
-          <Printer size={16} />
-          <span>Print Listener</span>
-        </button>
+        {/* I fshehur vizualisht — funksioni openPrintListener mbetet i gatshëm. */}
+        {SHOW_PRINTER_LINKS && (
+          <button
+            type="button"
+            className="sb-link"
+            onClick={openPrintListener}
+          >
+            <Printer size={16} />
+            <span>Print Listener</span>
+          </button>
+        )}
 
         <NavLink
           to="profile"
