@@ -52,6 +52,14 @@ input  { outline: none; border: none; }
   letter-spacing: -0.5px;
 }
 .lpp-logo-name span { color: #1A56DB; }
+.lpp-logo-img {
+  display: block;
+  height: 40px;
+  width: auto;
+  max-width: 200px;
+  object-fit: contain;
+  margin: 0 auto;
+}
 .lpp-logo-sub { font-size: 12px; color: #9ca3af; font-weight: 500; margin-top: 1px; }
 
 /* MAIN */

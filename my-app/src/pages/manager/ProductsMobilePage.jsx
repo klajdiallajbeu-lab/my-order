@@ -112,11 +112,28 @@ export default function ProductsMobilePage() {
     let list = products;
 
     if (activeChip !== "all") {
-      list = list.filter(
-        (p) =>
-          String(p.subCategoryId || p.subCategory?._id || "") ===
-          String(activeChip)
+      const activeSc = subCats.find(
+        (sc) => String(sc._id) === String(activeChip)
       );
+      const activeName = pickSubCatName(activeSc).toLowerCase();
+
+      list = list.filter((p) => {
+        // subCategoryId mund të vijë si objekt (populated) ose string
+        const pid = String(
+          p?.subCategoryId?._id || p?.subCategoryId || p?.subCategory?._id || ""
+        );
+        if (pid && pid === String(activeChip)) return true;
+
+        // fallback: krahaso sipas emrit të nënkategorisë
+        const pname = String(
+          p?.subCategoryId?.nameSq ??
+            p?.subCategory?.nameSq ??
+            p?.subCategory ??
+            ""
+        ).toLowerCase();
+
+        return Boolean(activeName) && pname === activeName;
+      });
     }
 
     const q = search.trim().toLowerCase();
@@ -150,7 +167,9 @@ export default function ProductsMobilePage() {
       price: String(p.price ?? ""),
       descSq: (p.descSq ?? p.desc ?? "").toString(),
       destination: p.destination === "banak" ? "banak" : "kuzhine",
-      subCategoryId: String(p.subCategoryId || p.subCategory?._id || ""),
+      subCategoryId: String(
+        p.subCategoryId?._id || p.subCategoryId || p.subCategory?._id || ""
+      ),
     });
     setImageFile(null);
     setImagePreview(thumbOf(p));

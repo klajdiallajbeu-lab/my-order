@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import "./LoginPagePhone.css";
 import { Shield, FileText, Phone } from "lucide-react";
+import logo from "../../assets/logo.webp";
 
 export default function LoginPagePhone({ onLogin }) {
   const navigate = useNavigate();
@@ -169,9 +170,7 @@ const handleSubmit = async (e) => {
     <div className="lpp-page">
       <main className={`lpp-main ${loaded ? "show" : ""}`}>
         <div className="lpp-logo-center">
-          <div className="lpp-logo-name">
-            my<span>Order</span>
-          </div>
+          <img src={logo} alt="myOrder" className="lpp-logo-img" />
           <div className="lpp-logo-sub">Management Platform</div>
         </div>
 
