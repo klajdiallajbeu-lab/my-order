@@ -13,3 +13,4 @@ reset-admin.js
 *.backup
 my-app/backend/backend/
 *.old
+my-app/backend/public/downloads/

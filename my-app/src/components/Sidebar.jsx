@@ -17,6 +17,7 @@ import {
   User,
   LogOut,
   Printer,
+  Download,
 } from "lucide-react";
 
 // Kontrolli i vetëm për linkat e printerit në menu.
@@ -218,7 +219,7 @@ export default function Sidebar({ onLogout, closeSidebar }) {
             <span className="sb-icon-wrap">
               <Wallet size={16} />
             </span>
-            <span className="sb-link-text">Portofoli</span>
+            <span className="sb-link-text">Financat</span>
           </span>
 
           <span className="sb-action-icon">
@@ -254,6 +255,16 @@ export default function Sidebar({ onLogout, closeSidebar }) {
             <span>Print Listener</span>
           </button>
         )}
+
+        {/* Shkarkimi i aplikacionit te printerit (Windows) */}
+        <a
+          href="/downloads/myOrder-Printer-Setup.exe"
+          className="sb-link"
+          download
+        >
+          <Download size={16} />
+          <span>Shkarko Printerin</span>
+        </a>
 
         <NavLink
           to="profile"
