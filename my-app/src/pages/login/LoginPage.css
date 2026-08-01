@@ -123,16 +123,28 @@ button {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 16px 32px 22px;
+  padding: 24px 32px 30px;
+}
+
+/* Ekrane shume te medhenj (p.sh. aplikacioni i instaluar ne fullscreen) */
+@media (min-width: 1600px) {
+  .myorder-card {
+    max-width: 1280px;
+    gap: 60px;
+  }
+
+  .myorder-illustration {
+    max-width: 320px;
+  }
 }
 
 .myorder-card {
   width: 100%;
-  max-width: 1120px;
+  max-width: 1180px;
   min-height: 500px;
   display: grid;
   grid-template-columns: minmax(0, 1fr) 390px;
-  gap: 42px;
+  gap: 48px;
   align-items: center;
 }
 
@@ -142,9 +154,9 @@ button {
   min-height: 500px;
   padding: 30px 24px 30px 34px;
   display: grid;
-  grid-template-columns: minmax(360px, 470px) 230px;
-  align-items: end;
-  gap: 28px;
+  grid-template-columns: minmax(340px, 500px) minmax(0, 300px);
+  align-items: center;
+  gap: 32px;
 }
 
 .myorder-left::before,
@@ -173,12 +185,13 @@ button {
 
 .myorder-title {
   margin: 14px 0 12px;
-  font-size: 34px;
-  line-height: 1.08;
+  font-size: clamp(28px, 2.5vw, 36px);
+  line-height: 1.12;
   font-weight: 900;
-  letter-spacing: -1px;
+  letter-spacing: -0.8px;
   color: #0f172a;
-  max-width: 430px;
+  max-width: 100%;
+  text-wrap: balance;
 }
 
 .myorder-title span {
@@ -187,9 +200,9 @@ button {
 
 .myorder-subtitle {
   margin: 0;
-  max-width: 370px;
+  max-width: 420px;
   color: #475569;
-  font-size: 13.5px;
+  font-size: 14px;
   line-height: 1.5;
 }
 
@@ -200,7 +213,7 @@ button {
   display: flex;
   flex-direction: column;
   gap: 0;
-  max-width: 390px;
+  max-width: 430px;
 }
 
 .myorder-features li {
@@ -258,10 +271,11 @@ button {
 .myorder-illustration {
   position: relative;
   z-index: 1;
-  width: 190px;
-  align-self: end;
-  justify-self: end;
-  opacity: 0.7;
+  width: 100%;
+  max-width: 280px;
+  align-self: center;
+  justify-self: center;
+  opacity: 0.95;
   pointer-events: none;
 }
 

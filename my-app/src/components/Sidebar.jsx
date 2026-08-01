@@ -160,6 +160,18 @@ export default function Sidebar({ onLogout, closeSidebar }) {
               <span>Vendet & QR</span>
             </NavLink>
 
+
+            <NavLink
+              to="qr-dinamik"
+              onClick={handleNavigate}
+              className={({ isActive }) =>
+                `sb-sub-link ${isActive ? "active" : ""}`
+              }
+            >
+              <QrCode size={15} />
+              <span>QR Dinamik</span>
+            </NavLink>
+
             {/* I fshehur vizualisht — rruga /manager/printers mbetet aktive
                 dhe mund të hapet direkt me URL. Për ta rikthyer në menu,
                 ndrysho SHOW_PRINTER_LINKS në true. */}

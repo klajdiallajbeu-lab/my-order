@@ -190,13 +190,20 @@ router.post(
   }
 );
 
+/* =========================
+   GENERATE
+   - table    : fshi & rikrijo 1..N        (si më parë)
+   - room     : prefiks + numër fillestar, SHTESE (pa fshirë)
+   - umbrella : prefiks + numër fillestar, SHTESE (pa fshirë)
+========================= */
 router.post(
   "/generate",
   protectUser,
   requireRole("manager", "admin"),
   async (req, res) => {
     try {
-      const { businessId, type, total } = req.body;
+      const { businessId, type } = req.body;
+      let { total, prefix, start } = req.body;
 
       if (!businessId) {
         return res.status(400).json({ message: "Missing businessId" });
@@ -206,49 +213,138 @@ router.post(
         return res.status(400).json({ message: "Invalid businessId" });
       }
 
-      if (String(type).trim().toLowerCase() !== "table") {
-        return res.status(400).json({
-          message: "Ky endpoint është vetëm për tavolina",
-        });
+      const normalizedType = String(type || "").trim().toLowerCase();
+
+      if (!ALLOWED_TYPES.includes(normalizedType)) {
+        return res.status(400).json({ message: "Invalid type" });
       }
 
       const totalNumber = Number(total);
 
-      if (!Number.isInteger(totalNumber) || totalNumber <= 0) {
-        return res.status(400).json({ message: "Vendos një numër të saktë" });
+      if (
+        !Number.isInteger(totalNumber) ||
+        totalNumber <= 0 ||
+        totalNumber > 500
+      ) {
+        return res
+          .status(400)
+          .json({ message: "Vendos një numër të saktë (1–500)" });
       }
 
       const biz = toObjectId(businessId);
 
-      await Place.deleteMany({
+      // -------------------------------------------------------------
+      //  TAVOLINA — sjellje identike me më parë: fshi & rikrijo 1..N
+      // -------------------------------------------------------------
+      if (normalizedType === "table") {
+        await Place.deleteMany({ businessId: biz, type: "table" });
+
+        const tables = [];
+        for (let i = 1; i <= totalNumber; i++) {
+          const code = String(i);
+          tables.push({
+            businessId: biz,
+            type: "table",
+            code,
+            codeNormalized: code.toUpperCase(),
+            qrToken: makeToken(),
+            isActive: true,
+            isOccupied: false,
+            occupiedByWaiterId: null,
+            occupiedAt: null,
+          });
+        }
+
+        await Place.insertMany(tables);
+
+        return res.status(201).json({
+          message: `U krijuan ${totalNumber} tavolina`,
+        });
+      }
+
+      // -------------------------------------------------------------
+      //  DHOMA / ÇADRA — prefiks opsional + numër fillestar
+      //  SHTESE: nuk fshin asgjë; kalon kodet që ekzistojnë tashmë,
+      //  që QR-të e printuara të mos ndryshojnë kurrë.
+      // -------------------------------------------------------------
+      const startNum = Number(start ?? 1);
+      if (!Number.isInteger(startNum) || startNum < 0) {
+        return res
+          .status(400)
+          .json({ message: "Numri fillestar s'është i saktë" });
+      }
+
+      const cleanPrefix = norm(prefix); // uppercase; "" nëse bosh
+      if (cleanPrefix && !/^[A-Z0-9-]+$/.test(cleanPrefix)) {
+        return res
+          .status(400)
+          .json({ message: "Prefiksi lejohet vetëm A-Z, 0-9, '-'" });
+      }
+
+      // Ndërto kodet e kërkuara (p.sh. A1, A2, ... A30)
+      const wanted = [];
+      for (let i = 0; i < totalNumber; i++) {
+        const codeStr = `${cleanPrefix}${startNum + i}`;
+        if (!/^[A-Z0-9-]+$/.test(codeStr)) {
+          return res
+            .status(400)
+            .json({ message: `Kod i pavlefshëm: ${codeStr}` });
+        }
+        wanted.push(codeStr);
+      }
+
+      // codeNormalized ruhet LOWERCASE në DB → krahaso me lowercase
+      const wantedLower = wanted.map((c) => c.toLowerCase());
+
+      const existing = await Place.find({
         businessId: biz,
-        type: "table",
-      });
+        type: normalizedType,
+        codeNormalized: { $in: wantedLower },
+      })
+        .select("codeNormalized")
+        .lean();
 
-      const tables = [];
+      const existingSet = new Set(
+        existing.map((e) => String(e.codeNormalized).toLowerCase())
+      );
 
-      for (let i = 1; i <= totalNumber; i++) {
-        const code = String(i);
-
-        tables.push({
+      const docs = wanted
+        .filter((code) => !existingSet.has(code.toLowerCase()))
+        .map((code) => ({
           businessId: biz,
-          type: "table",
-          code,
-          codeNormalized: code.toUpperCase(),
+          type: normalizedType,
+          code, // p.sh. "A1"
+          codeNormalized: code, // schema e kthen në lowercase ("a1")
           qrToken: makeToken(),
           isActive: true,
           isOccupied: false,
           occupiedByWaiterId: null,
           occupiedAt: null,
+        }));
+
+      if (docs.length === 0) {
+        return res.status(409).json({
+          message: "Të gjitha kodet ekzistojnë tashmë",
+          created: 0,
+          skipped: wanted.length,
         });
       }
 
-      await Place.insertMany(tables);
+      // ordered:false → edhe nëse ndonjë përplaset (race), të tjerat ruhen
+      const inserted = await Place.insertMany(docs, { ordered: false });
 
+      const label = normalizedType === "room" ? "dhoma" : "çadra";
       return res.status(201).json({
-        message: `U krijuan ${totalNumber} tavolina`,
+        message: `U krijuan ${inserted.length} ${label}`,
+        created: inserted.length,
+        skipped: wanted.length - inserted.length,
       });
     } catch (e) {
+      if (e?.code === 11000) {
+        return res
+          .status(409)
+          .json({ message: "Disa kode ekzistonin tashmë" });
+      }
       console.error("POST /api/places/generate error:", e);
       return res.status(500).json({ message: e?.message || "Server error" });
     }
@@ -279,6 +375,97 @@ router.patch(
       return res.json(updated);
     } catch (e) {
       console.error("PATCH /api/places/:id/active error:", e);
+      return res.status(500).json({ message: e?.message || "Server error" });
+    }
+  }
+);
+
+/* =========================
+   DELETE PLACE (tavolinë / dhomë / çadër)
+========================= */
+router.delete(
+  "/:id",
+  protectUser,
+  requireRole("manager", "admin"),
+  async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { businessId } = req.query;
+
+      if (!isValidObjectId(id)) {
+        return res.status(400).json({ message: "Invalid id" });
+      }
+
+      // Nëse dërgohet businessId, sigurohu që vendi i përket atij biznesi
+      const filter = { _id: toObjectId(id) };
+      if (businessId && isValidObjectId(businessId)) {
+        filter.businessId = toObjectId(businessId);
+      }
+
+      const deleted = await Place.findOneAndDelete(filter);
+
+      if (!deleted) return res.status(404).json({ message: "Not found" });
+
+      return res.json({ message: "U fshi", id });
+    } catch (e) {
+      console.error("DELETE /api/places/:id error:", e);
+      return res.status(500).json({ message: e?.message || "Server error" });
+    }
+  }
+);
+
+/* =========================
+   BULK DELETE
+   - { businessId, type, ids: [...] }  → fshi të zgjedhurat
+   - { businessId, type, all: true }   → fshi të gjitha të atij tipi
+========================= */
+router.post(
+  "/bulk-delete",
+  protectUser,
+  requireRole("manager", "admin"),
+  async (req, res) => {
+    try {
+      const { businessId, type, ids, all } = req.body;
+
+      if (!businessId || !isValidObjectId(businessId)) {
+        return res.status(400).json({ message: "Invalid businessId" });
+      }
+
+      const normalizedType = String(type || "").trim().toLowerCase();
+      if (!ALLOWED_TYPES.includes(normalizedType)) {
+        return res.status(400).json({ message: "Invalid type" });
+      }
+
+      const biz = toObjectId(businessId);
+
+      // Fshi të gjitha të këtij tipi
+      if (all === true) {
+        const r = await Place.deleteMany({ businessId: biz, type: normalizedType });
+        return res.json({ message: "U fshinë të gjitha", deleted: r.deletedCount || 0 });
+      }
+
+      // Fshi vetëm ID-të e zgjedhura (dhe vetëm ato që i përkasin biznesit + tipit)
+      if (!Array.isArray(ids) || ids.length === 0) {
+        return res.status(400).json({ message: "Asnjë ID për fshirje" });
+      }
+
+      const validIds = ids
+        .filter((id) => isValidObjectId(id))
+        .map((id) => toObjectId(id));
+
+      if (validIds.length === 0) {
+        return res.status(400).json({ message: "ID të pavlefshme" });
+      }
+
+      const r = await Place.deleteMany({
+        _id: { $in: validIds },
+        businessId: biz,
+        type: normalizedType,
+      });
+
+      return res.json({ message: "U fshinë", deleted: r.deletedCount || 0 });
+    } catch (e) {
+      console.error("POST /api/places/bulk-delete error:", e);
       return res.status(500).json({ message: e?.message || "Server error" });
     }
   }

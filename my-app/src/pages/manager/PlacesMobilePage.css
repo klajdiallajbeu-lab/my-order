@@ -538,3 +538,4 @@
 .pmb-delete:active {
   background: #fee2e2;
 }
+.pmb-close svg { stroke: #0f172a; }

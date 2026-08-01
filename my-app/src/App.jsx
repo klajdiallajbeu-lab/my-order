@@ -48,6 +48,7 @@ const ClientOrderPage      = lazy(() => import("./pages/ClientOrderPage.jsx"));
 const PrivacyPage = lazy(() => import("./pages/login/PrivacyPage.jsx"));
 const TermsPage = lazy(() => import("./pages/login/TermsPage.jsx"));
 const ContactPage = lazy(() => import("./pages/login/ContactPage.jsx"));
+const DynamicQrPage = lazy(() => import("./pages/manager/DynamicQrPage.jsx"));
 
 
 // Admin
@@ -202,6 +203,7 @@ export default function App() {
           <Route path="raporti-fitimit"  element={<RaportFitimiPage />} />
           <Route path="kembimi-valutor" element={isMobile ? <KembimiMobilePage /> : <KembimiValutorPage />} />
           <Route path="places"          element={isMobile ? <PlacesMobilePage /> : <PlacesPage />} />
+          <Route path="qr-dinamik" element={<DynamicQrPage />} />
           <Route path="profile"         element={<ProfilePage />} />
           <Route path="change-password" element={<ChangePasswordPage />} />
           <Route path="printers"        element={<PrinterSettingsPage />} />

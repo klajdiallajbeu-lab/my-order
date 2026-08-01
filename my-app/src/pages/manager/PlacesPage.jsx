@@ -21,10 +21,24 @@ export default function PlacesPage() {
   const [selectedId, setSelectedId] = useState(null);
 
   const [showAdd, setShowAdd] = useState(false);
-  const [codeInput, setCodeInput] = useState("");
+
+  // gjenerim me shumicë
+  const [genMode, setGenMode] = useState("bulk"); // "bulk" | "single"  (vetëm për room/umbrella)
   const [tablesCount, setTablesCount] = useState("");
+  const [prefix, setPrefix] = useState("");
+  const [startNum, setStartNum] = useState("1");
+
+  // shtim një nga një
+  const [codeInput, setCodeInput] = useState("");
+
   const [genLoading, setGenLoading] = useState(false);
   const [error, setError] = useState("");
+
+  // zgjedhje me shumicë (fshirje / printim)
+  const [selectMode, setSelectMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState(() => new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [printSet, setPrintSet] = useState([]); // vendet për printim
 
   const [showAccess, setShowAccess] = useState(false);
   const [oaLoading, setOaLoading] = useState(false);
@@ -89,6 +103,8 @@ export default function PlacesPage() {
 
   useEffect(() => {
     setSelectedId(null);
+    setSelectMode(false);
+    setSelectedIds(new Set());
     if (tab !== "menu") fetchPlaces();
   }, [fetchPlaces, tab]);
 
@@ -115,12 +131,58 @@ export default function PlacesPage() {
     );
   }, [places, search]);
 
-  const handleGenerateTables = async () => {
-    if (!businessId) return;
-    const total = Number(tablesCount);
+  // Hap modalin dhe rivendos fushat sipas tabit
+  const openAddModal = () => {
+    setError("");
+    setTablesCount("");
+    setPrefix("");
+    setStartNum("1");
+    setCodeInput("");
+    // tavolinat gjithmonë bulk; dhoma/çadra default bulk (kjo është ajo që doje)
+    setGenMode("bulk");
+    setShowAdd(true);
+  };
 
+  // Pamje paraprake e kodeve që do të krijohen (p.sh. A1 → A30)
+  const genPreview = useMemo(() => {
+    const total = Number(tablesCount);
+    if (!Number.isInteger(total) || total <= 0) return "";
+
+    const start = tab === "table" ? 1 : Number(startNum || 1);
+    if (!Number.isInteger(start) || start < 0) return "";
+
+    const p = tab === "table" ? "" : normalizeCode(prefix);
+    const first = `${p}${start}`;
+    const last = `${p}${start + total - 1}`;
+    return total === 1 ? first : `${first} → ${last}`;
+  }, [tablesCount, startNum, prefix, tab]);
+
+  // GJENERIM ME SHUMICË (tavolina, dhoma, çadra)
+  const handleGenerate = async () => {
+    if (!businessId) {
+      setError("Mungon businessId.");
+      return;
+    }
+
+    const total = Number(tablesCount);
     if (!Number.isInteger(total) || total <= 0) {
       setError("Vendos një numër të saktë");
+      return;
+    }
+    if (total > 500) {
+      setError("Maksimumi 500 njëherësh.");
+      return;
+    }
+
+    const start = tab === "table" ? 1 : Number(startNum || 1);
+    if (!Number.isInteger(start) || start < 0) {
+      setError("Numri fillestar s'është i saktë.");
+      return;
+    }
+
+    const cleanPrefix = tab === "table" ? "" : normalizeCode(prefix);
+    if (cleanPrefix && !/^[A-Z0-9-]+$/.test(cleanPrefix)) {
+      setError("Prefiksi lejohet vetëm me A-Z, 0-9 dhe '-'.");
       return;
     }
 
@@ -128,17 +190,26 @@ export default function PlacesPage() {
     setError("");
 
     try {
-      await api.post("/places/generate", { businessId, type: "table", total });
+      await api.post("/places/generate", {
+        businessId,
+        type: tab,
+        total,
+        prefix: cleanPrefix,
+        start,
+      });
       setTablesCount("");
+      setPrefix("");
+      setStartNum("1");
       setShowAdd(false);
       await fetchPlaces();
     } catch (e) {
-      setError(e?.message || "Gabim");
+      setError(e?.response?.data?.message || e?.message || "Gabim");
     } finally {
       setGenLoading(false);
     }
   };
 
+  // SHTIM NJË NGA NJË (dhoma, çadra)
   const handleAdd = async () => {
     if (!businessId) {
       setError("Mungon businessId.");
@@ -162,7 +233,7 @@ export default function PlacesPage() {
       setShowAdd(false);
       await fetchPlaces();
     } catch (e) {
-      setError(e?.message || "Gabim.");
+      setError(e?.response?.data?.message || e?.message || "Gabim.");
     } finally {
       setLoading(false);
     }
@@ -196,6 +267,92 @@ export default function PlacesPage() {
     place?.qrToken ? `${baseUrl}/order/${encodeURIComponent(place.qrToken)}` : "";
 
   const menuUrl = businessId ? `${baseUrl}/menu?businessId=${encodeURIComponent(businessId)}` : "";
+
+  /* ---------- Zgjedhje me shumicë ---------- */
+
+  const exitSelectMode = () => {
+    setSelectMode(false);
+    setSelectedIds(new Set());
+  };
+
+  const toggleSelect = (id) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const allSelected =
+    filteredPlaces.length > 0 && selectedIds.size === filteredPlaces.length;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(filteredPlaces.map((p) => p._id)));
+    }
+  };
+
+  const bulkDeleteSelected = async () => {
+    const ids = [...selectedIds];
+    if (ids.length === 0) return;
+
+    const ok = window.confirm(
+      `Fshi ${ids.length} ${tabLabelPlural.toLowerCase()} të zgjedhura?`
+    );
+    if (!ok) return;
+
+    setBulkBusy(true);
+    setError("");
+    try {
+      await api.post("/places/bulk-delete", { businessId, type: tab, ids });
+      setSelectedId(null);
+      exitSelectMode();
+      await fetchPlaces();
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || "Gabim gjatë fshirjes.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const deleteAll = async () => {
+    const ok = window.confirm(
+      `KUJDES: do të fshihen TË GJITHA ${tabLabelPlural.toLowerCase()} (${filteredPlaces.length}). Vazhdo?`
+    );
+    if (!ok) return;
+
+    setBulkBusy(true);
+    setError("");
+    try {
+      await api.post("/places/bulk-delete", { businessId, type: tab, all: true });
+      setSelectedId(null);
+      exitSelectMode();
+      await fetchPlaces();
+    } catch (e) {
+      setError(e?.response?.data?.message || e?.message || "Gabim gjatë fshirjes.");
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  /* ---------- Printim / Shkarkim i të zgjedhurave ---------- */
+
+  const printSelected = () => {
+    const chosen = filteredPlaces.filter((p) => selectedIds.has(p._id));
+    if (chosen.length === 0) return;
+    setPrintSet(chosen);
+    // prit që QR-të të renderohen para se të hapet dialogu i printimit
+    setTimeout(() => window.print(), 300);
+  };
+
+  const printAll = () => {
+    if (filteredPlaces.length === 0) return;
+    setPrintSet(filteredPlaces);
+    setTimeout(() => window.print(), 300);
+  };
 
   const copyLink = async (url) => {
     if (!url) return;
@@ -281,6 +438,9 @@ export default function PlacesPage() {
       setOaLoading(false);
     }
   };
+
+  // A jemi në modalitet gjenerimi për butonin/labelin?
+  const isGenerating = tab === "table" || genMode === "bulk";
 
   return (
     <div className="prod-page">
@@ -377,9 +537,79 @@ export default function PlacesPage() {
               onChange={(e) => setSearch(e.target.value)}
             />
 
-            <button className="prod-add-btn" onClick={() => setShowAdd(true)}>
-              + Shto {tabLabel}
-            </button>
+            {!selectMode ? (
+              <button className="prod-add-btn" onClick={openAddModal}>
+                + Shto {tabLabel}
+              </button>
+            ) : null}
+          </div>
+
+          {/* Shiriti i veprimeve me shumicë */}
+          <div className="places-bulkbar">
+            {!selectMode ? (
+              <>
+                <button
+                  type="button"
+                  className="places-bulk-btn"
+                  onClick={() => setSelectMode(true)}
+                  disabled={filteredPlaces.length === 0}
+                >
+                  Zgjidh
+                </button>
+                <button
+                  type="button"
+                  className="places-bulk-btn"
+                  onClick={printAll}
+                  disabled={filteredPlaces.length === 0}
+                >
+                  Printo të gjitha
+                </button>
+                <button
+                  type="button"
+                  className="places-bulk-btn danger"
+                  onClick={deleteAll}
+                  disabled={filteredPlaces.length === 0 || bulkBusy}
+                >
+                  Fshi të gjitha
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  className="places-bulk-btn"
+                  onClick={toggleSelectAll}
+                >
+                  {allSelected ? "Hiq zgjedhjen" : "Zgjidh të gjitha"}
+                </button>
+                <span className="places-bulk-count">
+                  {selectedIds.size} të zgjedhura
+                </span>
+                <button
+                  type="button"
+                  className="places-bulk-btn"
+                  onClick={printSelected}
+                  disabled={selectedIds.size === 0}
+                >
+                  Printo / Shkarko
+                </button>
+                <button
+                  type="button"
+                  className="places-bulk-btn danger"
+                  onClick={bulkDeleteSelected}
+                  disabled={selectedIds.size === 0 || bulkBusy}
+                >
+                  Fshi të zgjedhurat
+                </button>
+                <button
+                  type="button"
+                  className="places-bulk-btn ghost"
+                  onClick={exitSelectMode}
+                >
+                  Anulo
+                </button>
+              </>
+            )}
           </div>
 
           <div className="prod-list">
@@ -388,22 +618,45 @@ export default function PlacesPage() {
             ) : filteredPlaces.length === 0 ? (
               <div className="prod-empty">Nuk ka {tabLabelPlural.toLowerCase()} të regjistruara.</div>
             ) : (
-              filteredPlaces.map((p) => (
-                <button
-                  key={p._id}
-                  type="button"
-                  className={`prod-list-item ${selectedId === p._id ? "active" : ""}`}
-                  onClick={() => setSelectedId(p._id)}
-                >
-                  <div className="prod-list-item-text">
-                    <span className="name">{p.codeNormalized || p.code}</span>
-                    <span className={`place-status ${p.isActive !== false ? "on" : "off"}`}>
-                      {p.isActive !== false ? "Active" : "Disabled"}
-                    </span>
-                  </div>
-                  <FiChevronRight className="chev" />
-                </button>
-              ))
+              filteredPlaces.map((p) => {
+                const checked = selectedIds.has(p._id);
+                return (
+                  <button
+                    key={p._id}
+                    type="button"
+                    className={`prod-list-item ${
+                      selectMode
+                        ? checked
+                          ? "selected"
+                          : ""
+                        : selectedId === p._id
+                        ? "active"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      selectMode ? toggleSelect(p._id) : setSelectedId(p._id)
+                    }
+                  >
+                    {selectMode && (
+                      <span
+                        className={`places-check ${checked ? "on" : ""}`}
+                        aria-hidden="true"
+                      >
+                        {checked ? "✓" : ""}
+                      </span>
+                    )}
+
+                    <div className="prod-list-item-text">
+                      <span className="name">{p.codeNormalized || p.code}</span>
+                      <span className={`place-status ${p.isActive !== false ? "on" : "off"}`}>
+                        {p.isActive !== false ? "Active" : "Disabled"}
+                      </span>
+                    </div>
+
+                    {!selectMode && <FiChevronRight className="chev" />}
+                  </button>
+                );
+              })
             )}
           </div>
         </div>
@@ -507,31 +760,101 @@ export default function PlacesPage() {
         <div className="cat-modal-overlay" onClick={() => setShowAdd(false)}>
           <div className="cat-modal small" onClick={(e) => e.stopPropagation()}>
             <div className="cat-modal-head">
-              <h2>Shto {tabLabel}</h2>
+              <h2>Shto {tabLabelPlural}</h2>
               <button className="prod-close-btn" onClick={() => setShowAdd(false)}>
                 <FiX />
               </button>
             </div>
 
             {tab === "table" ? (
-              <div className="field">
-                <label>Sa tavolina?</label>
-                <input
-                  type="number"
-                  placeholder="p.sh. 20"
-                  value={tablesCount}
-                  onChange={(e) => setTablesCount(e.target.value)}
-                />
-              </div>
+              /* ---- TAVOLINA: vetëm numër ---- */
+              <>
+                <div className="field">
+                  <label>Sa tavolina?</label>
+                  <input
+                    type="number"
+                    placeholder="p.sh. 20"
+                    value={tablesCount}
+                    onChange={(e) => setTablesCount(e.target.value)}
+                  />
+                </div>
+                {genPreview && (
+                  <div className="place-tip-box">
+                    Do të krijohen: <strong>{genPreview}</strong>
+                  </div>
+                )}
+              </>
             ) : (
-              <div className="field">
-                <label>Kodi</label>
-                <input
-                  placeholder="A130 / B250"
-                  value={codeInput}
-                  onChange={(e) => setCodeInput(e.target.value)}
-                />
-              </div>
+              /* ---- DHOMA / ÇADRA: bulk ose një nga një ---- */
+              <>
+                <div className="field">
+                  <label>Mënyra</label>
+                  <div className="dest-toggle">
+                    <button
+                      type="button"
+                      className={genMode === "bulk" ? "active" : ""}
+                      onClick={() => setGenMode("bulk")}
+                    >
+                      Gjenero shumë
+                    </button>
+                    <button
+                      type="button"
+                      className={genMode === "single" ? "active" : ""}
+                      onClick={() => setGenMode("single")}
+                    >
+                      Një nga një
+                    </button>
+                  </div>
+                </div>
+
+                {genMode === "bulk" ? (
+                  <>
+                    <div className="field">
+                      <label>Prefiksi (opsional)</label>
+                      <input
+                        placeholder="p.sh. A"
+                        value={prefix}
+                        onChange={(e) => setPrefix(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="field">
+                      <label>Fillo nga numri</label>
+                      <input
+                        type="number"
+                        placeholder="1"
+                        value={startNum}
+                        onChange={(e) => setStartNum(e.target.value)}
+                      />
+                    </div>
+
+                    <div className="field">
+                      <label>Sa {tabLabelPlural.toLowerCase()}?</label>
+                      <input
+                        type="number"
+                        placeholder="p.sh. 30"
+                        value={tablesCount}
+                        onChange={(e) => setTablesCount(e.target.value)}
+                      />
+                    </div>
+
+                    {genPreview && (
+                      <div className="place-tip-box">
+                        Do të krijohen: <strong>{genPreview}</strong>
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <div className="field">
+                    <label>Kodi</label>
+                    <input
+                      placeholder="A130 / B250"
+                      value={codeInput}
+                      onChange={(e) => setCodeInput(e.target.value)}
+                    />
+                  </div>
+                )}
+              </>
             )}
 
             {error && <div className="place-error-inline">{error}</div>}
@@ -542,11 +865,11 @@ export default function PlacesPage() {
               </button>
               <button
                 className="btn primary"
-                onClick={tab === "table" ? handleGenerateTables : handleAdd}
+                onClick={isGenerating ? handleGenerate : handleAdd}
                 disabled={genLoading || loading}
                 type="button"
               >
-                {tab === "table" ? "Gjenero" : "Shto"}
+                {isGenerating ? "Gjenero" : "Shto"}
               </button>
             </div>
           </div>
@@ -618,6 +941,89 @@ export default function PlacesPage() {
           </div>
         </div>
       )}
+
+      {/* ===== ZONA E PRINTIMIT (fshihet në ekran, shfaqet vetëm në print) ===== */}
+      <div className="places-print-area">
+        {printSet.map((p) => (
+          <div className="places-print-card" key={`print-${p._id}`}>
+            <QRCode value={orderUrl(p) || " "} size={150} />
+            <div className="places-print-code">{p.codeNormalized || p.code}</div>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        .places-bulkbar {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 8px;
+          margin: 8px 0 12px;
+        }
+        .places-bulk-btn {
+          padding: 7px 12px;
+          border-radius: 8px;
+          border: 1px solid #d0d5dd;
+          background: #fff;
+          color: #344054;
+          font-weight: 600;
+          font-size: 13px;
+          cursor: pointer;
+        }
+        .places-bulk-btn:disabled { opacity: .5; cursor: not-allowed; }
+        .places-bulk-btn.danger { border-color: #fda29b; color: #b42318; }
+        .places-bulk-btn.ghost { color: #667085; }
+        .places-bulk-count { font-size: 13px; color: #667085; font-weight: 600; }
+        .places-check {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 20px;
+          height: 20px;
+          min-width: 20px;
+          border-radius: 6px;
+          border: 1.5px solid #d0d5dd;
+          margin-right: 10px;
+          font-size: 13px;
+          font-weight: 700;
+          color: #fff;
+        }
+        .places-check.on { background: #1570ef; border-color: #1570ef; }
+        .prod-list-item.selected { background: #eff6ff; }
+
+        .places-print-area { display: none; }
+
+        @media print {
+          body * { visibility: hidden !important; }
+          .places-print-area, .places-print-area * { visibility: visible !important; }
+          .places-print-area {
+            display: flex !important;
+            flex-wrap: wrap;
+            gap: 18px;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            padding: 16px;
+          }
+          .places-print-card {
+            width: 180px;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            padding: 14px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+            page-break-inside: avoid;
+          }
+          .places-print-code {
+            font-weight: 700;
+            font-size: 16px;
+            letter-spacing: 1px;
+          }
+        }
+      `}</style>
     </div>
   );
 }

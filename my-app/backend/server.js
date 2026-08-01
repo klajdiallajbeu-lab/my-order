@@ -13,6 +13,7 @@ import crypto from "crypto";
 import jwt from "jsonwebtoken";
 import rateLimit from "express-rate-limit";
 
+
 import connectDB from "./config/db.js";
 
 import adminRoutes from "./routes/adminRoutes.js";
@@ -32,6 +33,7 @@ import placesRoutes from "./routes/placesRoutes.js";
 import businessRequestRoutes from "./routes/businessRequestRoutes.js";
 import tableRoutes from "./routes/tableRoutes.js";
 import periodCloseRoutes from "./routes/periodCloseRoutes.js";
+import qrRoutes from "./routes/qrRoutes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -362,6 +364,7 @@ app.use("/api/places", placesRoutes);
 app.use("/api/business-request", businessRequestRoutes);
 app.use("/api/tables", tableRoutes);
 app.use("/downloads", express.static(path.join(__dirname, "public", "downloads")));
+app.use("/api/qr", qrRoutes); 
 
 /* =========================
    ERRORS

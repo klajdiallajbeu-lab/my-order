@@ -126,6 +126,22 @@ router.get(
   getBusinessSettings
 );
 
+/* Ruajtja e settings (kurset e këmbimit, monedhat, printerat).
+   Ky route mungonte — prandaj frontend-i merrte "Route not found". */
+router.patch(
+  "/:id/settings",
+  protectUser,
+  requireRole("manager", "admin"),
+  (req, res, next) => {
+    if (!canAccessBusiness(req, req.params.id)) {
+      return res.status(403).json({ message: "Nuk ke akses për këtë biznes." });
+    }
+
+    next();
+  },
+  updateBusinessSettings
+);
+
 router.patch(
   "/:id/profile",
   protectUser,

@@ -22,15 +22,33 @@ const [submitting, setSubmitting] = useState(false);
 
 const turnstileContainerRef = useRef(null);
 const widgetIdRef = useRef(null);
+// Mban funksionin që krijon widget-in, që ta rikrijojmë pas një dështimi.
+const renderFnRef = useRef(null);
 
+// Token-at e Turnstile janë njëpërdorimësh. Pas një login-i të dështuar
+// nuk mjafton reset(): në telefon shpesh nuk prodhon token të ri dhe
+// përdoruesi mbetet i bllokuar derisa të bëjë refresh.
+// Prandaj e shkatërrojmë widget-in dhe e rikrijojmë nga e para —
+// pikërisht ajo që ndodh me një refresh faqeje.
 const resetTurnstile = () => {
   setTurnstileToken("");
 
   if (window.turnstile && widgetIdRef.current !== null) {
     try {
-      window.turnstile.reset(widgetIdRef.current);
+      window.turnstile.remove(widgetIdRef.current);
     } catch {
-      // widget mund të mos jetë gati për reset
+      // Widget mund të jetë hequr tashmë.
+    }
+  }
+
+  widgetIdRef.current = null;
+
+  // Rikrijo widget-in që të vijë një token i freskët.
+  if (typeof renderFnRef.current === "function") {
+    try {
+      renderFnRef.current();
+    } catch {
+      // Nëse dështon, përdoruesi sheh mesazhin e gabimit më poshtë.
     }
   }
 };
@@ -81,6 +99,9 @@ const resetTurnstile = () => {
       }
     );
   };
+
+  // Bëje të arritshëm për resetTurnstile (rikrijim pas dështimi).
+  renderFnRef.current = renderTurnstile;
 
   if (window.turnstile) {
     renderTurnstile();

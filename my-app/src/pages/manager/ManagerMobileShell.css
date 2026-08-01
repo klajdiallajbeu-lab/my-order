@@ -300,3 +300,4 @@
   background: #eff4ff;
   color: var(--mms-blue);
 }
+.mms-drawer-close svg { stroke: #0f172a; }

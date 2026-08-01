@@ -32,15 +32,31 @@ export default function LoginPage({ onLogin }) {
 
   const turnstileContainerRef = useRef(null);
   const widgetIdRef = useRef(null);
+  // Mban funksionin që krijon widget-in, që ta rikrijojmë pas një dështimi.
+  const renderFnRef = useRef(null);
 
+  // Token-at e Turnstile janë njëpërdorimësh. Pas një login-i të dështuar
+  // nuk mjafton reset(): shpesh nuk prodhon token të ri dhe përdoruesi
+  // mbetet i bllokuar derisa të bëjë refresh. Prandaj e shkatërrojmë
+  // widget-in dhe e rikrijojmë nga e para — si një refresh faqeje.
   const resetTurnstile = () => {
     setTurnstileToken("");
 
     if (window.turnstile && widgetIdRef.current !== null) {
       try {
-        window.turnstile.reset(widgetIdRef.current);
+        window.turnstile.remove(widgetIdRef.current);
       } catch {
-        // widget mund të mos jetë gati për reset
+        // Widget mund të jetë hequr tashmë.
+      }
+    }
+
+    widgetIdRef.current = null;
+
+    if (typeof renderFnRef.current === "function") {
+      try {
+        renderFnRef.current();
+      } catch {
+        // Nëse dështon, shfaqet mesazhi i gabimit.
       }
     }
   };
@@ -97,6 +113,9 @@ export default function LoginPage({ onLogin }) {
         }
       );
     };
+
+    // Bëje të arritshëm për resetTurnstile (rikrijim pas dështimi).
+    renderFnRef.current = renderTurnstile;
 
     const scriptUrl =
       "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
