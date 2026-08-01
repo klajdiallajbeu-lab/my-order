@@ -19,6 +19,22 @@ import {
 } from "../../api/subCategoryApi.js";
 import { api } from "../../api/http.js";
 
+/* Destinacionet e printimit - duhet të përputhen me backend-in */
+const DESTINATIONS = ["kuzhine", "banak", "picerie"];
+
+const DEST_LABEL = {
+  kuzhine: "Kuzhinë",
+  banak: "Banak",
+  picerie: "Pizzeri",
+};
+
+const DEST_CLASS = {
+  kuzhine: "kuzhine",
+  banak: "banak",
+  picerie: "picerie",
+};
+
+
 const pickSubCatName = (sc) => String(sc?.nameSq ?? sc?.name ?? "").trim();
 
 const getImageUrl = (img) => {
@@ -149,7 +165,9 @@ useEffect(() => {
       descEn: (p.descEn ?? "").toString(),
       descIt: (p.descIt ?? "").toString(),
       price: p.price ?? "",
-      destination: p.destination || "kuzhine",
+      destination: DESTINATIONS.includes(p.destination)
+        ? p.destination
+        : "kuzhine",
     });
 
     setImage(null);
@@ -309,7 +327,9 @@ useEffect(() => {
       nameSq: (sc.nameSq ?? sc.name ?? "").toString(),
       nameEn: (sc.nameEn ?? "").toString(),
       nameIt: (sc.nameIt ?? "").toString(),
-      destination: sc.destination === "banak" ? "banak" : "kuzhine",
+      destination: DESTINATIONS.includes(sc.destination)
+        ? sc.destination
+        : "kuzhine",
     });
     setShowAddCat(true);
   };
@@ -535,6 +555,13 @@ useEffect(() => {
                     >
                       Banak
                     </button>
+                    <button
+                      type="button"
+                      className={form.destination === "picerie" ? "active" : ""}
+                      onClick={() => setField("destination", "picerie")}
+                    >
+                      Pizzeri
+                    </button>
                   </div>
                 </div>
               </div>
@@ -592,8 +619,8 @@ useEffect(() => {
                 subCats.map((sc) => (
                   <div className="cat-row" key={sc._id}>
                     <span className="cat-row-name">{pickSubCatName(sc)}</span>
-                    <span className={`cat-row-dest ${sc.destination === "banak" ? "banak" : "kuzhine"}`}>
-                      {sc.destination === "banak" ? "Banak" : "Kuzhinë"}
+                    <span className={`cat-row-dest ${DEST_CLASS[sc.destination] || "kuzhine"}`}>
+                      {DEST_LABEL[sc.destination] || "Kuzhinë"}
                     </span>
 
                     <div className="cat-row-actions">
@@ -661,6 +688,13 @@ useEffect(() => {
                   onClick={() => setCatForm((p) => ({ ...p, destination: "banak" }))}
                 >
                   Banak
+                </button>
+                <button
+                  type="button"
+                  className={catForm.destination === "picerie" ? "active" : ""}
+                  onClick={() => setCatForm((p) => ({ ...p, destination: "picerie" }))}
+                >
+                  Pizzeri
                 </button>
               </div>
             </div>

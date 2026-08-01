@@ -22,6 +22,16 @@ import { getSubCategories } from "../../api/subCategoryApi.js";
 import { api } from "../../api/http.js";
 import "./ProductsMobilePage.css";
 
+/* Destinacionet e printimit - duhet të përputhen me backend-in */
+const DESTINATIONS = ["kuzhine", "banak", "picerie"];
+
+const DEST_LABEL = {
+  kuzhine: "Kuzhinë",
+  banak: "Banak",
+  picerie: "Pizzeri",
+};
+
+
 const emptyForm = {
   nameSq: "",
   price: "",
@@ -166,7 +176,9 @@ export default function ProductsMobilePage() {
       nameSq: pickProductName(p),
       price: String(p.price ?? ""),
       descSq: (p.descSq ?? p.desc ?? "").toString(),
-      destination: p.destination === "banak" ? "banak" : "kuzhine",
+      destination: DESTINATIONS.includes(p.destination)
+        ? p.destination
+        : "kuzhine",
       subCategoryId: String(
         p.subCategoryId?._id || p.subCategoryId || p.subCategory?._id || ""
       ),
@@ -374,7 +386,7 @@ export default function ProductsMobilePage() {
                     <span className="prm-item-text">
                       <strong>{pickProductName(p)}</strong>
                       <em>
-                        {p.destination === "banak" ? "Banak" : "Kuzhinë"}
+                        {DEST_LABEL[p.destination] || "Kuzhinë"}
                       </em>
                     </span>
 
@@ -481,6 +493,13 @@ export default function ProductsMobilePage() {
                     onClick={() => setField("destination", "banak")}
                   >
                     Banak
+                  </button>
+                  <button
+                    type="button"
+                    className={form.destination === "picerie" ? "active" : ""}
+                    onClick={() => setField("destination", "picerie")}
+                  >
+                    Pizzeri
                   </button>
                 </div>
               </div>

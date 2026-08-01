@@ -1,3 +1,4 @@
+import { DESTINATIONS } from "../models/Product.js";
 import mongoose from "mongoose";
 import SubCategory from "../models/SubCategory.js";
 import Product from "../models/Product.js";
@@ -7,7 +8,7 @@ const norm = (v) => String(v || "").trim();
 
 const normalizeDestination = (d) => {
   const x = norm(d).toLowerCase();
-  return x === "banak" ? "banak" : "kuzhine";
+  return DESTINATIONS.includes(x) ? x : "kuzhine";
 };
 
 const normalizeCategoryType = (v) => norm(v).toLowerCase();

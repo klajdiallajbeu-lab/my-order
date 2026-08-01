@@ -611,6 +611,11 @@
   color: #1d4ed8;
 }
 
+.cat-row-dest.picerie {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
 .cat-row-actions {
   display: flex;
   gap: 6px;

@@ -17,7 +17,7 @@ function readConfig() {
   } catch {
     return {
       printerKey: "",
-      printers: { banak: "", kuzhine: "", fature: "" },
+      printers: { banak: "", kuzhine: "", picerie: "", fature: "" },
     };
   }
 }

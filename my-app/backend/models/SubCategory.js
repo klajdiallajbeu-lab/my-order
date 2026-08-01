@@ -1,4 +1,5 @@
 import mongoose from "mongoose";
+import { DESTINATIONS } from "./Product.js";
 
 const SubCategorySchema = new mongoose.Schema(
   {
@@ -26,7 +27,7 @@ const SubCategorySchema = new mongoose.Schema(
 
     destination: {
       type: String,
-      enum: ["kuzhine", "banak"],
+      enum: DESTINATIONS,
       default: "kuzhine",
       required: true,
       index: true,

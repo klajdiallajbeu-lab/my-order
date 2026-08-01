@@ -7,7 +7,10 @@ const SERVER_URL = "https://myorderal.com";
 
 let socket = null;
 let printers = [];
-let config = { printerKey: "", printers: { banak: "", kuzhine: "", fature: "" } };
+let config = {
+  printerKey: "",
+  printers: { banak: "", kuzhine: "", picerie: "", fature: "" },
+};
 const recentOrders = [];
 
 /* ---------- ndihmës ---------- */
@@ -46,6 +49,7 @@ async function loadPrinters() {
   const selects = [
     ["pBanak", "banak"],
     ["pKuzhine", "kuzhine"],
+    ["pPicerie", "picerie"],
     ["pFature", "fature"],
   ];
 
@@ -76,6 +80,7 @@ async function loadPrinters() {
 function refreshSummary() {
   $("sBanak").innerText = config.printers?.banak || "—";
   $("sKuzhine").innerText = config.printers?.kuzhine || "—";
+  if ($("sPicerie")) $("sPicerie").innerText = config.printers?.picerie || "—";
   $("sFature").innerText = config.printers?.fature || "—";
 }
 
@@ -239,19 +244,24 @@ async function connect() {
 
       const items = Array.isArray(payload?.items) ? payload.items : [];
 
-      const bar = items.filter((i) => i.destination === "banak");
-      const kitchen = items.filter((i) => i.destination !== "banak");
+      // Ndaj artikujt sipas destinacionit. Çdo stacion merr vetëm të vetët.
+      // Destinacione të panjohura (versione më të reja të serverit) shkojnë
+      // te kuzhina, që të mos humbasë asnjë artikull pa u printuar.
+      const groups = { banak: [], kuzhine: [], picerie: [] };
 
-      if (bar.length) {
-        printTo("banak", buildReceiptHtml({ ...payload, items: bar }), label);
+      for (const it of items) {
+        const dest = String(it?.destination || "").trim().toLowerCase();
+        if (groups[dest]) groups[dest].push(it);
+        else groups.kuzhine.push(it);
       }
 
-      if (kitchen.length) {
-        printTo(
-          "kuzhine",
-          buildReceiptHtml({ ...payload, items: kitchen }),
-          label
-        );
+      for (const [dest, list] of Object.entries(groups)) {
+        if (!list.length) continue;
+
+        // Stacion pa printer të konfiguruar -> printo te kuzhina
+        const target = config.printers?.[dest] ? dest : "kuzhine";
+
+        printTo(target, buildReceiptHtml({ ...payload, items: list }), label);
       }
     });
 
@@ -291,6 +301,7 @@ $("btnSavePrinters").addEventListener("click", async () => {
     printers: {
       banak: $("pBanak").value,
       kuzhine: $("pKuzhine").value,
+      picerie: $("pPicerie") ? $("pPicerie").value : "",
       fature: $("pFature").value,
     },
   });
