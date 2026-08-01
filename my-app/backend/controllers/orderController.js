@@ -1,12 +1,27 @@
 import mongoose from "mongoose";
 import Order from "../models/Order.js";
 import Business from "../models/Business.js";
-import Product from "../models/Product.js";
+import Product, { DESTINATIONS } from "../models/Product.js";
 import SubCategory from "../models/SubCategory.js";
 import GuestSession from "../models/GuestSession.js";
 import { getNextSequence } from "../models/Counter.js";
 
 const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+/**
+ * Ku printohet një produkt.
+ *
+ * Përparësi ka fusha `destination` e vetë produktit, që e cakton menaxheri.
+ * Nëse mungon (produkte të vjetra para këtij ndryshimi), kthehet te
+ * sjellja e mëparshme: pije -> banak, gjithçka tjetër -> kuzhinë.
+ */
+const resolveDestination = (p) => {
+  const d = String(p?.destination || "").trim().toLowerCase();
+  if (DESTINATIONS.includes(d)) return d;
+
+  const ct = String(p?.categoryType || "").trim().toLowerCase();
+  return ct === "pije" ? "banak" : "kuzhine";
+};
 
 const safeNum = (v, fallback = 0) => {
   const n = Number(v);
@@ -212,6 +227,7 @@ const finalWaiterName =
       {
         _id: 1,
         categoryType: 1,
+        destination: 1,
         subCategory: 1,
         price: 1,
         name: 1,
@@ -238,9 +254,7 @@ const finalWaiterName =
 
     const itemsWithDest = rawItems.map((it) => {
       const p = prodMap.get(it.productId);
-      const ct = String(p?.categoryType || "").trim().toLowerCase();
-
-      const destination = ct === "pije" ? "banak" : "kuzhine";
+      const destination = resolveDestination(p);
 
       const priceFinal = safeNum(p?.price, 0);
 

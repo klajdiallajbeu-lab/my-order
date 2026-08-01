@@ -1,5 +1,16 @@
 import mongoose from "mongoose";
 
+/**
+ * Destinacionet e printimit.
+ *
+ * Një vend i vetëm ku përcaktohen, që të mos shpërndahen nëpër skedarë.
+ * Për të shtuar një stacion të ri (skarë, ëmbëlsira, bar i dytë):
+ *   1. shtoje këtu
+ *   2. shtoje te models/Order.js (DESTINATIONS)
+ *   3. shtoje te aplikacioni Electron (main.js + renderer.js)
+ */
+export const DESTINATIONS = ["kuzhine", "banak", "picerie"];
+
 const ProductSchema = new mongoose.Schema(
   {
     businessId: {
@@ -16,9 +27,10 @@ const ProductSchema = new mongoose.Schema(
       lowercase: true,
     },
 
+    // Ku printohet ky produkt. Caktohet nga menaxheri për çdo produkt.
     destination: {
       type: String,
-      enum: ["kuzhine", "banak"],
+      enum: DESTINATIONS,
       default: "kuzhine",
       required: true,
       trim: true,

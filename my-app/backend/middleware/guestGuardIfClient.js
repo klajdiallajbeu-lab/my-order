@@ -1,7 +1,24 @@
 import GuestSession from "../models/GuestSession.js";
 
+/**
+ * guestGuardIfClient
+ *
+ * Vendos SERVERI nëse kërkesa është nga një mysafir apo nga stafi.
+ *
+ * Rregulli:
+ *   - Ka token të vlefshëm (waiter/manager/admin/printer) -> kalon.
+ *     `optionalAuth` e ka mbushur tashmë `req.user`.
+ *   - Nuk ka token -> është mysafir. Sesioni i QR-së është I DETYRUESHËM.
+ *
+ * Përpara, kontrolli varej nga `req.body.fromClient === true`. Kjo do të
+ * thoshte se vetë dërguesi vendoste nëse duhej kontrolluar - mjaftonte
+ * ta hiqte atë fushë dhe kalonte pa asnjë verifikim.
+ *
+ * Duhet të vijë GJITHMONË pas `optionalAuth` në zinxhirin e rrugës.
+ */
 export async function guestGuardIfClient(req, res, next) {
-  if (req.body?.fromClient !== true) return next();
+  // Staf i autentikuar -> pa kontroll sesioni.
+  if (req.user?.id) return next();
 
   try {
     const sessionToken = String(req.headers["x-guest-session"] || "").trim();

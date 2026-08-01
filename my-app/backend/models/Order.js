@@ -1,5 +1,10 @@
 import mongoose from "mongoose";
 
+/**
+ * Destinacionet e printimit - duhet të përputhen me models/Product.js
+ */
+export const DESTINATIONS = ["kuzhine", "banak", "picerie"];
+
 const OrderItemSchema = new mongoose.Schema(
   {
     productId: {
@@ -17,7 +22,7 @@ const OrderItemSchema = new mongoose.Schema(
 
     destination: {
       type: String,
-      enum: ["kuzhine", "banak"],
+      enum: DESTINATIONS,
       default: "banak",
       trim: true,
     },
@@ -57,7 +62,7 @@ const OrderSchema = new mongoose.Schema(
 
     destination: {
       type: String,
-      enum: ["kuzhine", "banak"],
+      enum: DESTINATIONS,
       default: "kuzhine",
       required: true,
       trim: true,

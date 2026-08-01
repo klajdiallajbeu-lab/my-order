@@ -13,6 +13,47 @@ const isValidObjectId = (id) =>
 
 const toObjectId = (id) => new mongoose.Types.ObjectId(String(id).trim());
 
+/* ============================================================
+   IZOLIMI MES BIZNESEVE
+
+   Rregulli: businessId merret GJITHMONË nga token-i.
+   Vetëm admin-i (që nuk ka businessId në token) mund të
+   veprojë mbi biznese të tjera, dhe atëherë duhet ta japë
+   shprehimisht businessId.
+
+   Ky është i njëjti model si te productController.readBusinessId.
+============================================================ */
+const readBusinessId = (req) => {
+  // Manager / waiter / printer -> gjithmonë nga token-i
+  if (req.user?.businessId) {
+    return String(req.user.businessId);
+  }
+
+  // Admin (pa businessId) -> lejohet ta japë vetë
+  if (req.user?.role === "admin") {
+    const q = req?.query ?? {};
+    const b = req?.body ?? {};
+    return String(q.businessId || b.businessId || "").trim();
+  }
+
+  return "";
+};
+
+/**
+ * Filtër pronësie për veprimet mbi një QR të vetëm.
+ * Admin-i pa businessId -> pa kufizim.
+ * Të gjithë të tjerët -> vetëm QR-të e biznesit të tyre.
+ */
+const ownershipFilter = (req, id) => {
+  const filter = { _id: toObjectId(id) };
+
+  if (req.user?.businessId) {
+    filter.businessId = toObjectId(req.user.businessId);
+  }
+
+  return filter;
+};
+
 // Kod i lexueshëm pa karaktere të ngatërrueshme (pa 0/O/1/I)
 const CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const genCode = (len = 6) => {
@@ -35,7 +76,23 @@ const normalizeTarget = (t) => {
 const isValidUrl = (s) => {
   try {
     const u = new URL(s);
-    return u.protocol === "http:" || u.protocol === "https:";
+    if (u.protocol !== "http:" && u.protocol !== "https:") return false;
+
+    // Bllokon ridrejtimet drejt rrjetit të brendshëm (SSRF / abuzim)
+    const host = u.hostname.toLowerCase();
+    const blocked =
+      host === "localhost" ||
+      host === "0.0.0.0" ||
+      host === "[::1]" ||
+      host.endsWith(".local") ||
+      host.endsWith(".internal") ||
+      /^127\./.test(host) ||
+      /^10\./.test(host) ||
+      /^192\.168\./.test(host) ||
+      /^172\.(1[6-9]|2[0-9]|3[01])\./.test(host) ||
+      /^169\.254\./.test(host);
+
+    return !blocked;
   } catch {
     return false;
   }
@@ -50,20 +107,20 @@ router.get("/:code", async (req, res) => {
   try {
     const code = String(req.params.code || "").trim();
 
-    if (!code) {
+    if (!code || code.length > 32) {
       return res.status(400).send("Kod i pavlefshëm.");
     }
 
-    const qr = await DynamicQr.findOne({ code });
+    const qr = await DynamicQr.findOne({ code })
+      .select("_id target isActive")
+      .lean();
 
     if (!qr || qr.isActive === false) {
       return res.status(404).send("QR i pavlefshëm ose i çaktivizuar.");
     }
 
     if (!qr.target) {
-      return res
-        .status(404)
-        .send("Ky QR nuk ka ende një link të caktuar.");
+      return res.status(404).send("Ky QR nuk ka ende një link të caktuar.");
     }
 
     // Numëro skanimin pa e bllokuar redirect-in (fire-and-forget)
@@ -71,6 +128,9 @@ router.get("/:code", async (req, res) => {
       { _id: qr._id },
       { $inc: { scans: 1 }, $set: { lastScanAt: new Date() } }
     ).catch(() => {});
+
+    // Mos e ruaj ridrejtimin në cache - target-i mund të ndryshojë
+    res.set("Cache-Control", "no-store");
 
     return res.redirect(302, qr.target);
   } catch (e) {
@@ -83,14 +143,14 @@ router.get("/:code", async (req, res) => {
    MANAGER / ADMIN
 ============================================================ */
 
-// Listë e QR-ve të një biznesi
+// Listë e QR-ve të biznesit
 router.get(
   "/manage/list",
   protectUser,
   requireRole("manager", "admin"),
   async (req, res) => {
     try {
-      const { businessId } = req.query;
+      const businessId = readBusinessId(req);
 
       if (!businessId || !isValidObjectId(businessId)) {
         return res.status(400).json({ message: "Invalid businessId" });
@@ -98,6 +158,7 @@ router.get(
 
       const list = await DynamicQr.find({ businessId: toObjectId(businessId) })
         .sort({ createdAt: -1 })
+        .limit(1000)
         .lean();
 
       return res.json(list);
@@ -115,11 +176,13 @@ router.post(
   requireRole("manager", "admin"),
   async (req, res) => {
     try {
-      const { businessId, label, target } = req.body;
+      const businessId = readBusinessId(req);
 
       if (!businessId || !isValidObjectId(businessId)) {
         return res.status(400).json({ message: "Invalid businessId" });
       }
+
+      const { label, target } = req.body;
 
       const normTarget = normalizeTarget(target);
       if (normTarget && !isValidUrl(normTarget)) {
@@ -137,7 +200,7 @@ router.post(
       const created = await DynamicQr.create({
         businessId: toObjectId(businessId),
         code,
-        label: String(label || "").trim(),
+        label: String(label || "").trim().slice(0, 120),
         target: normTarget,
         isActive: true,
       });
@@ -145,7 +208,9 @@ router.post(
       return res.status(201).json(created);
     } catch (e) {
       if (e?.code === 11000) {
-        return res.status(409).json({ message: "Kod i dublikuar, provo sërish." });
+        return res
+          .status(409)
+          .json({ message: "Kod i dublikuar, provo sërish." });
       }
       console.error("POST /api/qr/manage error:", e);
       return res.status(500).json({ message: e?.message || "Server error" });
@@ -160,13 +225,16 @@ router.post(
   requireRole("manager", "admin"),
   async (req, res) => {
     try {
-      const { businessId } = req.body;
-      const total = Number(req.body.total);
-      const labelPrefix = String(req.body.labelPrefix || "").trim();
+      const businessId = readBusinessId(req);
 
       if (!businessId || !isValidObjectId(businessId)) {
         return res.status(400).json({ message: "Invalid businessId" });
       }
+
+      const total = Number(req.body.total);
+      const labelPrefix = String(req.body.labelPrefix || "")
+        .trim()
+        .slice(0, 60);
 
       if (!Number.isInteger(total) || total <= 0 || total > 500) {
         return res
@@ -239,16 +307,24 @@ router.patch(
       }
 
       if (req.body.label !== undefined) {
-        update.label = String(req.body.label || "").trim();
+        update.label = String(req.body.label || "").trim().slice(0, 120);
       }
 
       if (req.body.isActive !== undefined) {
         update.isActive = !!req.body.isActive;
       }
 
-      const updated = await DynamicQr.findByIdAndUpdate(id, update, {
-        new: true,
-      });
+      if (Object.keys(update).length === 0) {
+        return res.status(400).json({ message: "Asgjë për të përditësuar" });
+      }
+
+      // KRITIKE: filtri përfshin businessId-në e token-it.
+      // Pa këtë, një menaxher mund të ndryshonte QR-të e një biznesi tjetër.
+      const updated = await DynamicQr.findOneAndUpdate(
+        ownershipFilter(req, id),
+        update,
+        { new: true }
+      );
 
       if (!updated) return res.status(404).json({ message: "Not found" });
 
@@ -273,7 +349,8 @@ router.delete(
         return res.status(400).json({ message: "Invalid id" });
       }
 
-      const deleted = await DynamicQr.findByIdAndDelete(id);
+      // KRITIKE: po ashtu i kufizuar te biznesi i token-it.
+      const deleted = await DynamicQr.findOneAndDelete(ownershipFilter(req, id));
 
       if (!deleted) return res.status(404).json({ message: "Not found" });
 

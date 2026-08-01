@@ -1,10 +1,19 @@
-import Product from "../models/Product.js";
+import Product, { DESTINATIONS } from "../models/Product.js";
 import mongoose from "mongoose";
 
 /* =======================
    HELPERS
 ======================= */
 const isValidId = (id) => mongoose.Types.ObjectId.isValid(id);
+
+/**
+ * Pranon vetëm destinacione të njohura; çdo gjë tjetër bie te "kuzhine".
+ * Lista vjen nga models/Product.js, pra shtimi i një stacioni bëhet vetëm aty.
+ */
+const normalizeDestination = (v) => {
+  const d = String(v || "").trim().toLowerCase();
+  return DESTINATIONS.includes(d) ? d : "kuzhine";
+};
 
 const readBusinessId = (req) => {
   if (req.user?.businessId) {
@@ -151,8 +160,7 @@ export const createProduct = async (req, res) => {
       return res.status(400).json({ message: "Emër produkti i pavlefshëm." });
     }
 
-    const destinationRaw = normalizeLower(req.body.destination);
-    const destination = destinationRaw === "banak" ? "banak" : "kuzhine";
+    const destination = normalizeDestination(req.body.destination);
 
     let numericPrice;
 
@@ -334,8 +342,7 @@ export const updateProduct = async (req, res) => {
     if (patch.descIt !== undefined) patch.descIt = normalizeStr(patch.descIt);
 
     if (patch.destination !== undefined) {
-      patch.destination =
-        normalizeLower(patch.destination) === "banak" ? "banak" : "kuzhine";
+      patch.destination = normalizeDestination(patch.destination);
     }
     if (patch.image !== undefined) {
       patch.image = normalizeStr(patch.image);
