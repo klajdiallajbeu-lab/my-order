@@ -36,11 +36,27 @@ const makeDateRange = (from, to) => {
   return Object.keys(range).length ? range : null;
 };
 
+/**
+ * businessId merret GJITHMONË nga token-i.
+ * Vetëm admin-i (që nuk ka businessId në token) mund ta japë vetë.
+ * I njëjti model si te expenseController / statsController.
+ */
+const readBusinessId = (req) => {
+  const role = String(req.user?.role || "").toLowerCase();
+
+  if (role === "admin") {
+    return String(req.query.businessId || req.body?.businessId || "").trim();
+  }
+
+  return String(req.user?.businessId || "").trim();
+};
+
 export const getInventorySummary = async (req, res) => {
   try {
-    const { businessId, from, to } = req.query;
+    const { from, to } = req.query;
+    const businessId = readBusinessId(req);
 
-    if (!businessId) {
+    if (!businessId || !isValidId(businessId)) {
       return res.status(400).json({ message: "businessId mungon" });
     }
 
@@ -145,7 +161,8 @@ export const getInventorySummary = async (req, res) => {
 // ✅ Ruhet supply (qty, unitPrice) + opsional update Product.price (newPrice)
 export const addSupply = async (req, res) => {
   try {
-    const { businessId, productId, qty, unitPrice = 0, newPrice, note = "" } = req.body;
+    const { productId, qty, unitPrice = 0, newPrice, note = "" } = req.body;
+    const businessId = readBusinessId(req);
 
     if (!businessId || !productId || qty == null) {
       return res.status(400).json({
