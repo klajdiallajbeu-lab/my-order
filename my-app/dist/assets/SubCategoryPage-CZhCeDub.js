@@ -1,0 +1,1 @@
+import{M as s,j as a,N as t}from"./vendor-BvaA70vI.js";function p(){const[r]=s(),e=(r.get("type")||"").toLowerCase();return e==="ushqime"||e==="pije"?a.jsx(t,{to:`/manager/products?type=${e}`,replace:!0}):a.jsx(t,{to:"/manager/places",replace:!0})}export{p as default};
