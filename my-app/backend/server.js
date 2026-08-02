@@ -247,11 +247,51 @@ app.use(express.urlencoded({ extended: true }));
 // Rate limiting i login-it bëhet në një vend të vetëm:
 // middleware/loginLimiter.js, i aplikuar te userRoutes dhe waiterRoutes.
 
-const apiLimiter = rateLimit({
+/*
+  Dy limitera të veçantë, jo një i përbashkët.
+
+  Arsyeja: të gjithë mysafirët e një restoranti janë në të njëjtin WiFi,
+  pra për serverin duken si NJË IP. Kamarierët dhe menaxheri janë aty
+  gjithashtu. Me një kuotë të vetme, mysafirët që shfletojnë menunë mund
+  ta mbarojnë atë dhe stafi të mos marrë dot porosi — pa asnjë gabim në
+  log, thjesht "nuk punon aplikacioni".
+*/
+
+// 1) Menuja publike — lexohet nga çdo skanim QR.
+//    Një skanim bën ~2 kërkesa, pra 600/min mban ~300 skanime në minutë
+//    nga i njëjti WiFi.
+const publicMenuLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 180,
+  max: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
   message: { message: "Shumë kërkesa. Provo përsëri pas pak." },
 });
+
+// 2) Pjesa tjetër e API-t — staf i autentikuar, buxhet i veçantë.
+const apiLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 300,
+  standardHeaders: true,
+  legacyHeaders: false,
+
+  // Kërkesat nga vetë serveri (cron, skripte, health check) nuk numërohen.
+  skip: (req) => {
+    const ip = req.ip || "";
+    return ip === "127.0.0.1" || ip === "::1" || ip === "::ffff:127.0.0.1";
+  },
+
+  message: { message: "Shumë kërkesa. Provo përsëri pas pak." },
+});
+
+// RADHA KA RËNDËSI: rrugët publike duhen deklaruar PARA "/api",
+// përndryshe limiteri i përgjithshëm i kap të parat.
+app.use("/api/products", publicMenuLimiter);
+app.use("/api/categories", publicMenuLimiter);
+app.use("/api/subcategories", publicMenuLimiter);
+app.use("/api/exchange", publicMenuLimiter);
+app.use("/api/qr", publicMenuLimiter);
+app.use("/api/business/:id/public-name", publicMenuLimiter);
 
 app.use("/api", apiLimiter);
 
