@@ -15,6 +15,15 @@ const isValidObjectId = (id) => mongoose.Types.ObjectId.isValid(id);
  * Nëse mungon (produkte të vjetra para këtij ndryshimi), kthehet te
  * sjellja e mëparshme: pije -> banak, gjithçka tjetër -> kuzhinë.
  */
+/**
+ * Burimet që NUK printohen menjëherë kur krijohet porosia.
+ * Ato presin derisa kamarieri ta pranojë (status "accepted").
+ */
+const PRINT_ON_ACCEPT = ["cadra", "dhoma"];
+
+const printsOnAccept = (sourceType) =>
+  PRINT_ON_ACCEPT.includes(String(sourceType || "").trim().toLowerCase());
+
 const resolveDestination = (p) => {
   const d = String(p?.destination || "").trim().toLowerCase();
   if (DESTINATIONS.includes(d)) return d;
@@ -323,6 +332,11 @@ const createdOrder = await Order.create({
     io?.to(`business:${finalBusinessId}`).emit("orders:created", {
       businessId: finalBusinessId,
       orderId: String(normalizedOrder._id),
+
+      // false -> printeri e shfaq porosinë por NUK e printon ende.
+      // Çadrat dhe dhomat printohen kur kamarieri i pranon.
+      autoPrint: !printsOnAccept(normalizedOrder.sourceType),
+
       sourceType: normalizedOrder.sourceType,
       sourceNumber: normalizedOrder.sourceNumber,
       status: normalizedOrder.status,
@@ -428,15 +442,31 @@ io?.to(`business:${businessId}`).emit("order:updated", {
 });
 
     if (status === "accepted") {
-      io?.to(`business:${businessId}`).emit("manager:print-table-invoice", {
+      const payload = {
         ...order,
         businessId,
         business: order.businessId || null,
-        printId: `accepted-${order._id}-${Date.now()}`,
+
+        // printId i qëndrueshëm (pa Date.now()) që dy klikime radhazi
+        // të mos nxjerrin dy fatura për të njëjtën porosi.
+        printId: `accepted-${order._id}`,
+
         waiterName: order.acceptedByName || order.createdBy || "",
         acceptedBy: order.acceptedBy || "",
         acceptedByName: order.acceptedByName || order.createdBy || "",
-      });
+      };
+
+      if (printsOnAccept(order.sourceType)) {
+        // Çadra / dhomë: kjo është hera e parë që printohet.
+        // Ndahet sipas stacioneve njësoj si një porosi e re.
+        io?.to(`business:${businessId}`).emit("orders:print", payload);
+      } else {
+        // Tavolinë: sjellja e mëparshme mbetet e paprekur.
+        io?.to(`business:${businessId}`).emit(
+          "manager:print-table-invoice",
+          payload
+        );
+      }
     }
 
     return res.json({

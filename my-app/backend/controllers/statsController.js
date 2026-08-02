@@ -203,10 +203,43 @@ export const getWaiterStats = async (req, res) => {
       {
         $facet: {
           waiters: [
-            { $match: { sourceType: "tavoline" } },
+            // Kujt i numërohet porosia:
+            //   tavolinë        -> kamarierit që e krijoi (createdBy)
+            //   çadër / dhomë   -> kamarierit që e pranoi (acceptedByName)
+            //
+            // Porositë nga QR ruhen me createdBy "Klient (QR)". Ato nuk i
+            // takojnë askujt derisa një kamarier t'i pranojë; në atë moment
+            // mbushet acceptedBy dhe hyjnë te xhiroja e tij.
+            {
+              $addFields: {
+                _waiterKey: {
+                  $cond: [
+                    { $in: ["$sourceType", ["cadra", "dhoma"]] },
+                    {
+                      $cond: [
+                        {
+                          $and: [
+                            { $ne: [{ $ifNull: ["$acceptedBy", ""] }, ""] },
+                            { $ne: [{ $ifNull: ["$acceptedByName", ""] }, ""] },
+                          ],
+                        },
+                        "$acceptedByName",
+                        null,
+                      ],
+                    },
+                    { $ifNull: ["$createdBy", null] },
+                  ],
+                },
+              },
+            },
+            {
+              $match: {
+                _waiterKey: { $nin: [null, "", "Klient (QR)"] },
+              },
+            },
             {
               $group: {
-                _id: { $ifNull: ["$createdBy", "Pa emër"] },
+                _id: "$_waiterKey",
                 orderCount: { $sum: 1 },
                 totalRevenue: { $sum: { $ifNull: ["$totalALL", 0] } },
               },
